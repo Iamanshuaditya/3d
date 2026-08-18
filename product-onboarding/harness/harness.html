@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Onboarding harness</title>
+<style>
+  body { font-family: Helvetica, sans-serif; margin: 12px; background: #fff; }
+  .row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; flex-wrap: wrap; }
+  .row img, .row canvas.preview { border: 1px solid #ccc; }
+  h3 { margin: 4px 0; font-size: 13px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="out"></div>
+<pre id="err" style="color:#c00"></pre>
+<script>
+window.addEventListener("error", e => {
+  document.getElementById("err").textContent += "ERROR: " + (e.message || e.reason) + "\n";
+});
+window.addEventListener("unhandledrejection", e => {
+  document.getElementById("err").textContent += "REJECTION: " + e.reason + "\n";
+});
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const params = new URLSearchParams(location.search);
+const base = params.get("product");                    // e.g. /product-onboarding/products/camera-001
+const product = await (await fetch(`${base}/product.json`)).json();
+const regions = await (await fetch(`${base}/regions.json`)).json();
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(460, 460);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f0f0);
+scene.add(new THREE.AmbientLight(0xffffff, 2.4));
+const dir = new THREE.DirectionalLight(0xffffff, 1.4);
+dir.position.set(1, 2, 3);
+scene.add(dir);
+
+const gltf = await new GLTFLoader().loadAsync(`${base}/product-customizable.glb`);
+scene.add(gltf.scene);
+
+// Per-surface canvases + textures, exactly the ProductModel.tsx semantics:
+// CanvasTexture(flipY = true, sRGB) assigned as material.map of the named mesh.
+const surfaceState = {};
+for (const s of product.editableSurfaces) {
+  const canvas = document.createElement("canvas");
+  canvas.width = s.editorWidth; canvas.height = s.editorHeight;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.flipY = true;
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  // Same semantics as ProductModel.tsx: one canvas may drive several meshes.
+  const names = s.meshNames?.length ? s.meshNames : [s.meshName];
+  const meshes = names.map(n => gltf.scene.getObjectByName(n)).filter(Boolean);
+  if (meshes.length !== names.length) {
+    document.getElementById("err").textContent += `MISSING MESH among ${names}\n`;
+  }
+  for (const mesh of meshes) {
+    mesh.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.55, map: texture });
+  }
+  surfaceState[s.id] = { surface: s, canvas, ctx: canvas.getContext("2d"), texture, meshes };
+}
+
+async function drawBase(st) {
+  const { ctx, canvas, surface } = st;
+  ctx.fillStyle = "#f4f2ee";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const img = new Image();
+  img.src = `${base}/diagnostic-${surface.id}.png`;
+  await new Promise(r => { img.onload = r; img.onerror = r; });
+  if (img.width) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+}
+
+function drawLogo(st, fx, fy) {
+  const { ctx, canvas } = st;
+  const cx = fx * canvas.width, cy = fy * canvas.height;
+  const r = Math.min(canvas.width, canvas.height) * 0.12;
+  // Unique magenta absent from all diagnostic palettes, so pixel-assertions
+  // can prove the logo (not the background) reached the 3D render.
+  ctx.fillStyle = "#ff00cc";
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffd23f";
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const rr = i % 2 ? r * 0.38 : r * 0.82;
+    ctx[i ? "lineTo" : "moveTo"](cx + rr * Math.cos(a), cy + rr * Math.sin(a));
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#111";
+  ctx.font = `bold ${Math.max(14, r * 0.5)}px Helvetica`;
+  ctx.textAlign = "center";
+  ctx.fillText(`${fx},${fy}`, cx, cy + r * 1.5);
+}
+
+const cam = new THREE.PerspectiveCamera(35, 1, 0.001, 1000);
+function shoot(presetId) {
+  const p = product.camera.presets.find(v => v.id === presetId) ?? product.camera.presets[0];
+  cam.position.set(...p.position);
+  cam.lookAt(...p.target);
+  for (const st of Object.values(surfaceState)) st.texture.needsUpdate = true;
+  renderer.render(scene, cam);
+  return renderer.domElement.toDataURL("image/png");
+}
+
+// Test plan: per surface, logo at strategic canvas fractions; each paired with
+// the camera presets most likely to show it.
+const PLAN = JSON.parse(params.get("plan") ?? "null") ?? (() => {
+  // A placement passes if visible in ANY view, so give every placement all
+  // main presets plus the surface close-up — robust for shared-web layouts
+  // where canvas position decides which side of the product it lands on.
+  const tests = [];
+  for (const s of product.editableSurfaces) {
+    const views = product.camera.presets.map(p => p.id)
+      .filter(id => !id.startsWith("closeup-") || id === `closeup-${s.id}`);
+    for (const [fx, fy] of [[0.5, 0.5], [0.15, 0.15], [0.85, 0.85], [0.05, 0.5]]) {
+      tests.push({ surface: s.id, fx, fy, views });
+    }
+  }
+  return tests;
+})();
+
+function countMagenta(dataUrl) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = img.width; c.height = img.height;
+      const cctx = c.getContext("2d");
+      cctx.drawImage(img, 0, 0);
+      const d = cctx.getImageData(0, 0, c.width, c.height).data;
+      let n = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] > 110) n++;
+      }
+      resolve(n);
+    };
+    img.src = dataUrl;
+  });
+}
+
+window.__results = [];
+const out = document.getElementById("out");
+for (const t of PLAN) {
+  for (const st of Object.values(surfaceState)) await drawBase(st);
+  const st = surfaceState[t.surface];
+  if (!st) continue;
+  drawLogo(st, t.fx, t.fy);
+  const row = document.createElement("div");
+  row.className = "row";
+  const label = document.createElement("h3");
+  label.textContent = `${t.surface}: logo at (${t.fx}, ${t.fy})`;
+  const cell = document.createElement("div");
+  const flat = document.createElement("canvas");
+  flat.className = "preview";
+  const scale = Math.min(420 / st.canvas.width, 160 / st.canvas.height);
+  flat.width = st.canvas.width * scale; flat.height = st.canvas.height * scale;
+  flat.getContext("2d").drawImage(st.canvas, 0, 0, flat.width, flat.height);
+  cell.append(label, flat);
+  row.append(cell);
+  const viewCounts = {};
+  for (const v of t.views) {
+    const dataUrl = shoot(v);
+    viewCounts[v] = await countMagenta(dataUrl);
+    const shotImg = document.createElement("img");
+    shotImg.src = dataUrl;
+    shotImg.width = 300; shotImg.height = 300;
+    shotImg.title = `${v} (${viewCounts[v]} logo px)`;
+    row.append(shotImg);
+  }
+  window.__results.push({ surface: t.surface, fx: t.fx, fy: t.fy, viewCounts });
+  out.append(row);
+}
+document.title = "HARNESS-DONE " + product.id;
+window.__done = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "front_panel: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "front_panel: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,0.342] v[0.000,1.000]"
+    },
+    {
+      "check": "front_panel: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=0.322"
+    },
+    {
+      "check": "front_panel: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "front_panel: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.051), np.float64(0.15))"
+    },
+    {
+      "check": "front_panel: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.29), np.float64(0.15))"
+    },
+    {
+      "check": "front_panel: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.171), np.float64(0.5))"
+    },
+    {
+      "check": "front_panel: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.051), np.float64(0.85))"
+    },
+    {
+      "check": "front_panel: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.29), np.float64(0.85))"
+    },
+    {
+      "check": "front_panel: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=0.2052"
+    },
+    {
+      "check": "front_panel: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=0.22329"
+    },
+    {
+      "check": "front_panel: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "front_panel: original texture on channel 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "back_panel: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "back_panel: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.658,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "back_panel: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=0.323"
+    },
+    {
+      "check": "back_panel: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "back_panel: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.71), np.float64(0.15))"
+    },
+    {
+      "check": "back_panel: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.949), np.float64(0.15))"
+    },
+    {
+      "check": "back_panel: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.829), np.float64(0.5))"
+    },
+    {
+      "check": "back_panel: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.71), np.float64(0.85))"
+    },
+    {
+      "check": "back_panel: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.949), np.float64(0.85))"
+    },
+    {
+      "check": "back_panel: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=0.2161"
+    },
+    {
+      "check": "back_panel: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=0.22300"
+    },
+    {
+      "check": "back_panel: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "back_panel: original texture on channel 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "bottom_gusset: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "bottom_gusset: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.342,0.658] v[0.353,0.647]"
+    },
+    {
+      "check": "bottom_gusset: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=0.067"
+    },
+    {
+      "check": "bottom_gusset: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "bottom_gusset: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.418), np.float64(0.423))"
+    },
+    {
+      "check": "bottom_gusset: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.584), np.float64(0.423))"
+    },
+    {
+      "check": "bottom_gusset: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "bottom_gusset: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.418), np.float64(0.577))"
+    },
+    {
+      "check": "bottom_gusset: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.584), np.float64(0.577))"
+    },
+    {
+      "check": "bottom_gusset: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=0.0090"
+    },
+    {
+      "check": "bottom_gusset: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=0.20790"
+    },
+    {
+      "check": "bottom_gusset: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "bottom_gusset: original texture on channel 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[film]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[film]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[film]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[film]: safety outlines present per region",
+      "ok": true,
+      "detail": "3 outlines for 3 region(s)"
+    }
+  ]
+}

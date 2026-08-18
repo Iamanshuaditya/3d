@@ -1,0 +1,25 @@
+{
+  "productKey": "PRD-CNJNMBZX9",
+  "productVersion": 15,
+  "mpvId": "standUpPouches",
+  "selectedOptions": {
+    "Size": "3.25\" x 4.75\" x 2\"",
+    "Material": "Clear Barrier (PET/EVOH Coex)",
+    "Lamination": "Gloss",
+    "Resealable Zip": "No",
+    "Hole Punching": "None"
+  },
+  "modelConfigEndpoint": "https://cdn.previews.cimpress.io/v2/modelConfig",
+  "sourceUrl": "https://uploads.documents.cimpress.io/v1/uploads/ba155770-2a69-49f1-87b6-9c836586db1b~110?tenant=sherbert-uploads",
+  "sourceFilename": "cim-68qygu5f_3.25wx4.75hx2_no-zip_no-hole.glb",
+  "sourceLastModified": "2022-03-29T18:49:31Z",
+  "sourceEtag": "a86bb8ad-fe22-4b7d-952a-4cfe2b71cec1",
+  "sha256": "80893e6dc5c4d2e5ad3c32fe7c706d894665a8fdb51b982a9c1fdacc89310ab3",
+  "byteLength": 264784,
+  "format": "glTF 2.0 binary",
+  "compression": "KHR_draco_mesh_compression",
+  "meshNames": ["front", "bottom", "back"],
+  "productionTexturePixels": [2332, 650],
+  "productionWebMillimetres": [296.098, 82.55],
+  "licenseMetadata": null
+}

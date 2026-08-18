@@ -1,0 +1,95 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "label: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "label: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.008,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "label: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=0.996"
+    },
+    {
+      "check": "label: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "label: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "label: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "label: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "label: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "label: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "label: high-v is physical-top",
+      "ok": true,
+      "detail": "axis(v=.85)=8.8600 axis(v=.15)=2.1400"
+    },
+    {
+      "check": "label: u sweeps around axis",
+      "ok": true,
+      "detail": "angles=[-2.53, -0.66, 1.55]"
+    },
+    {
+      "check": "label: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=3.67712"
+    },
+    {
+      "check": "label: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node BODY preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[label]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[label]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[label]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[label]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    }
+  ]
+}

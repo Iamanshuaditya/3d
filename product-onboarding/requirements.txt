@@ -1,0 +1,6 @@
+trimesh
+numpy
+pillow
+pygltflib
+scipy
+networkx

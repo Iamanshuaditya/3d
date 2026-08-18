@@ -1,0 +1,64 @@
+{
+  "version": 3,
+  "productId": "cosmetic-jar",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 1.0,
+    "reference": {
+      "extent": "x",
+      "cm": 8.1
+    },
+    "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "label",
+      "label": "Label",
+      "customizable": true,
+      "nodes": [
+        "LABEL"
+      ],
+      "meshName": "LABEL_PRINT",
+      "mapping": {
+        "physicalWidthCm": 25.27,
+        "physicalHeightCm": 4.3,
+        "strategy": "wrap",
+        "axis": "y",
+        "seamDeg": 270,
+        "perimeterCm": 25.07
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 25.27,
+        "height": 4.3
+      },
+      "canvasPx": {
+        "width": 1011,
+        "height": 172
+      },
+      "verticesRewritten": 258
+    },
+    {
+      "id": "hardware",
+      "label": "Body & hardware",
+      "customizable": false,
+      "nodes": [
+        "LID",
+        "BODY"
+      ]
+    }
+  ]
+}

@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored Google Draco decoder used by GLTFLoader. This is generated
+    // third-party code, not application source.
+    "public/draco/**",
+    // Scratch area holding cloned third-party repos used while researching
+    // UV onboarding. Not application source.
+    "experiments/**",
   ]),
 ]);
 

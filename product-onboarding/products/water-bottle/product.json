@@ -1,0 +1,171 @@
+{
+  "id": "water-bottle",
+  "name": "Sport Water Bottle 650 ml",
+  "family": "glb",
+  "modelUrl": "/models/water-bottle-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              896,
+              1,
+              896,
+              523,
+              1,
+              523
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              25.3,
+              18.3,
+              878.7,
+              18.3,
+              878.7,
+              505.7,
+              25.3,
+              505.7
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 897,
+      "editorHeight": 524,
+      "physicalWidthCm": 22.42,
+      "physicalHeightCm": 13.1,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      15.651,
+      21.83,
+      44.718
+    ],
+    "target": [
+      0.0,
+      10.65,
+      0.0
+    ],
+    "minDistance": 17.887,
+    "maxDistance": 134.155,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          12.886,
+          51.426
+        ],
+        "target": [
+          0.0,
+          10.65,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          31.303,
+          26.301,
+          38.011
+        ],
+        "target": [
+          0.0,
+          10.65,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          12.886,
+          -51.426
+        ],
+        "target": [
+          0.0,
+          10.65,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          51.426,
+          12.886,
+          0.0
+        ],
+        "target": [
+          0.0,
+          10.65,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -38.54,
+          11.18
+        ],
+        "target": [
+          0.0,
+          10.65,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          9.05,
+          26.3812
+        ],
+        "target": [
+          0.0,
+          9.05,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 7.08
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

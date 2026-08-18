@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 321" font-family="Helvetica">
+<rect width="480" height="321" fill="#fafaf8"/>
+<rect x="2" y="2" width="476" height="317" fill="none" stroke="rgb(198,40,90)" stroke-width="3" stroke-dasharray="14 7"/>
+<text x="240.0" y="160.5" text-anchor="middle" fill="rgb(198,40,90)" font-size="40">Plate Reuse</text>
+<text x="240.0" y="205.5" text-anchor="middle" fill="#888" font-size="26">1.21 × 0.81 cm</text>
+</svg>

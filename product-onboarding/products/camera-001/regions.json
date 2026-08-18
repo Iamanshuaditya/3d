@@ -1,0 +1,112 @@
+{
+  "version": 3,
+  "productId": "camera-001",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 16.40229,
+    "reference": {
+      "extent": "x",
+      "cm": 13.6
+    },
+    "note": "13.6 cm body width = typical 35mm rangefinder; PLACEHOLDER spec, client-suppliable."
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "body_wrap",
+      "label": "Body Wrap",
+      "customizable": true,
+      "nodes": [
+        "Object_6"
+      ],
+      "meshName": "BODY_WRAP",
+      "mapping": {
+        "physicalWidthCm": 32.97,
+        "physicalHeightCm": 5.43,
+        "strategy": "wrap",
+        "axis": "y",
+        "seamDeg": 270,
+        "perimeterCm": 31.5
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 32.97,
+        "height": 5.43
+      },
+      "canvasPx": {
+        "width": 1319,
+        "height": 217
+      },
+      "verticesRewritten": 2036
+    },
+    {
+      "id": "name_plate",
+      "label": "Name Plate",
+      "customizable": true,
+      "nodes": [
+        "Object_29"
+      ],
+      "meshName": "NAME_PLATE",
+      "mapping": {
+        "physicalWidthCm": 1.21,
+        "physicalHeightCm": 0.81,
+        "strategy": "planar",
+        "axis": "z"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 1.21,
+        "height": 0.81
+      },
+      "canvasPx": {
+        "width": 480,
+        "height": 321
+      },
+      "verticesRewritten": 4
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware (lens, controls, trim)",
+      "customizable": false,
+      "nodes": [
+        "Object_28",
+        "Object_26",
+        "Object_24",
+        "Object_23",
+        "Object_22",
+        "Object_21",
+        "Object_19",
+        "Object_17",
+        "Object_15",
+        "Object_13",
+        "Object_11",
+        "Object_10",
+        "Object_9",
+        "Object_8",
+        "Object_5",
+        "Object_4"
+      ]
+    }
+  ]
+}

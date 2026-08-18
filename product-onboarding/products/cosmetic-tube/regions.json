@@ -1,0 +1,64 @@
+{
+  "version": 3,
+  "productId": "cosmetic-tube",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 1.0,
+    "reference": {
+      "extent": "x",
+      "cm": 4.1
+    },
+    "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "label",
+      "label": "Label",
+      "customizable": true,
+      "nodes": [
+        "LABEL"
+      ],
+      "meshName": "LABEL_PRINT",
+      "mapping": {
+        "physicalWidthCm": 12.16,
+        "physicalHeightCm": 10.6,
+        "strategy": "wrap",
+        "axis": "y",
+        "seamDeg": 270,
+        "perimeterCm": 12.06
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 12.16,
+        "height": 10.6
+      },
+      "canvasPx": {
+        "width": 486,
+        "height": 424
+      },
+      "verticesRewritten": 258
+    },
+    {
+      "id": "hardware",
+      "label": "Body & hardware",
+      "customizable": false,
+      "nodes": [
+        "BODY",
+        "CAP"
+      ]
+    }
+  ]
+}

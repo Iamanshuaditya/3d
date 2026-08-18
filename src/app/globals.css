@@ -10,6 +10,15 @@
   --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
   --font-heading: var(--font-sans);
+  /* Studio chrome tokens */
+  --color-st-bg: var(--st-bg);
+  --color-st-surface: var(--st-surface);
+  --color-st-raised: var(--st-raised);
+  --color-st-line: var(--st-line);
+  --color-st-text: var(--st-text);
+  --color-st-dim: var(--st-dim);
+  --color-st-accent: var(--st-accent);
+  --color-st-stage: var(--st-stage);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -18,11 +27,6 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -44,77 +48,59 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
   --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  /* ---------------------------------------------------------------
+     Studio palette — a light working environment: white chrome,
+     hairline rules, and soft grey tiles for anything that holds a
+     product preview or an editable surface. Colour is carried by the
+     artwork, so the UI itself stays achromatic apart from status.
+     --------------------------------------------------------------- */
+  --st-bg: oklch(1 0 0);
+  --st-surface: oklch(1 0 0);
+  --st-raised: oklch(0.968 0.001 265);
+  --st-line: oklch(0.905 0.002 265);
+  --st-line-strong: oklch(0.845 0.003 265);
+  --st-text: oklch(0.21 0.008 265);
+  --st-dim: oklch(0.5 0.006 265);
+  --st-faint: oklch(0.63 0.005 265);
+  /* Primary action and active state. Ink-on-white, like the reference. */
+  --st-accent: oklch(0.21 0.008 265);
+  --st-accent-ink: oklch(1 0 0);
+  --st-positive: oklch(0.6 0.13 155);
+  --st-danger: oklch(0.55 0.2 25);
+  /* Tiles: preview stages and the editable canvas surround. */
+  --st-stage: oklch(0.955 0.001 265);
+  --st-stage-ink: oklch(0.28 0.007 265);
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--st-bg);
+  --foreground: var(--st-text);
+  --card: var(--st-surface);
+  --card-foreground: var(--st-text);
+  --popover: var(--st-surface);
+  --popover-foreground: var(--st-text);
+  --primary: var(--st-accent);
+  --primary-foreground: var(--st-accent-ink);
+  --secondary: var(--st-raised);
+  --secondary-foreground: var(--st-text);
+  --muted: var(--st-raised);
+  --muted-foreground: var(--st-dim);
+  --accent: var(--st-raised);
+  --accent-foreground: var(--st-text);
+  --destructive: var(--st-danger);
+  --border: var(--st-line);
+  --input: var(--st-line-strong);
+  --ring: var(--st-accent);
+  --radius: 0.75rem;
+  --sidebar: var(--st-surface);
+  --sidebar-foreground: var(--st-text);
+  --sidebar-primary: var(--st-accent);
+  --sidebar-primary-foreground: var(--st-accent-ink);
+  --sidebar-accent: var(--st-raised);
+  --sidebar-accent-foreground: var(--st-text);
+  --sidebar-border: var(--st-line);
+  --sidebar-ring: var(--st-accent);
 }
 
 @layer base {
