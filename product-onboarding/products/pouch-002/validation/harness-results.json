@@ -1,0 +1,50 @@
+[
+  {
+    "surface": "film",
+    "fx": 0.5,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 364,
+      "angle": 210,
+      "back": 0,
+      "side": 8,
+      "bottom": 3280
+    }
+  },
+  {
+    "surface": "film",
+    "fx": 0.15,
+    "fy": 0.15,
+    "viewCounts": {
+      "front": 2476,
+      "angle": 1975,
+      "back": 0,
+      "side": 7,
+      "bottom": 41
+    }
+  },
+  {
+    "surface": "film",
+    "fx": 0.85,
+    "fy": 0.85,
+    "viewCounts": {
+      "front": 364,
+      "angle": 210,
+      "back": 2336,
+      "side": 30,
+      "bottom": 41
+    }
+  },
+  {
+    "surface": "film",
+    "fx": 0.05,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 2107,
+      "angle": 786,
+      "back": 0,
+      "side": 7,
+      "bottom": 165
+    }
+  }
+]

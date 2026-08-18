@@ -1,0 +1,171 @@
+{
+  "id": "cosmetic-tube",
+  "name": "Cosmetic Tube 100 ml",
+  "family": "glb",
+  "modelUrl": "/models/cosmetic-tube-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              485,
+              1,
+              485,
+              423,
+              1,
+              423
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              18.6,
+              14.8,
+              471.2,
+              14.8,
+              471.2,
+              409.2,
+              18.6,
+              409.2
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 486,
+      "editorHeight": 424,
+      "physicalWidthCm": 12.16,
+      "physicalHeightCm": 10.6,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      10.539,
+      14.903,
+      30.113
+    ],
+    "target": [
+      0.0,
+      7.375,
+      0.0
+    ],
+    "minDistance": 12.045,
+    "maxDistance": 90.338,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          8.881,
+          34.629
+        ],
+        "target": [
+          0.0,
+          7.375,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          21.079,
+          17.914,
+          25.596
+        ],
+        "target": [
+          0.0,
+          7.375,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          8.881,
+          -34.629
+        ],
+        "target": [
+          0.0,
+          7.375,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          34.629,
+          8.881,
+          0.0
+        ],
+        "target": [
+          0.0,
+          7.375,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -25.749,
+          7.528
+        ],
+        "target": [
+          0.0,
+          7.375,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          8.6,
+          19.0562
+        ],
+        "target": [
+          0.0,
+          8.6,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 4.1
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

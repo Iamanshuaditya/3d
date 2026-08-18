@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 384" font-family="Helvetica">
+<rect width="960" height="384" fill="#fafaf8"/>
+<rect x="2" y="2" width="956" height="380" fill="none" stroke="rgb(198,40,90)" stroke-width="3" stroke-dasharray="14 7"/>
+<text x="480.0" y="192.0" text-anchor="middle" fill="rgb(198,40,90)" font-size="48">Label</text>
+<text x="480.0" y="246.0" text-anchor="middle" fill="#888" font-size="32">24 × 9.6 cm</text>
+</svg>

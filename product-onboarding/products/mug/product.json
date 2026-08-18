@@ -1,0 +1,171 @@
+{
+  "id": "mug",
+  "name": "Classic Mug 325 ml",
+  "family": "glb",
+  "modelUrl": "/models/mug-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              1010,
+              1,
+              1010,
+              311,
+              1,
+              311
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              18.8,
+              10.9,
+              1000.1,
+              10.9,
+              1000.1,
+              301.1,
+              18.8,
+              301.1
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 1011,
+      "editorHeight": 312,
+      "physicalWidthCm": 25.27,
+      "physicalHeightCm": 7.8,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      12.905,
+      12.75,
+      32.0
+    ],
+    "target": [
+      1.705,
+      4.75,
+      0.0
+    ],
+    "minDistance": 12.8,
+    "maxDistance": 96.001,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          1.705,
+          6.35,
+          36.8
+        ],
+        "target": [
+          1.705,
+          4.75,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          24.105,
+          15.95,
+          27.2
+        ],
+        "target": [
+          1.705,
+          4.75,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          1.705,
+          6.35,
+          -36.8
+        ],
+        "target": [
+          1.705,
+          4.75,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          38.505,
+          6.35,
+          0.0
+        ],
+        "target": [
+          1.705,
+          4.75,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          1.705,
+          -30.45,
+          8.0
+        ],
+        "target": [
+          1.705,
+          4.75,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          4.9,
+          21.9498
+        ],
+        "target": [
+          0.0,
+          4.9,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 11.39
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

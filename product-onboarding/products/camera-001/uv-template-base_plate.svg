@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 538 49" font-family="Helvetica">
+<rect width="538" height="49" fill="#fafaf8"/>
+<rect x="2" y="2" width="534" height="45" fill="none" stroke="rgb(30,110,160)" stroke-width="3" stroke-dasharray="14 7"/>
+<text x="269.0" y="24.5" text-anchor="middle" fill="rgb(30,110,160)" font-size="18">Base Plate</text>
+<text x="269.0" y="48.5" text-anchor="middle" fill="#888" font-size="13">13.46 × 1.23 cm</text>
+</svg>

@@ -1,0 +1,63 @@
+{
+  "version": 3,
+  "productId": "soda-can",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 1.0,
+    "reference": {
+      "extent": "x",
+      "cm": 6.68
+    },
+    "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "label",
+      "label": "Label",
+      "customizable": true,
+      "nodes": [
+        "LABEL"
+      ],
+      "meshName": "LABEL_PRINT",
+      "mapping": {
+        "physicalWidthCm": 21.15,
+        "physicalHeightCm": 9.4,
+        "strategy": "wrap",
+        "axis": "y",
+        "seamDeg": 270,
+        "perimeterCm": 20.99
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 21.15,
+        "height": 9.4
+      },
+      "canvasPx": {
+        "width": 846,
+        "height": 376
+      },
+      "verticesRewritten": 258
+    },
+    {
+      "id": "hardware",
+      "label": "Body & hardware",
+      "customizable": false,
+      "nodes": [
+        "BODY"
+      ]
+    }
+  ]
+}

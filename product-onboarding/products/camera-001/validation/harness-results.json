@@ -1,0 +1,106 @@
+[
+  {
+    "surface": "body_wrap",
+    "fx": 0.5,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 25,
+      "side": 2,
+      "bottom": 1,
+      "closeup-body_wrap": 80
+    }
+  },
+  {
+    "surface": "body_wrap",
+    "fx": 0.15,
+    "fy": 0.15,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 423,
+      "side": 2,
+      "bottom": 1,
+      "closeup-body_wrap": 80
+    }
+  },
+  {
+    "surface": "body_wrap",
+    "fx": 0.85,
+    "fy": 0.85,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 433,
+      "side": 2,
+      "bottom": 1,
+      "closeup-body_wrap": 80
+    }
+  },
+  {
+    "surface": "body_wrap",
+    "fx": 0.05,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 297,
+      "side": 2,
+      "bottom": 1,
+      "closeup-body_wrap": 80
+    }
+  },
+  {
+    "surface": "name_plate",
+    "fx": 0.5,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 25,
+      "side": 2,
+      "bottom": 1,
+      "closeup-name_plate": 1973
+    }
+  },
+  {
+    "surface": "name_plate",
+    "fx": 0.15,
+    "fy": 0.15,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 25,
+      "side": 2,
+      "bottom": 1,
+      "closeup-name_plate": 1956
+    }
+  },
+  {
+    "surface": "name_plate",
+    "fx": 0.85,
+    "fy": 0.85,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 25,
+      "side": 2,
+      "bottom": 1,
+      "closeup-name_plate": 1962
+    }
+  },
+  {
+    "surface": "name_plate",
+    "fx": 0.05,
+    "fy": 0.5,
+    "viewCounts": {
+      "front": 10,
+      "angle": 14,
+      "back": 25,
+      "side": 2,
+      "bottom": 1,
+      "closeup-name_plate": 1636
+    }
+  }
+]

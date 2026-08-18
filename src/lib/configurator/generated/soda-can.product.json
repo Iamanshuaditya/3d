@@ -1,0 +1,171 @@
+{
+  "id": "soda-can",
+  "name": "Soda Can 330 ml",
+  "family": "glb",
+  "modelUrl": "/models/soda-can-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              845,
+              1,
+              845,
+              375,
+              1,
+              375
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              19.7,
+              13.2,
+              832.8,
+              13.2,
+              832.8,
+              362.8,
+              19.7,
+              362.8
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 846,
+      "editorHeight": 376,
+      "physicalWidthCm": 21.15,
+      "physicalHeightCm": 9.4,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      9.948,
+      12.906,
+      28.424
+    ],
+    "target": [
+      0.0,
+      5.8,
+      0.0
+    ],
+    "minDistance": 11.37,
+    "maxDistance": 85.273,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          7.221,
+          32.688
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          19.897,
+          15.748,
+          24.161
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          7.221,
+          -32.688
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          32.688,
+          7.221,
+          0.0
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -25.467,
+          7.106
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          5.8,
+          21.323
+        ],
+        "target": [
+          0.0,
+          5.8,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 6.68
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

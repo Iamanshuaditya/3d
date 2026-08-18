@@ -47,3 +47,9 @@ next-env.d.ts
 
 # Local temp files
 temp/
+
+# Local 3D experiments (vendored upstream repo clones, ~890MB — not source)
+experiments/
+
+# Nested tooling deps
+product-onboarding/node_modules/

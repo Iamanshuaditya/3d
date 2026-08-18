@@ -1,0 +1,148 @@
+{
+  "version": 3,
+  "productId": "pouch-002",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 11.41294,
+    "reference": {
+      "extent": "x",
+      "cm": 16.0
+    },
+    "note": "160x240x90 mm stand-up pouch spec."
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "shared",
+    "surfaceId": "film",
+    "surfaceLabel": "Printed film",
+    "widthCm": 46.82,
+    "heightCm": 22.84,
+    "pxPerCm": 40,
+    "canvasPx": {
+      "width": 1873,
+      "height": 914
+    }
+  },
+  "regions": [
+    {
+      "id": "front_panel",
+      "label": "Front",
+      "customizable": true,
+      "nodes": [
+        "GLTF"
+      ],
+      "meshName": "FRONT_PRINT",
+      "mapping": {
+        "physicalWidthCm": 16.0,
+        "physicalHeightCm": 22.82,
+        "strategy": "planar",
+        "axis": "z"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0.0,
+          "u1": 0.34173430158052115,
+          "v0": 0.0004378283712784495,
+          "v1": 0.9995621716287215
+        }
+      },
+      "physicalCm": {
+        "width": 16.0,
+        "height": 22.82
+      },
+      "canvasPx": {
+        "width": 640,
+        "height": 913
+      },
+      "verticesRewritten": 102788,
+      "placement": {
+        "xCm": 0.0,
+        "yTopCm": 0.01,
+        "widthCm": 16.0,
+        "heightCm": 22.82
+      }
+    },
+    {
+      "id": "back_panel",
+      "label": "Back",
+      "customizable": true,
+      "nodes": [
+        "GLTF"
+      ],
+      "meshName": "BACK_PRINT",
+      "mapping": {
+        "physicalWidthCm": 15.99,
+        "physicalHeightCm": 22.84,
+        "strategy": "planar",
+        "axis": "z"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0.6584792823579666,
+          "u1": 1.0,
+          "v0": 0.0,
+          "v1": 1.0
+        }
+      },
+      "physicalCm": {
+        "width": 15.99,
+        "height": 22.84
+      },
+      "canvasPx": {
+        "width": 640,
+        "height": 914
+      },
+      "verticesRewritten": 103051,
+      "placement": {
+        "xCm": 30.83,
+        "yTopCm": 0.0,
+        "widthCm": 15.99,
+        "heightCm": 22.84
+      }
+    },
+    {
+      "id": "bottom_gusset",
+      "label": "Bottom",
+      "customizable": true,
+      "nodes": [
+        "GLTF"
+      ],
+      "meshName": "BOTTOM_PRINT",
+      "mapping": {
+        "physicalWidthCm": 14.83,
+        "physicalHeightCm": 6.73,
+        "strategy": "planar",
+        "axis": "y"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0.34173430158052115,
+          "u1": 0.6584792823579666,
+          "v0": 0.3526707530647986,
+          "v1": 0.6473292469352014
+        }
+      },
+      "physicalCm": {
+        "width": 14.83,
+        "height": 6.73
+      },
+      "canvasPx": {
+        "width": 593,
+        "height": 269
+      },
+      "verticesRewritten": 22413,
+      "placement": {
+        "xCm": 16.0,
+        "yTopCm": 8.055,
+        "widthCm": 14.83,
+        "heightCm": 6.73
+      }
+    }
+  ]
+}

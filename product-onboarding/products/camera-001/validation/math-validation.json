@@ -1,0 +1,255 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "body_wrap: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "body_wrap: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "body_wrap: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=0.961"
+    },
+    {
+      "check": "body_wrap: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "body_wrap: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "body_wrap: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "body_wrap: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "body_wrap: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "body_wrap: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "body_wrap: high-v is physical-top",
+      "ok": true,
+      "detail": "axis(v=.85)=0.4059 axis(v=.15)=0.1739"
+    },
+    {
+      "check": "body_wrap: u sweeps around axis",
+      "ok": true,
+      "detail": "angles=[-2.86, -0.4, 1.09]"
+    },
+    {
+      "check": "body_wrap: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=0.27563"
+    },
+    {
+      "check": "body_wrap: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "body_wrap: original texture on channel 1",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "name_plate: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "name_plate: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "name_plate: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=1.000"
+    },
+    {
+      "check": "name_plate: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "name_plate: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "name_plate: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "name_plate: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "name_plate: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "name_plate: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "name_plate: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=0.0000"
+    },
+    {
+      "check": "name_plate: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=0.01177"
+    },
+    {
+      "check": "name_plate: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_28 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_26 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_24 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_23 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_22 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_21 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_19 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_17 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_15 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_13 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_11 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_10 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_9 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_8 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_5 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "hardware: node Object_4 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[body_wrap]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[body_wrap]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[body_wrap]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[body_wrap]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    },
+    {
+      "check": "dieline[name_plate]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[name_plate]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[name_plate]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[name_plate]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    }
+  ]
+}

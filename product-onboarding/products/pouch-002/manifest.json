@@ -1,0 +1,78 @@
+{
+  "id": "pouch-002",
+  "name": "Meshy Pouch (generic pipeline)",
+  "source": "source.glb",
+  "sourceNote": "Debris-cleaned Meshy AI scan (from experiment 1). Single-mesh product exercising by-faces selectors.",
+  "physical": {
+    "reference": {
+      "extent": "x",
+      "cm": 16.0
+    },
+    "note": "160x240x90 mm stand-up pouch spec."
+  },
+  "template": {
+    "pxPerCm": 40
+  },
+  "modelYOffset": 0,
+  "regions": [
+    {
+      "id": "front_panel",
+      "label": "Front",
+      "customizable": true,
+      "meshName": "FRONT_PRINT",
+      "select": {
+        "by": "faces",
+        "node": "GLTF",
+        "facesFile": "faces/front.json"
+      },
+      "strategy": {
+        "type": "planar",
+        "axis": "z",
+        "flip_u": false
+      }
+    },
+    {
+      "id": "back_panel",
+      "label": "Back",
+      "customizable": true,
+      "meshName": "BACK_PRINT",
+      "select": {
+        "by": "faces",
+        "node": "GLTF",
+        "facesFile": "faces/back.json"
+      },
+      "strategy": {
+        "type": "planar",
+        "axis": "z",
+        "flip_u": true
+      }
+    },
+    {
+      "id": "bottom_gusset",
+      "label": "Bottom",
+      "customizable": true,
+      "meshName": "BOTTOM_PRINT",
+      "select": {
+        "by": "faces",
+        "node": "GLTF",
+        "facesFile": "faces/bottom.json"
+      },
+      "strategy": {
+        "type": "planar",
+        "axis": "y",
+        "flip_v": true,
+        "flip_u": true
+      }
+    }
+  ],
+  "layout": {
+    "mode": "shared",
+    "order": [
+      "front_panel",
+      "bottom_gusset",
+      "back_panel"
+    ],
+    "surfaceId": "film",
+    "surfaceLabel": "Printed film"
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "id": "camera-001",
+  "name": "Classic Rangefinder Camera",
+  "source": "source.glb",
+  "sourceNote": "3DAIGC-API example asset (test-use only; replace with client asset for production).",
+  "physical": {
+    "reference": {
+      "extent": "x",
+      "cm": 13.6
+    },
+    "note": "13.6 cm body width = typical 35mm rangefinder; PLACEHOLDER spec, client-suppliable."
+  },
+  "template": {
+    "pxPerCm": 40
+  },
+  "modelYOffset": 0,
+  "regions": [
+    {
+      "id": "body_wrap",
+      "label": "Body Wrap",
+      "customizable": true,
+      "meshName": "BODY_WRAP",
+      "select": {
+        "by": "nodes",
+        "nodes": [
+          "Object_6"
+        ]
+      },
+      "strategy": {
+        "type": "wrap",
+        "axis": "y",
+        "seam_deg": 270,
+        "flip_u": true
+      }
+    },
+    {
+      "id": "name_plate",
+      "label": "Name Plate",
+      "customizable": true,
+      "meshName": "NAME_PLATE",
+      "select": {
+        "by": "nodes",
+        "nodes": [
+          "Object_29"
+        ]
+      },
+      "strategy": {
+        "type": "planar",
+        "axis": "z",
+        "flip_u": false
+      }
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware (lens, controls, trim)",
+      "customizable": false,
+      "select": {
+        "by": "rest"
+      }
+    }
+  ]
+}
