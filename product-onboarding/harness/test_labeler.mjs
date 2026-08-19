@@ -1,0 +1,27 @@
+import { chromium } from "playwright-core";
+const browser = await chromium.launch({ channel: "chrome", headless: true });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+page.on("pageerror", e => console.log("[pageerror]", String(e).slice(0,200)));
+await page.goto("http://localhost:8779/product-onboarding/labeler/labeler.html?model=/product-onboarding/products/camera-001/source.glb");
+await page.waitForFunction("window.__ready === true", null, { timeout: 60000 });
+// human flow: click Object_6 row, name it, add region
+await page.locator('.node[data-name="Object_6"]').click();
+await page.fill("#rlabel", "Body Wrap");
+await page.selectOption("#rstrategy", "wrap");
+await page.selectOption("#raxis", "y");
+await page.click("#addRegion");
+await page.locator('.node[data-name="Object_29"]').click();
+await page.fill("#rlabel", "Name Plate");
+await page.selectOption("#rstrategy", "planar");
+await page.selectOption("#raxis", "z");
+await page.click("#addRegion");
+await page.click("#addRest");
+await page.fill("#pid", "camera-001");
+await page.fill("#pname", "Classic Rangefinder Camera");
+const dl = page.waitForEvent("download");
+await page.click("#export");
+const download = await dl;
+await download.saveAs("/tmp/labeler-manifest.json");
+await page.screenshot({ path: "products/camera-001/validation/labeler.png" });
+await browser.close();
+console.log("labeler test done");

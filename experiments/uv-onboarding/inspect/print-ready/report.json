@@ -1,0 +1,183 @@
+{
+  "file": "../../public/models/meshy-stand-up-pouch-print-ready.glb",
+  "size_mb": 12.85,
+  "meshes": [
+    {
+      "name": "FRONT_PRINT",
+      "vertices": 106045,
+      "faces": 199063,
+      "bbox_min": [
+        -0.7003,
+        -1.0005,
+        -0.2425
+      ],
+      "bbox_max": [
+        0.7016,
+        0.9994,
+        0.3122
+      ],
+      "extents": [
+        1.4019,
+        2.0,
+        0.5547
+      ],
+      "watertight": false,
+      "winding_consistent": true,
+      "connected_components": 1201,
+      "duplicate_vertex_ratio": 0.0497,
+      "euler_number": null,
+      "degenerate_faces": 0,
+      "visual_kind": "texture",
+      "uv": {
+        "present": true,
+        "range_u": [
+          0.0038817771710455418,
+          0.4216027855873108
+        ],
+        "range_v": [
+          0.0,
+          1.0
+        ],
+        "charts": 41,
+        "chart_face_counts_top10": [
+          198746,
+          246,
+          10,
+          6,
+          6,
+          5,
+          4,
+          3,
+          2,
+          2
+        ],
+        "charts_over_100_faces": 2
+      },
+      "material": {
+        "name": "Gloss laminate front",
+        "type": "PBRMaterial",
+        "baseColorTexture": false,
+        "metallicRoughnessTexture": false,
+        "normalTexture": false
+      }
+    },
+    {
+      "name": "BACK_PRINT",
+      "vertices": 107276,
+      "faces": 199327,
+      "bbox_min": [
+        -0.7003,
+        -1.0021,
+        -0.3165
+      ],
+      "bbox_max": [
+        0.7016,
+        0.9994,
+        0.2173
+      ],
+      "extents": [
+        1.4019,
+        2.0016,
+        0.5337
+      ],
+      "watertight": false,
+      "winding_consistent": true,
+      "connected_components": 1382,
+      "duplicate_vertex_ratio": 0.0595,
+      "euler_number": null,
+      "degenerate_faces": 0,
+      "visual_kind": "texture",
+      "uv": {
+        "present": true,
+        "range_u": [
+          0.5783972144126892,
+          0.9964526295661926
+        ],
+        "range_v": [
+          0.0,
+          1.0
+        ],
+        "charts": 27,
+        "chart_face_counts_top10": [
+          199294,
+          5,
+          3,
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "charts_over_100_faces": 1
+      },
+      "material": {
+        "name": "Gloss laminate back",
+        "type": "PBRMaterial",
+        "baseColorTexture": false,
+        "metallicRoughnessTexture": false,
+        "normalTexture": false
+      }
+    },
+    {
+      "name": "BOTTOM_PRINT",
+      "vertices": 23186,
+      "faces": 41801,
+      "bbox_min": [
+        -0.6601,
+        -1.0024,
+        -0.2942
+      ],
+      "bbox_max": [
+        0.6394,
+        -0.5659,
+        0.3075
+      ],
+      "extents": [
+        1.2995,
+        0.4365,
+        0.6017
+      ],
+      "watertight": false,
+      "winding_consistent": true,
+      "connected_components": 446,
+      "duplicate_vertex_ratio": 0.0641,
+      "euler_number": null,
+      "degenerate_faces": 0,
+      "visual_kind": "texture",
+      "uv": {
+        "present": true,
+        "range_u": [
+          0.42277997732162476,
+          0.5728437304496765
+        ],
+        "range_v": [
+          0.02863222360610962,
+          0.9555858373641968
+        ],
+        "charts": 43,
+        "chart_face_counts_top10": [
+          41750,
+          4,
+          3,
+          2,
+          2,
+          2,
+          2,
+          1,
+          1,
+          1
+        ],
+        "charts_over_100_faces": 1
+      },
+      "material": {
+        "name": "Gloss laminate bottom",
+        "type": "PBRMaterial",
+        "baseColorTexture": false,
+        "metallicRoughnessTexture": false,
+        "normalTexture": false
+      }
+    }
+  ]
+}

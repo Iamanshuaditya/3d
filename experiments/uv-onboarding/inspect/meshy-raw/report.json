@@ -1,0 +1,65 @@
+{
+  "file": "../../public/models/Meshy_AI_A_stand_up_pouch_pack_0106083317_texture.glb",
+  "size_mb": 14.85,
+  "meshes": [
+    {
+      "name": "GLTF",
+      "vertices": 234070,
+      "faces": 440191,
+      "bbox_min": [
+        -0.7003,
+        -1.0024,
+        -0.3165
+      ],
+      "bbox_max": [
+        0.7016,
+        0.9994,
+        0.3122
+      ],
+      "extents": [
+        1.4019,
+        2.0019,
+        0.6287
+      ],
+      "watertight": false,
+      "winding_consistent": true,
+      "connected_components": 1764,
+      "duplicate_vertex_ratio": 0.0597,
+      "euler_number": null,
+      "degenerate_faces": 0,
+      "visual_kind": "texture",
+      "uv": {
+        "present": true,
+        "range_u": [
+          0.00046499999007210135,
+          0.9292790293693542
+        ],
+        "range_v": [
+          0.00046497583389282227,
+          0.9995350241661072
+        ],
+        "charts": 1758,
+        "chart_face_counts_top10": [
+          182476,
+          172820,
+          40094,
+          14518,
+          7189,
+          4771,
+          2808,
+          2747,
+          1234,
+          1028
+        ],
+        "charts_over_100_faces": 29
+      },
+      "material": {
+        "name": null,
+        "type": "PBRMaterial",
+        "baseColorTexture": true,
+        "metallicRoughnessTexture": false,
+        "normalTexture": false
+      }
+    }
+  ]
+}

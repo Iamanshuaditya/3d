@@ -1,0 +1,11 @@
+import { chromium } from "playwright-core";
+const browser = await chromium.launch({ channel: "chrome", headless: true });
+const page = await browser.newPage({ viewport: { width: 1000, height: 1700 } });
+page.on("console", m => console.log("[console]", m.text().slice(0, 200)));
+page.on("pageerror", e => console.log("[pageerror]", String(e).slice(0, 300)));
+await page.goto("http://localhost:8779/experiments/uv-onboarding/export/harness.html");
+await page.waitForFunction("window.__done === true", null, { timeout: 120000 });
+console.log("title:", await page.title());
+await page.screenshot({ path: "screenshots/harness.png", fullPage: true });
+await browser.close();
+console.log("screenshot saved");

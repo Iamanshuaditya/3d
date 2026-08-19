@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Website Clone",
-  description: "Pixel-perfect website clone",
+  title: "Packaging Studio",
+  description: "Design a printable surface and preview it live on a 3D product model.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,11 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* Extensions commonly decorate <body> before React hydrates; the
+          suppression is scoped to this element only. */}
+      <body suppressHydrationWarning className="flex min-h-full flex-col bg-[var(--st-bg)]">
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,0 +1,171 @@
+{
+  "id": "coffee-cup",
+  "name": "Paper Coffee Cup 12 oz",
+  "family": "glb",
+  "modelUrl": "/models/coffee-cup-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              946,
+              1,
+              946,
+              359,
+              1,
+              359
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              19.9,
+              12.6,
+              934.4,
+              12.6,
+              934.4,
+              347.4,
+              19.9,
+              347.4
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 947,
+      "editorHeight": 360,
+      "physicalWidthCm": 23.68,
+      "physicalHeightCm": 9.0,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      12.146,
+      15.226,
+      34.703
+    ],
+    "target": [
+      0.0,
+      6.55,
+      0.0
+    ],
+    "minDistance": 13.881,
+    "maxDistance": 104.11,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          8.285,
+          39.909
+        ],
+        "target": [
+          0.0,
+          6.55,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          24.292,
+          18.696,
+          29.498
+        ],
+        "target": [
+          0.0,
+          6.55,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          8.285,
+          -39.909
+        ],
+        "target": [
+          0.0,
+          6.55,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          39.909,
+          8.285,
+          0.0
+        ],
+        "target": [
+          0.0,
+          6.55,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -31.624,
+          8.676
+        ],
+        "target": [
+          0.0,
+          6.55,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          5.7,
+          22.2222
+        ],
+        "target": [
+          0.0,
+          5.7,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 9.0
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

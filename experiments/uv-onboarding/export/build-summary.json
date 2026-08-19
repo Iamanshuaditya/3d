@@ -1,0 +1,28 @@
+{
+  "regions": [
+    {
+      "id": "front_print",
+      "mesh": "FRONT_PRINT",
+      "tris": 197601
+    },
+    {
+      "id": "back_print",
+      "mesh": "BACK_PRINT",
+      "tris": 197243
+    },
+    {
+      "id": "bottom_gusset",
+      "mesh": "BOTTOM_PRINT",
+      "tris": 41384
+    }
+  ],
+  "web_mm": {
+    "total": 574.0,
+    "front_start": 2.0,
+    "bottom_start": 242.0,
+    "back_start": 332.0,
+    "panel": 240.0,
+    "gusset": 90.0,
+    "bleed": 2.0
+  }
+}

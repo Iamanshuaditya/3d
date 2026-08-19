@@ -1,0 +1,28 @@
+{
+  "objects": [
+    {
+      "name": "Mesh_0",
+      "mesh": "Mesh_0",
+      "verts": 234070,
+      "polys": 440191,
+      "uv_layers": [
+        "UVMap"
+      ],
+      "active_uv": "UVMap",
+      "materials": [
+        "Material_0"
+      ],
+      "custom_props": {}
+    }
+  ],
+  "images": [
+    {
+      "name": "Image_0",
+      "size": [
+        2048,
+        2048
+      ],
+      "filepath": ""
+    }
+  ]
+}

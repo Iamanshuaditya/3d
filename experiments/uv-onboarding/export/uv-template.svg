@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2296 640" font-family="Helvetica">
+<rect width="2296" height="640" fill="#fafafa"/>
+<rect x="8.0" y="0" width="960.0" height="640" fill="none" stroke="rgb(214,69,65)" stroke-width="3" stroke-dasharray="12 6"/>
+<text x="488.0" y="320.0" text-anchor="middle" fill="rgb(214,69,65)" font-size="48">FRONT</text>
+<text x="488.0" y="380.0" text-anchor="middle" fill="#666" font-size="30">24 x 16 cm</text>
+<rect x="968.0" y="0" width="360.0" height="640" fill="none" stroke="rgb(38,166,91)" stroke-width="3" stroke-dasharray="12 6"/>
+<text x="1148.0" y="320.0" text-anchor="middle" fill="rgb(38,166,91)" font-size="48">BOTTOM GUSSET</text>
+<text x="1148.0" y="380.0" text-anchor="middle" fill="#666" font-size="30">9 x 16 cm</text>
+<rect x="1328.0" y="0" width="960.0" height="640" fill="none" stroke="rgb(31,119,180)" stroke-width="3" stroke-dasharray="12 6"/>
+<text x="1808.0" y="320.0" text-anchor="middle" fill="rgb(31,119,180)" font-size="48">BACK</text>
+<text x="1808.0" y="380.0" text-anchor="middle" fill="#666" font-size="30">24 x 16 cm</text>
+<rect x="0" y="0" width="8.0" height="640" fill="#ddd"/>
+<rect x="2288.0" y="0" width="8.0" height="640" fill="#ddd"/>
+</svg>

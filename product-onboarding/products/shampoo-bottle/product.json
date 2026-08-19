@@ -1,0 +1,171 @@
+{
+  "id": "shampoo-bottle",
+  "name": "Shampoo Bottle 400 ml",
+  "family": "glb",
+  "modelUrl": "/models/shampoo-bottle-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              921,
+              1,
+              921,
+              479,
+              1,
+              479
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              23.9,
+              16.8,
+              905.2,
+              16.8,
+              905.2,
+              463.2,
+              23.9,
+              463.2
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 922,
+      "editorHeight": 480,
+      "physicalWidthCm": 23.05,
+      "physicalHeightCm": 12.0,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      14.841,
+      20.5,
+      42.402
+    ],
+    "target": [
+      0.0,
+      9.9,
+      0.0
+    ],
+    "minDistance": 16.961,
+    "maxDistance": 127.205,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          12.02,
+          48.762
+        ],
+        "target": [
+          0.0,
+          9.9,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          29.681,
+          24.741,
+          36.042
+        ],
+        "target": [
+          0.0,
+          9.9,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          12.02,
+          -48.762
+        ],
+        "target": [
+          0.0,
+          9.9,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          48.762,
+          12.02,
+          0.0
+        ],
+        "target": [
+          0.0,
+          9.9,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -36.742,
+          10.6
+        ],
+        "target": [
+          0.0,
+          9.9,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          8.2,
+          25.2981
+        ],
+        "target": [
+          0.0,
+          8.2,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 7.28
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

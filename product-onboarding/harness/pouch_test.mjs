@@ -1,0 +1,10 @@
+import { chromium } from "playwright-core";
+const id = process.argv[2] ?? "gen-pouch-test";
+const b = await chromium.launch({ channel: "chrome", headless: true });
+const p = await b.newPage({ viewport: { width: 1700, height: 1000 } });
+p.on("pageerror", e => console.log("[pageerror]", String(e).slice(0, 200)));
+await p.goto(`http://localhost:3000/studio?product=${id}`, { waitUntil: "networkidle", timeout: 120000 });
+await p.waitForTimeout(7000);
+await p.screenshot({ path: `/tmp/pouch-${id}.png` });
+await b.close();
+console.log("saved", id);

@@ -1,0 +1,64 @@
+{
+  "version": 3,
+  "productId": "water-bottle",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 1.0,
+    "reference": {
+      "extent": "x",
+      "cm": 7.08
+    },
+    "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "label",
+      "label": "Label",
+      "customizable": true,
+      "nodes": [
+        "LABEL"
+      ],
+      "meshName": "LABEL_PRINT",
+      "mapping": {
+        "physicalWidthCm": 22.42,
+        "physicalHeightCm": 13.1,
+        "strategy": "wrap",
+        "axis": "y",
+        "seamDeg": 270,
+        "perimeterCm": 22.24
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 22.42,
+        "height": 13.1
+      },
+      "canvasPx": {
+        "width": 897,
+        "height": 524
+      },
+      "verticesRewritten": 258
+    },
+    {
+      "id": "hardware",
+      "label": "Body & hardware",
+      "customizable": false,
+      "nodes": [
+        "CAP",
+        "BODY"
+      ]
+    }
+  ]
+}

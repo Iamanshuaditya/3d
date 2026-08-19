@@ -1,0 +1,170 @@
+{
+  "id": "_test-reuse",
+  "name": "reuse_existing smoke test",
+  "family": "glb",
+  "modelUrl": "/models/_test-reuse-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": 0.0891,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "plate_reuse",
+      "label": "Plate Reuse",
+      "meshName": "PLATE_REUSE",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              479,
+              1,
+              479,
+              320,
+              1,
+              320
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              11.2,
+              11.2,
+              468.8,
+              11.2,
+              468.8,
+              309.8,
+              11.2,
+              309.8
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 480,
+      "editorHeight": 321,
+      "physicalWidthCm": 1.21,
+      "physicalHeightCm": 0.81,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      0.674,
+      0.807,
+      2.014
+    ],
+    "target": [
+      0.0,
+      0.326,
+      0.087
+    ],
+    "minDistance": 0.771,
+    "maxDistance": 5.78,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          0.422,
+          2.303
+        ],
+        "target": [
+          0.0,
+          0.326,
+          0.087
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          1.349,
+          1.0,
+          1.725
+        ],
+        "target": [
+          0.0,
+          0.326,
+          0.087
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          0.422,
+          -2.129
+        ],
+        "target": [
+          0.0,
+          0.326,
+          0.087
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          2.216,
+          0.422,
+          0.087
+        ],
+        "target": [
+          0.0,
+          0.326,
+          0.087
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -1.794,
+          0.569
+        ],
+        "target": [
+          0.0,
+          0.326,
+          0.087
+        ]
+      },
+      {
+        "id": "closeup-plate_reuse",
+        "label": "Close-up: Plate Reuse",
+        "position": [
+          0.118,
+          0.5154,
+          0.2183
+        ],
+        "target": [
+          0.118,
+          0.5154,
+          0.0766
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 16.40229,
+      "reference": {
+        "extent": "x",
+        "cm": 13.6
+      }
+    }
+  }
+}

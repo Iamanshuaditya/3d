@@ -47,3 +47,8 @@ next-env.d.ts
 
 # Local temp files
 temp/
+
+# Local research checkouts and generated Python caches
+experiments/uv-onboarding/repos/
+**/__pycache__/
+*.pyc

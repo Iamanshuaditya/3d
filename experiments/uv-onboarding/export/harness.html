@@ -1,0 +1,134 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>2D→3D mapping harness</title>
+<style>
+  body { font-family: Helvetica, sans-serif; margin: 12px; background: #fff; }
+  .row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 16px; }
+  .row img, .row canvas.preview { border: 1px solid #ccc; }
+  h3 { margin: 4px 0; font-size: 14px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/node_modules/three/build/three.module.js",
+  "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="out"></div>
+<pre id="err" style="color:#c00"></pre>
+<script>
+window.addEventListener("error", e => {
+  document.getElementById("err").textContent += "ERROR: " + (e.message || e.reason) + "\n";
+});
+window.addEventListener("unhandledrejection", e => {
+  document.getElementById("err").textContent += "REJECTION: " + e.reason + "\n";
+});
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+const W2D = 2296, H2D = 640;
+const canvas2d = document.createElement("canvas");
+canvas2d.width = W2D; canvas2d.height = H2D;
+const ctx = canvas2d.getContext("2d");
+
+const template = new Image();
+template.src = "/experiments/uv-onboarding/export/uv-template.png";
+await new Promise(r => { template.onload = r; });
+
+function drawScene(logoXcm, logoYcm) {
+  const px = 40; // px per cm
+  ctx.fillStyle = "#f2f2f2";
+  ctx.fillRect(0, 0, W2D, H2D);
+  ctx.drawImage(template, 0, 0);
+  // "logo": red circle + yellow star + label, 6cm wide, centered at (x,y) cm
+  const cx = logoXcm * px, cy = logoYcm * px, r = 3 * px;
+  ctx.fillStyle = "#d33";
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#ffd23f";
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    const rr = i % 2 ? r * 0.38 : r * 0.82;
+    ctx[i ? "lineTo" : "moveTo"](cx + rr * Math.cos(a), cy + rr * Math.sin(a));
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#000"; ctx.font = "bold 40px Helvetica"; ctx.textAlign = "center";
+  ctx.fillText(`${logoXcm},${logoYcm}cm`, cx, cy + r + 44);
+}
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(560, 560);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeeeeee);
+scene.add(new THREE.AmbientLight(0xffffff, 2.2));
+const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+dir.position.set(1, 2, 3); scene.add(dir);
+
+const gltf = await new GLTFLoader().loadAsync("/experiments/uv-onboarding/export/product-customizable.glb");
+scene.add(gltf.scene);
+
+const texture = new THREE.CanvasTexture(canvas2d);
+texture.flipY = true;                       // same as texture-manager.ts
+texture.colorSpace = THREE.SRGBColorSpace;
+texture.anisotropy = 8;
+const meshNames = [];
+gltf.scene.traverse(o => {
+  if (o.isMesh) {
+    meshNames.push(o.name);
+    o.material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.5 });
+  }
+});
+
+const box = new THREE.Box3().setFromObject(gltf.scene);
+const center = box.getCenter(new THREE.Vector3());
+const radius = box.getSize(new THREE.Vector3()).length() * 0.75;
+const cam = new THREE.PerspectiveCamera(35, 1, 0.01, 100);
+
+const VIEWS = {
+  front: new THREE.Vector3(0, 0, 1), back: new THREE.Vector3(0, 0, -1),
+  bottom: new THREE.Vector3(0, -1, 0.12),
+};
+function shoot(view) {
+  const d = VIEWS[view].clone().normalize();
+  cam.position.copy(center.clone().add(d.multiplyScalar(radius * 2.2)));
+  cam.lookAt(center);
+  texture.needsUpdate = true;
+  renderer.render(scene, cam);
+  return renderer.domElement.toDataURL("image/png");
+}
+
+const TESTS = [
+  { name: "logo FRONT center (12.2, 8)", x: 12.2, y: 8, view: "front" },
+  { name: "logo FRONT moved up+right (20, 4)", x: 20, y: 4, view: "front" },
+  { name: "logo GUSSET center (28.7, 8)", x: 28.7, y: 8, view: "bottom" },
+  { name: "logo BACK center (45.2, 8)", x: 45.2, y: 8, view: "back" },
+];
+const out = document.getElementById("out");
+for (const t of TESTS) {
+  drawScene(t.x, t.y);
+  const img3d = shoot(t.view);
+  const row = document.createElement("div");
+  row.className = "row";
+  const flat = document.createElement("canvas");
+  flat.className = "preview"; flat.width = W2D / 3; flat.height = H2D / 3;
+  flat.getContext("2d").drawImage(canvas2d, 0, 0, W2D / 3, H2D / 3);
+  const shot = document.createElement("img");
+  shot.src = img3d; shot.width = 340; shot.height = 340;
+  const label = document.createElement("h3");
+  label.textContent = `${t.name} → 3D ${t.view} view`;
+  const cell = document.createElement("div");
+  cell.append(label, flat);
+  row.append(cell, shot);
+  out.append(row);
+}
+document.title = "HARNESS-DONE meshes=" + meshNames.join(",");
+window.__done = true;
+</script>
+</body>
+</html>
