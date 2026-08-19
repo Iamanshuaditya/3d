@@ -1,0 +1,171 @@
+{
+  "id": "pill-bottle",
+  "name": "Supplement Bottle 120 ct",
+  "family": "glb",
+  "modelUrl": "/models/pill-bottle-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              668,
+              1,
+              668,
+              247,
+              1,
+              247
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              13.9,
+              8.7,
+              660.3,
+              8.7,
+              660.3,
+              239.3,
+              13.9,
+              239.3
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 669,
+      "editorHeight": 248,
+      "physicalWidthCm": 16.72,
+      "physicalHeightCm": 6.2,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      8.299,
+      10.928,
+      23.712
+    ],
+    "target": [
+      0.0,
+      5.0,
+      0.0
+    ],
+    "minDistance": 9.485,
+    "maxDistance": 71.137,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          6.186,
+          27.269
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          16.599,
+          13.299,
+          20.156
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          6.186,
+          -27.269
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          27.269,
+          6.186,
+          0.0
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -21.084,
+          5.928
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          3.9,
+          15.5288
+        ],
+        "target": [
+          0.0,
+          3.9,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 5.28
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

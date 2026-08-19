@@ -1,0 +1,76 @@
+{
+  "version": 3,
+  "productId": "_test-reuse",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 16.40229,
+    "reference": {
+      "extent": "x",
+      "cm": 13.6
+    }
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "plate_reuse",
+      "label": "Plate Reuse",
+      "customizable": true,
+      "nodes": [
+        "Object_29"
+      ],
+      "meshName": "PLATE_REUSE",
+      "mapping": {
+        "strategy": "reuse_existing",
+        "physicalWidthCm": null,
+        "physicalHeightCm": null,
+        "physicalDimsNote": "estimated from mesh bounding box; supply physicalWidthCm/physicalHeightCm in the region manifest for exact print dimensions"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 1.21,
+        "height": 0.81
+      },
+      "canvasPx": {
+        "width": 480,
+        "height": 321
+      },
+      "verticesRewritten": 4
+    },
+    {
+      "id": "rest",
+      "label": "Rest",
+      "customizable": false,
+      "nodes": [
+        "Object_28",
+        "Object_26",
+        "Object_24",
+        "Object_23",
+        "Object_22",
+        "Object_21",
+        "Object_19",
+        "Object_17",
+        "Object_15",
+        "Object_13",
+        "Object_11",
+        "Object_10",
+        "Object_9",
+        "Object_8",
+        "Object_6",
+        "Object_5",
+        "Object_4"
+      ]
+    }
+  ]
+}

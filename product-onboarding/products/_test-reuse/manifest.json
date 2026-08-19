@@ -1,0 +1,18 @@
+{
+  "id": "_test-reuse",
+  "name": "reuse_existing smoke test",
+  "source": "source.glb",
+  "physical": {"reference": {"extent": "x", "cm": 13.6}},
+  "template": {"pxPerCm": 40},
+  "regions": [
+    {
+      "id": "plate_reuse",
+      "label": "Plate Reuse",
+      "customizable": true,
+      "meshName": "PLATE_REUSE",
+      "select": {"by": "nodes", "nodes": ["Object_29"]},
+      "strategy": {"type": "reuse_existing"}
+    },
+    {"id": "rest", "label": "Rest", "customizable": false, "select": {"by": "rest"}}
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "plate_reuse: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "plate_reuse: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "plate_reuse: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=1.000"
+    },
+    {
+      "check": "plate_reuse: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "plate_reuse: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "plate_reuse: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "plate_reuse: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "plate_reuse: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "plate_reuse: chirality skipped (authored UV accepted as-is)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "plate_reuse: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_28 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_26 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_24 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_23 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_22 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_21 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_19 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_17 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_15 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_13 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_11 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_10 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_9 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_8 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_6 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_5 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "rest: node Object_4 preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[plate_reuse]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[plate_reuse]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[plate_reuse]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[plate_reuse]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "id": "spice-jar",
+  "name": "Spice Jar 150 g",
+  "family": "glb",
+  "modelUrl": "/models/spice-jar-customizable.glb",
+  "modelYOffset": 0,
+  "shadowY": -0.002,
+  "materialProfile": "glossy-laminate",
+  "editableSurfaces": [
+    {
+      "id": "label",
+      "label": "Label",
+      "meshName": "LABEL_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              718,
+              1,
+              718,
+              311,
+              1,
+              311
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              16.5,
+              10.9,
+              708.1,
+              10.9,
+              708.1,
+              301.1,
+              16.5,
+              301.1
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 719,
+      "editorHeight": 312,
+      "physicalWidthCm": 17.98,
+      "physicalHeightCm": 7.8,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      9.558,
+      12.777,
+      27.309
+    ],
+    "target": [
+      0.0,
+      5.95,
+      0.0
+    ],
+    "minDistance": 10.924,
+    "maxDistance": 81.927,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          7.315,
+          31.406
+        ],
+        "target": [
+          0.0,
+          5.95,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          19.116,
+          15.508,
+          23.213
+        ],
+        "target": [
+          0.0,
+          5.95,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          7.315,
+          -31.406
+        ],
+        "target": [
+          0.0,
+          5.95,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          31.406,
+          7.315,
+          0.0
+        ],
+        "target": [
+          0.0,
+          5.95,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -24.09,
+          6.827
+        ],
+        "target": [
+          0.0,
+          5.95,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-label",
+        "label": "Close-up: Label",
+        "position": [
+          0.0,
+          5.0,
+          17.9146
+        ],
+        "target": [
+          0.0,
+          5.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "x",
+        "cm": 5.7
+      },
+      "note": "modeled in cm; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

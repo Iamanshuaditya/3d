@@ -1,0 +1,59 @@
+{
+  "objects": [
+    {
+      "name": "BACK_PRINT",
+      "mesh": "BACK_PRINT",
+      "verts": 103445,
+      "polys": 197243,
+      "uv_layers": [
+        "UVMap",
+        "UVMap.001"
+      ],
+      "active_uv": "UVMap",
+      "materials": [
+        "Laminate back_print"
+      ],
+      "custom_props": {}
+    },
+    {
+      "name": "BOTTOM_PRINT",
+      "mesh": "BOTTOM_PRINT",
+      "verts": 22413,
+      "polys": 41384,
+      "uv_layers": [
+        "UVMap",
+        "UVMap.001"
+      ],
+      "active_uv": "UVMap",
+      "materials": [
+        "Laminate bottom_gusset"
+      ],
+      "custom_props": {}
+    },
+    {
+      "name": "FRONT_PRINT",
+      "mesh": "FRONT_PRINT",
+      "verts": 103111,
+      "polys": 197601,
+      "uv_layers": [
+        "UVMap",
+        "UVMap.001"
+      ],
+      "active_uv": "UVMap",
+      "materials": [
+        "Laminate front_print"
+      ],
+      "custom_props": {}
+    }
+  ],
+  "images": [
+    {
+      "name": "Image_0",
+      "size": [
+        2048,
+        2048
+      ],
+      "filepath": ""
+    }
+  ]
+}

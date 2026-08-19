@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "canvas": {
+    "widthPx": 2296,
+    "heightPx": 640,
+    "widthCm": 57.4,
+    "heightCm": 16.0,
+    "pxPerCm": 40
+  },
+  "uvSets": {
+    "customization": "TEXCOORD_0",
+    "original": "TEXCOORD_1"
+  },
+  "regions": [
+    {
+      "id": "front_print",
+      "name": "Front",
+      "meshName": "FRONT_PRINT",
+      "customizable": true,
+      "uvRect": {
+        "u0": 0.00348,
+        "u1": 0.4216,
+        "v0": 0.0,
+        "v1": 1.0
+      },
+      "canvasRectPx": {
+        "x": 8,
+        "y": 0,
+        "w": 960,
+        "h": 640
+      },
+      "physicalCm": {
+        "w": 24.0,
+        "h": 16.0
+      }
+    },
+    {
+      "id": "bottom_gusset",
+      "name": "Bottom Gusset",
+      "meshName": "BOTTOM_PRINT",
+      "customizable": true,
+      "uvRect": {
+        "u0": 0.4216,
+        "u1": 0.5784,
+        "v0": 0.0,
+        "v1": 1.0
+      },
+      "canvasRectPx": {
+        "x": 968,
+        "y": 0,
+        "w": 360,
+        "h": 640
+      },
+      "physicalCm": {
+        "w": 9.0,
+        "h": 16.0
+      }
+    },
+    {
+      "id": "back_print",
+      "name": "Back",
+      "meshName": "BACK_PRINT",
+      "customizable": true,
+      "uvRect": {
+        "u0": 0.5784,
+        "u1": 0.99652,
+        "v0": 0.0,
+        "v1": 1.0
+      },
+      "canvasRectPx": {
+        "x": 1328,
+        "y": 0,
+        "w": 960,
+        "h": 640
+      },
+      "physicalCm": {
+        "w": 24.0,
+        "h": 16.0
+      }
+    },
+    {
+      "id": "bleed",
+      "name": "Bleed / seal edges",
+      "meshName": null,
+      "customizable": false,
+      "uvRect": {
+        "u0": 0.0,
+        "u1": 0.00348,
+        "v0": 0.0,
+        "v1": 1.0
+      }
+    }
+  ]
+}

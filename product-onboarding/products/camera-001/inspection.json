@@ -1,0 +1,978 @@
+{
+  "file": "products/camera-001/source.glb",
+  "size_mb": 1.26,
+  "scene_extent": [
+    0.82915,
+    0.46909,
+    0.34746
+  ],
+  "meshes": [
+    {
+      "geometry": "Object_17",
+      "node": "Object_29",
+      "vertices": 4,
+      "faces": 2,
+      "extent": [
+        0.07356,
+        0.04935,
+        0.0
+      ],
+      "centroid_offset": [
+        0.118,
+        0.1898,
+        -0.0105
+      ],
+      "components": 1,
+      "debris_components_le50": 1,
+      "watertight": false,
+      "shape": {
+        "planarity": 1.0,
+        "cylindricity": 1.0,
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "class": "planar"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.05,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.394,
+          0.606
+        ],
+        "v_range": [
+          0.013,
+          0.237
+        ]
+      },
+      "material": {
+        "name": ".017",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          6,
+          18,
+          14,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_16",
+      "node": "Object_28",
+      "vertices": 64,
+      "faces": 42,
+      "extent": [
+        0.11962,
+        0.06262,
+        0.011
+      ],
+      "centroid_offset": [
+        0.1334,
+        0.1898,
+        -0.012
+      ],
+      "components": 12,
+      "debris_components_le50": 12,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.255,
+        "cylindricity": 0.866,
+        "axis": [
+          0.9993,
+          -0.0385,
+          0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.337,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.125,
+          0.875
+        ],
+        "v_range": [
+          0.0,
+          1.0
+        ]
+      },
+      "material": {
+        "name": ".016",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_15",
+      "node": "Object_26",
+      "vertices": 881,
+      "faces": 1000,
+      "extent": [
+        0.3448,
+        0.07384,
+        0.15237
+      ],
+      "centroid_offset": [
+        0.148,
+        0.1893,
+        -0.088
+      ],
+      "components": 61,
+      "debris_components_le50": 57,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.302,
+        "cylindricity": 0.793,
+        "axis": [
+          0.9975,
+          -0.0645,
+          0.0297
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 2,
+        "coverage": 0.351,
+        "overlap_fraction": 0.151,
+        "u_range": [
+          0.0,
+          0.875
+        ],
+        "v_range": [
+          -0.0,
+          1.0
+        ]
+      },
+      "material": {
+        "name": ".008",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "no_strategy_yet_use_labeler_or_planar"
+    },
+    {
+      "geometry": "Object_14",
+      "node": "Object_24",
+      "vertices": 351,
+      "faces": 448,
+      "extent": [
+        0.04239,
+        0.04239,
+        0.00078
+      ],
+      "centroid_offset": [
+        0.252,
+        0.1879,
+        -0.0093
+      ],
+      "components": 15,
+      "debris_components_le50": 14,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.998,
+        "cylindricity": 0.963,
+        "axis": [
+          0.1952,
+          0.9808,
+          -0.0
+        ],
+        "class": "planar"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.083,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.056,
+          0.444
+        ],
+        "v_range": [
+          0.556,
+          0.944
+        ]
+      },
+      "material": {
+        "name": ".014",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          6,
+          18,
+          14,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_13",
+      "node": "Object_23",
+      "vertices": 1013,
+      "faces": 1317,
+      "extent": [
+        0.05217,
+        0.05217,
+        0.00719
+      ],
+      "centroid_offset": [
+        0.252,
+        0.1879,
+        -0.0118
+      ],
+      "components": 57,
+      "debris_components_le50": 53,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.355,
+        "cylindricity": 0.778,
+        "axis": [
+          0.9896,
+          -0.1441,
+          -0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 3,
+        "coverage": 0.715,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".015",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_12",
+      "node": "Object_22",
+      "vertices": 552,
+      "faces": 640,
+      "extent": [
+        0.12789,
+        0.04395,
+        0.1607
+      ],
+      "centroid_offset": [
+        0.0667,
+        0.193,
+        -0.0891
+      ],
+      "components": 32,
+      "debris_components_le50": 31,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.314,
+        "cylindricity": 0.962,
+        "axis": [
+          0.9129,
+          -0.4082,
+          -0.0
+        ],
+        "class": "cylindrical"
+      },
+      "uv": {
+        "present": true,
+        "charts": 2,
+        "coverage": 0.142,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.056,
+          0.886
+        ],
+        "v_range": [
+          0.556,
+          0.944
+        ]
+      },
+      "material": {
+        "name": ".013",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          6,
+          18,
+          14,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_11",
+      "node": "Object_21",
+      "vertices": 1237,
+      "faces": 1856,
+      "extent": [
+        0.14242,
+        0.05409,
+        0.16345
+      ],
+      "centroid_offset": [
+        0.0688,
+        0.193,
+        -0.0898
+      ],
+      "components": 15,
+      "debris_components_le50": 8,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.207,
+        "cylindricity": 0.662,
+        "axis": [
+          0.98,
+          -0.1989,
+          -0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 3,
+        "coverage": 0.715,
+        "overlap_fraction": 0.122,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".012",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_10",
+      "node": "Object_19",
+      "vertices": 1468,
+      "faces": 2112,
+      "extent": [
+        0.0765,
+        0.06069,
+        0.0765
+      ],
+      "centroid_offset": [
+        -0.1954,
+        0.1849,
+        -0.113
+      ],
+      "components": 24,
+      "debris_components_le50": 20,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.0,
+        "cylindricity": 0.522,
+        "axis": [
+          0.861,
+          0.0,
+          0.5086
+        ],
+        "class": "closed_or_complex"
+      },
+      "uv": {
+        "present": true,
+        "charts": 4,
+        "coverage": 0.85,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".011",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_9",
+      "node": "Object_17",
+      "vertices": 3143,
+      "faces": 2880,
+      "extent": [
+        0.1461,
+        0.07005,
+        0.1461
+      ],
+      "centroid_offset": [
+        -0.3263,
+        0.1854,
+        -0.0879
+      ],
+      "components": 502,
+      "debris_components_le50": 499,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.0,
+        "cylindricity": 0.727,
+        "axis": [
+          0.9829,
+          -0.0,
+          0.1839
+        ],
+        "class": "closed_or_complex"
+      },
+      "uv": {
+        "present": true,
+        "charts": 4,
+        "coverage": 0.85,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".010",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_8",
+      "node": "Object_15",
+      "vertices": 1733,
+      "faces": 1976,
+      "extent": [
+        0.11452,
+        0.07125,
+        0.1296
+      ],
+      "centroid_offset": [
+        -0.0741,
+        0.1876,
+        -0.0879
+      ],
+      "components": 134,
+      "debris_components_le50": 128,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.346,
+        "cylindricity": 0.702,
+        "axis": [
+          0.9966,
+          0.0824,
+          0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 4,
+        "coverage": 0.85,
+        "overlap_fraction": 0.225,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".009",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "no_strategy_yet_use_labeler_or_planar"
+    },
+    {
+      "geometry": "Object_7",
+      "node": "Object_13",
+      "vertices": 3137,
+      "faces": 3648,
+      "extent": [
+        0.08963,
+        0.07988,
+        0.08963
+      ],
+      "centroid_offset": [
+        0.3409,
+        0.1946,
+        -0.0849
+      ],
+      "components": 280,
+      "debris_components_le50": 272,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.0,
+        "cylindricity": 0.575,
+        "axis": [
+          0.9589,
+          0.0,
+          0.2838
+        ],
+        "class": "closed_or_complex"
+      },
+      "uv": {
+        "present": true,
+        "charts": 3,
+        "coverage": 0.85,
+        "overlap_fraction": 0.004,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".007",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_6",
+      "node": "Object_11",
+      "vertices": 1378,
+      "faces": 2208,
+      "extent": [
+        0.1047,
+        0.1047,
+        0.01801
+      ],
+      "centroid_offset": [
+        0.0916,
+        -0.0135,
+        0.1647
+      ],
+      "components": 11,
+      "debris_components_le50": 9,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.893,
+        "cylindricity": 0.732,
+        "axis": [
+          0.195,
+          0.9808,
+          0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.234,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.25
+        ]
+      },
+      "material": {
+        "name": ".006",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          6,
+          18,
+          14,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_5",
+      "node": "Object_10",
+      "vertices": 990,
+      "faces": 1152,
+      "extent": [
+        0.12805,
+        0.12805,
+        0.01561
+      ],
+      "centroid_offset": [
+        0.0916,
+        -0.0135,
+        0.1604
+      ],
+      "components": 99,
+      "debris_components_le50": 97,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.525,
+        "cylindricity": 0.545,
+        "axis": [
+          0.8569,
+          -0.5155,
+          0.0
+        ],
+        "class": "curved_shell"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.011,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.156,
+          0.344
+        ],
+        "v_range": [
+          0.656,
+          0.844
+        ]
+      },
+      "material": {
+        "name": ".005",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_4",
+      "node": "Object_9",
+      "vertices": 100,
+      "faces": 96,
+      "extent": [
+        0.21787,
+        0.21787,
+        0.0
+      ],
+      "centroid_offset": [
+        0.0916,
+        -0.0135,
+        0.0046
+      ],
+      "components": 9,
+      "debris_components_le50": 9,
+      "watertight": false,
+      "shape": {
+        "planarity": 1.0,
+        "cylindricity": 1.0,
+        "axis": [
+          -0.8589,
+          0.5121,
+          -0.0
+        ],
+        "class": "planar"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.109,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.066,
+          0.434
+        ],
+        "v_range": [
+          0.566,
+          0.934
+        ]
+      },
+      "material": {
+        "name": ".004",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          0,
+          0,
+          0,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_3",
+      "node": "Object_8",
+      "vertices": 5338,
+      "faces": 5184,
+      "extent": [
+        0.30151,
+        0.30151,
+        0.21789
+      ],
+      "centroid_offset": [
+        0.0916,
+        -0.0135,
+        0.0596
+      ],
+      "components": 810,
+      "debris_components_le50": 804,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.135,
+        "cylindricity": 0.681,
+        "axis": [
+          0.9934,
+          -0.1146,
+          -0.0
+        ],
+        "class": "closed_or_complex"
+      },
+      "uv": {
+        "present": true,
+        "charts": 4,
+        "coverage": 0.85,
+        "overlap_fraction": 0.091,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          0.99
+        ]
+      },
+      "material": {
+        "name": ".003",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    },
+    {
+      "geometry": "Object_2",
+      "node": "Object_6",
+      "vertices": 2010,
+      "faces": 3200,
+      "extent": [
+        0.82915,
+        0.33135,
+        0.17337
+      ],
+      "centroid_offset": [
+        0.0,
+        -0.0358,
+        -0.087
+      ],
+      "components": 16,
+      "debris_components_le50": 2,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.002,
+        "cylindricity": 0.974,
+        "axis": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "class": "cylindrical"
+      },
+      "uv": {
+        "present": true,
+        "charts": 5,
+        "coverage": 0.401,
+        "overlap_fraction": 0.662,
+        "u_range": [
+          0.062,
+          0.767
+        ],
+        "v_range": [
+          0.027,
+          0.965
+        ]
+      },
+      "material": {
+        "name": ".002",
+        "baseColorTexture": true,
+        "baseColorFactor": null
+      },
+      "recommended_strategy": "wrap"
+    },
+    {
+      "geometry": "Object_1",
+      "node": "Object_5",
+      "vertices": 1256,
+      "faces": 1840,
+      "extent": [
+        0.82157,
+        0.39429,
+        0.16546
+      ],
+      "centroid_offset": [
+        0.0,
+        -0.0374,
+        -0.087
+      ],
+      "components": 18,
+      "debris_components_le50": 10,
+      "watertight": false,
+      "shape": {
+        "planarity": 0.006,
+        "cylindricity": 0.944,
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "class": "cylindrical"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 1.0,
+        "overlap_fraction": 0.75,
+        "u_range": [
+          0.0,
+          1.0
+        ],
+        "v_range": [
+          -0.0,
+          1.0
+        ]
+      },
+      "material": {
+        "name": ".001",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          91,
+          85,
+          77,
+          255
+        ]
+      },
+      "recommended_strategy": "wrap"
+    },
+    {
+      "geometry": "Object_0",
+      "node": "Object_4",
+      "vertices": 43,
+      "faces": 48,
+      "extent": [
+        0.8208,
+        0.0,
+        0.07522
+      ],
+      "centroid_offset": [
+        0.0,
+        -0.2345,
+        -0.087
+      ],
+      "components": 3,
+      "debris_components_le50": 3,
+      "watertight": false,
+      "shape": {
+        "planarity": 1.0,
+        "cylindricity": 1.0,
+        "axis": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "class": "planar"
+      },
+      "uv": {
+        "present": true,
+        "charts": 1,
+        "coverage": 0.004,
+        "overlap_fraction": 0.0,
+        "u_range": [
+          0.0,
+          0.0
+        ],
+        "v_range": [
+          0.167,
+          1.0
+        ]
+      },
+      "material": {
+        "name": "material",
+        "baseColorTexture": false,
+        "baseColorFactor": [
+          204,
+          204,
+          204,
+          255
+        ]
+      },
+      "recommended_strategy": "reuse_existing"
+    }
+  ]
+}
