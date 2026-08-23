@@ -3,10 +3,14 @@ name: CI
 on:
   push:
     branches:
+      - main
       - master
   pull_request:
     branches:
+      - main
       - master
+  # Lets a required status check be re-run without pushing a commit.
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -48,6 +52,9 @@ jobs:
 
       - name: Type check
         run: npm run typecheck
+
+      - name: Test
+        run: npm test
 
       - name: Build
         run: npm run build
