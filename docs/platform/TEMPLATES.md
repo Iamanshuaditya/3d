@@ -6,6 +6,8 @@ Status: Editable immutable templates, exact product compatibility, semantic text
 
 A `DesignTemplateVersion` contains a real editable `DesignDocument`; it is not a flattened PNG and it does not use a second rendering engine. Instantiation materializes personalization into that document and creates an ordinary revision-1 `DesignProject`.
 
+Authenticated operators manage revision-checked `TemplateDraft` records through `/api/v1/admin/template-drafts`. A draft can clone the current immutable version or start from a complete normal template document, bind exact product version/configuration identities and private catalogue assets, run the same catalogue validator, and publish only its currently validated revision. Publication creates `template@N+1`; historical versions and projects are never mutated. Every create/update/validate/failure/publish transition is audited with the server-resolved operator identity.
+
 Published compatibility is exact:
 
 - `productId`;

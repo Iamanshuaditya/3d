@@ -6,7 +6,7 @@ PostgreSQL is a reviewed target, not a runnable runtime adapter in this changese
 
 Current SQLite repositories use synchronous prepared statements and `better-sqlite3` transactions. Better Auth is also configured directly against that SQLite connection. Replacing only the connection object would break transaction semantics, compare-and-swap updates, guest claiming, idempotency, and atomic product publication. A safe adapter requires PostgreSQL implementations of every existing repository plus a PostgreSQL Better Auth adapter; it is not a mechanical SQL-dialect substitution.
 
-The target schema is [schema.sql](./postgresql/schema.sql). It maps SQLite schema v15 to PostgreSQL types and preserves the important foreign keys, immutable revision/version keys, idempotency keys, owner indexes, artifact uniqueness, checksums, onboarding provenance, bulk lifecycle state, and font provenance.
+The target schema is [schema.sql](./postgresql/schema.sql). It maps SQLite schema v16 to PostgreSQL types and preserves the important foreign keys, immutable revision/version keys, idempotency keys, owner indexes, artifact uniqueness, checksums, onboarding provenance, template drafts/audit, bulk lifecycle state, and font provenance.
 
 ## Disposable schema verification
 

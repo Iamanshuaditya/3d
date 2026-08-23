@@ -128,7 +128,7 @@ export class TemplateCatalogService {
     await this.synchronization;
   }
 
-  private async validate(
+  async validateCandidate(
     definition: DesignTemplateDefinition,
     version: DesignTemplateVersion,
   ) {
@@ -274,7 +274,7 @@ export class TemplateCatalogService {
     synchronize = true,
   ) {
     if (synchronize) await this.ensureSynchronized();
-    await this.validate(definition, version);
+    await this.validateCandidate(definition, version);
     const stored = await this.repository.publish(
       definition,
       version,

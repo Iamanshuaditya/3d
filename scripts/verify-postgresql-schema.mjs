@@ -29,6 +29,7 @@ const expectedTables = [
   "personalization_datasets",
   "personalization_jobs",
   "production_fonts",
+  "template_drafts",
 ];
 const assertion = `
 DO $$
@@ -40,7 +41,7 @@ BEGIN
       RAISE EXCEPTION 'missing target table: %', missing_table;
     END IF;
   END LOOP;
-  IF (SELECT max(version) FROM schema_migrations) <> 15 THEN
+  IF (SELECT max(version) FROM schema_migrations) <> 16 THEN
     RAISE EXCEPTION 'unexpected target schema version';
   END IF;
 END $$;
@@ -59,4 +60,4 @@ if (result.status !== 0) {
   console.error(result.stderr.trim() || "PostgreSQL schema verification failed.");
   process.exit(result.status ?? 1);
 }
-console.log(`PostgreSQL target schema v15 verified in a rolled-back namespace (${expectedTables.length} critical tables).`);
+console.log(`PostgreSQL target schema v16 verified in a rolled-back namespace (${expectedTables.length} critical tables).`);

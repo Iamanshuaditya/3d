@@ -19,6 +19,7 @@ import { operatorHasPermission } from "@/server/operators/operator-authorization
 import { AccountControl } from "@/components/auth/AccountControl";
 import { OnboardingPanel } from "@/components/admin/OnboardingPanel";
 import { TemplateAssetPanel } from "@/components/admin/TemplateAssetPanel";
+import { TemplateDraftPanel } from "@/components/admin/TemplateDraftPanel";
 
 export const metadata: Metadata = {
   title: "Product operations",
@@ -112,6 +113,13 @@ export default async function ProductOperationsPage() {
 
       {operatorHasPermission(operator.permissions, "assets:upload") && (
         <TemplateAssetPanel />
+      )}
+
+      {operatorHasPermission(operator.permissions, "templates:read") && (
+        <TemplateDraftPanel
+          canEdit={operatorHasPermission(operator.permissions, "templates:edit")}
+          canPublish={operatorHasPermission(operator.permissions, "templates:publish")}
+        />
       )}
 
       {operatorHasPermission(operator.permissions, "onboarding:run") && (

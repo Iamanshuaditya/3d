@@ -358,4 +358,32 @@ CREATE TABLE production_fonts (
 );
 CREATE INDEX production_fonts_family_idx ON production_fonts(family, weight, style, created_at DESC, id DESC);
 
-INSERT INTO schema_migrations(version) VALUES (15);
+CREATE TABLE template_drafts (
+  id text PRIMARY KEY,
+  template_id text NOT NULL,
+  base_version_id text REFERENCES design_template_versions(id) ON DELETE RESTRICT,
+  status text NOT NULL CHECK (status IN ('draft', 'validated', 'published')),
+  revision integer NOT NULL CHECK (revision >= 1),
+  document_json jsonb NOT NULL,
+  validation_json jsonb,
+  published_version_id text REFERENCES design_template_versions(id) ON DELETE RESTRICT,
+  created_by text NOT NULL,
+  updated_by text NOT NULL,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+CREATE INDEX template_drafts_template_updated_idx ON template_drafts(template_id, updated_at DESC, id DESC);
+
+CREATE TABLE template_draft_events (
+  id text PRIMARY KEY,
+  template_id text NOT NULL,
+  draft_id text NOT NULL REFERENCES template_drafts(id) ON DELETE RESTRICT,
+  action text NOT NULL CHECK (action IN ('draft_created', 'draft_updated', 'draft_validated', 'draft_validation_failed', 'version_published')),
+  actor_id text NOT NULL,
+  draft_revision integer NOT NULL CHECK (draft_revision >= 1),
+  template_version_id text REFERENCES design_template_versions(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL
+);
+CREATE INDEX template_draft_events_draft_idx ON template_draft_events(draft_id, created_at, id);
+
+INSERT INTO schema_migrations(version) VALUES (16);

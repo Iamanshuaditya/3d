@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { configuredPersistenceBackend } from "./backend";
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 export type VortexDatabase = Database.Database;
 
@@ -640,6 +640,48 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (15, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 16) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE template_drafts (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL,
+          base_version_id TEXT,
+          status TEXT NOT NULL CHECK (status IN ('draft', 'validated', 'published')),
+          revision INTEGER NOT NULL CHECK (revision >= 1),
+          document_json TEXT NOT NULL,
+          validation_json TEXT,
+          published_version_id TEXT,
+          created_by TEXT NOT NULL,
+          updated_by TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE INDEX template_drafts_template_updated_idx
+          ON template_drafts(template_id, updated_at DESC, id DESC);
+
+        CREATE TABLE template_draft_events (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL,
+          draft_id TEXT NOT NULL REFERENCES template_drafts(id) ON DELETE RESTRICT,
+          action TEXT NOT NULL CHECK (action IN (
+            'draft_created', 'draft_updated', 'draft_validated',
+            'draft_validation_failed', 'version_published'
+          )),
+          actor_id TEXT NOT NULL,
+          draft_revision INTEGER NOT NULL CHECK (draft_revision >= 1),
+          template_version_id TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX template_draft_events_draft_idx
+          ON template_draft_events(draft_id, created_at, id);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (16, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }
