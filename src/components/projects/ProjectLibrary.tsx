@@ -11,6 +11,7 @@ import {
   generateProjectPreview,
   listProjects,
 } from "@/lib/projects/client";
+import { projectStudioHref } from "@/lib/projects/location";
 
 type ProjectLibraryProps = {
   productNames: Record<string, string>;
@@ -100,6 +101,7 @@ export function ProjectLibrary({ productNames }: ProjectLibraryProps) {
         productVersionId: copy.productVersionId,
         configurationId: copy.configurationId,
         optionSelection: copy.optionSelection,
+        sourceTemplateVersionId: copy.sourceTemplateVersionId,
         status: copy.status,
         revision: copy.revision,
         previewUrl,
@@ -203,7 +205,7 @@ export function ProjectLibrary({ productNames }: ProjectLibraryProps) {
 
                   <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2">
                     <Link
-                      href={`/studio?product=${encodeURIComponent(project.productId)}&project=${encodeURIComponent(project.id)}&version=${encodeURIComponent(project.productVersionId)}${Object.keys(project.optionSelection).length ? `&options=${encodeURIComponent(JSON.stringify(project.optionSelection))}` : ""}`}
+                      href={projectStudioHref(project)}
                       className="flex items-center justify-center gap-2 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[13px] font-semibold text-[var(--st-accent-ink)]"
                     >
                       <Pencil className="h-3.5 w-3.5" />

@@ -151,11 +151,23 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
 
             {selectedText && (
               <div className="mt-2 flex flex-col gap-3 border-t border-[var(--st-line)] pt-4">
+                {selectedText.binding && (
+                  <p className="rounded-lg bg-[var(--st-raised)] px-3 py-2 text-[12px] leading-5 text-[var(--st-dim)]">
+                    Personalized field: <span className="font-mono text-[var(--st-text)]">{selectedText.binding.key}</span>.
+                    Editing the content detaches this layer from that field.
+                  </p>
+                )}
                 <Field label="Content">
                   <textarea
                     rows={2}
                     value={selectedText.text}
-                    onChange={(e) => c.applyChange(selectedText.id, { text: e.target.value }, true)}
+                    onChange={(e) =>
+                      c.applyChange(
+                        selectedText.id,
+                        { text: e.target.value, binding: undefined },
+                        true,
+                      )
+                    }
                     onBlur={c.commitHistory}
                     className={`${inputClass} resize-none`}
                   />

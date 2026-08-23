@@ -16,6 +16,7 @@ import {
   updateProject,
   uploadProjectAsset,
 } from "./client";
+import { applyProjectLocation } from "./location";
 
 const AUTOSAVE_DELAY_MS = 700;
 const PREVIEW_DELAY_MS = 1_500;
@@ -25,21 +26,6 @@ type PendingSave = {
   sequence: number;
   design: DesignDocument;
 };
-
-function applyProjectLocation(url: URL, project: DesignProjectDto) {
-  url.searchParams.set("product", project.productId);
-  url.searchParams.set("project", project.id);
-  url.searchParams.set("version", project.productVersionId);
-  const optionEntries = Object.entries(project.optionSelection);
-  if (optionEntries.length) {
-    url.searchParams.set(
-      "options",
-      JSON.stringify(Object.fromEntries(optionEntries.sort(([a], [b]) => a.localeCompare(b)))),
-    );
-  } else {
-    url.searchParams.delete("options");
-  }
-}
 
 export type ProjectSession = {
   project: DesignProjectDto | null;

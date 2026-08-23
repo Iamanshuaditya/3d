@@ -86,3 +86,32 @@ export async function withOwner(
     return context ? applyOwnerCookie(response, context) : response;
   }
 }
+
+/** Error boundary for public catalogue/read endpoints that do not need owner state. */
+export async function withPublicApi(handler: () => Promise<NextResponse>) {
+  try {
+    return await handler();
+  } catch (error) {
+    if (error instanceof PlatformError) {
+      return json(
+        {
+          error: {
+            code: error.code,
+            message: error.message,
+            ...(error.details ? { details: error.details } : {}),
+          },
+        },
+        error.status,
+      );
+    }
+    console.error(JSON.stringify({
+      scope: "vortex-platform",
+      event: "api.unhandled-error",
+      message: error instanceof Error ? error.message : "Unknown error",
+    }));
+    return json(
+      { error: { code: "INTERNAL_ERROR", message: "The request could not be completed." } },
+      500,
+    );
+  }
+}

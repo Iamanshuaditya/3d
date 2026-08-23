@@ -117,13 +117,13 @@ export function ProductCard({ config, summary }: ProductCardProps) {
         </dl>
 
         <Link
-          href={`/studio?product=${summary.id}`}
+          href={`/templates?product=${encodeURIComponent(summary.id)}`}
           className="mt-auto flex items-center justify-between rounded-lg px-1 py-1 text-[13px] font-medium text-[var(--st-dim)] outline-none transition-colors group-hover:text-[var(--st-text)] focus-visible:ring-2 focus-visible:ring-[var(--st-accent)]"
         >
           {/* Stretched so the whole card is one target, while the link itself
               stays the only focusable element. */}
           <span className="after:absolute after:inset-0 after:content-['']">
-            Open in studio
+            Choose design
           </span>
           <ArrowUpRight className="h-4 w-4" />
         </Link>
