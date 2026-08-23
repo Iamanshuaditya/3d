@@ -103,6 +103,10 @@ test("physical tolerances have stringent defaults and reject inconsistent overri
     () => createStructuralTolerances({ curveFlatteningMm: 0.1 }),
     /must not exceed boundaryComparisonMm/,
   );
+  assert.throws(
+    () => createStructuralTolerances({ boundaryComparisonMm: 0.01, metricSampleSpacingMm: 0.05 }),
+    /metricSampleSpacingMm/,
+  );
   assert.throws(() => createStructuralTolerances({ topologySnapMm: 0 }), /finite positive/);
   assert.throws(() => createStructuralTolerances({ maxSubdivisionDepth: 1.5 }), /integer/);
 });
@@ -213,4 +217,142 @@ test("arcs keep vector semantics and invalid sweeps fail honestly", () => {
   );
   assert.match(issue?.message ?? "", /complete revolution/);
   assert.equal(withBadArc.entities[0].path.segments[0].kind, "arc");
+});
+
+test("closed window contours must enclose real non-self-intersecting area", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const backtracking: CanonicalDieline = {
+    ...valid,
+    entities: [{
+      ...entity,
+      operation: "window-cut",
+      path: {
+        ...entity.path,
+        segments: [
+          { kind: "line", start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
+          { kind: "line", start: { x: 10, y: 0 }, end: { x: 0, y: 0 } },
+        ],
+      },
+    }],
+  };
+  const codes = validateCanonicalDieline(backtracking).map((issue) => issue.code);
+  assert.ok(codes.includes("degenerate-closed-path"));
+  assert.ok(codes.includes("zero-area-window-cut"));
+});
+
+test("canonical validation distinguishes repairable residual gaps from exact continuity", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const withResidualGap: CanonicalDieline = {
+    ...valid,
+    entities: [{
+      ...entity,
+      path: {
+        ...entity.path,
+        closed: false,
+        segments: [
+          { kind: "line", start: { x: 0, y: 0 }, end: { x: 1, y: 0 } },
+          { kind: "line", start: { x: 1.009, y: 0 }, end: { x: 2, y: 0 } },
+        ],
+      },
+    }],
+  };
+  assert.ok(
+    validateCanonicalDieline(withResidualGap).some(
+      (issue) => issue.code === "unsnapped-path-gap",
+    ),
+  );
+});
+
+test("ill-conditioned, overflowing, and provenance-conflicting geometry is rejected", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const broken: CanonicalDieline = {
+    ...valid,
+    entities: [
+      {
+        ...entity,
+        id: "ill-conditioned",
+        path: {
+          ...entity.path,
+          id: "ill-conditioned-path",
+          transform: { a: 1e16, b: 0, c: 0, d: 1e-16, e: 0, f: 0 },
+        },
+      },
+      {
+        ...entity,
+        id: "overflow",
+        provenance: { ...entity.provenance, sourceId: "wrong-source", format: "pdf" },
+        path: {
+          ...entity.path,
+          id: "overflow-path",
+          provenance: { ...entity.path.provenance, sourceId: "another-source", format: "dxf" },
+          transform: { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 },
+          segments: [{
+            kind: "arc",
+            center: { x: 1e308, y: 0 },
+            radius: 1,
+            startAngleRad: 0,
+            sweepAngleRad: Math.PI * 2,
+          }],
+        },
+      },
+    ],
+  };
+  const codes = validateCanonicalDieline(broken).map((issue) => issue.code);
+  assert.ok(codes.includes("ill-conditioned-path-transform"));
+  assert.ok(codes.includes("non-finite-transformed-geometry"));
+  assert.ok(codes.includes("provenance-mismatch"));
+});
+
+test("closed-contour validation is translation invariant at large coordinates", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const translatedWindow: CanonicalDieline = {
+    ...valid,
+    entities: [{
+      ...entity,
+      operation: "window-cut",
+      path: {
+        ...entity.path,
+        transform: { a: 1, b: 0, c: 0, d: 1, e: 1e12, f: -1e12 },
+        segments: [
+          { kind: "line", start: { x: 0, y: 0 }, end: { x: 10, y: 0 } },
+          { kind: "line", start: { x: 10, y: 0 }, end: { x: 10, y: 10 } },
+          { kind: "line", start: { x: 10, y: 10 }, end: { x: 0, y: 10 } },
+          { kind: "line", start: { x: 0, y: 10 }, end: { x: 0, y: 0 } },
+        ],
+      },
+    }],
+  };
+  assert.deepEqual(validateCanonicalDieline(translatedWindow), []);
+});
+
+test("arc transform validation uses the full basis envelope rather than cardinal samples", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const overflowBetweenCardinals: CanonicalDieline = {
+    ...valid,
+    entities: [{
+      ...entity,
+      operation: "window-cut",
+      path: {
+        ...entity.path,
+        transform: { a: 1.4e308, b: 1.4e308, c: 1.4e308, d: -1.4e308, e: 0, f: 0 },
+        segments: [{
+          kind: "arc",
+          center: { x: 0, y: 0 },
+          radius: 1,
+          startAngleRad: 0,
+          sweepAngleRad: Math.PI * 2,
+        }],
+      },
+    }],
+  };
+  assert.ok(
+    validateCanonicalDieline(overflowBetweenCardinals).some(
+      (issue) => issue.code === "non-finite-transformed-geometry",
+    ),
+  );
 });

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   CurveSubdivisionLimitError,
+  DiscontinuousVectorPathError,
   IDENTITY_AFFINE_MATRIX,
   affineRotation,
   affineScale,
@@ -15,6 +16,7 @@ import {
   evaluateVectorSegment,
   flattenVectorPath,
   flattenVectorSegment,
+  affineConditionNumber,
   invertAffine,
   pointInVectorPath,
   pointToPolylineDistance,
@@ -23,6 +25,7 @@ import {
   signedPolygonArea,
   vectorPathBounds,
   vectorPathLength,
+  vectorPathSignedAreaExact,
   type SourceProvenance,
   type VectorPath,
 } from "@/lib/structure";
@@ -249,4 +252,71 @@ test("distance-based path evaluation uses physical millimetres", () => {
   };
   assert.deepEqual(evaluateVectorPathByLength(path, 15), { x: 10, y: 5 });
   approximately(distanceBetweenPoints({ x: 0, y: 0 }, { x: 3, y: 4 }), 5);
+});
+
+test("strict flattening never invents an edge across an unsnapped path gap", () => {
+  const path: VectorPath = {
+    id: "gapped",
+    closed: false,
+    transform: IDENTITY_AFFINE_MATRIX,
+    provenance,
+    segments: [
+      { kind: "line", start: { x: 0, y: 0 }, end: { x: 1, y: 0 } },
+      { kind: "line", start: { x: 1.009, y: 0 }, end: { x: 2, y: 0 } },
+    ],
+  };
+  assert.throws(() => flattenVectorPath(path, 0.001), DiscontinuousVectorPathError);
+});
+
+test("curve tessellation pins analytic endpoints under large affine translation", () => {
+  const arc = {
+    kind: "elliptical-arc" as const,
+    center: { x: 3, y: -4 },
+    radiusX: 17,
+    radiusY: 6,
+    rotationRad: 0.37,
+    startAngleRad: 0.23,
+    sweepAngleRad: 2.4,
+  };
+  const start = evaluateVectorSegment(arc, 0);
+  const end = evaluateVectorSegment(arc, 1);
+  const path: VectorPath = {
+    id: "large-translated-arc",
+    closed: true,
+    transform: { a: 1.3, b: 0.4, c: -0.2, d: 0.9, e: 1e7, f: -1e7 },
+    provenance,
+    segments: [arc, { kind: "line", start: end, end: start }],
+  };
+  assert.doesNotThrow(() => flattenVectorPath(path, 0.001, 32, 1e-9));
+});
+
+test("affine inversion rejects unstable transforms without rejecting large uniform scale", () => {
+  assert.ok(affineConditionNumber({ a: 1e200, b: 0, c: 0, d: 1e200, e: 0, f: 0 }) <= 1);
+  assert.throws(
+    () => invertAffine({ a: 1e16, b: 0, c: 0, d: 1e-16, e: 0, f: 0 }),
+    /ill-conditioned/,
+  );
+  const large = { a: 1e200, b: 0, c: 0, d: 1e200, e: 1, f: -1 };
+  const inverse = invertAffine(large);
+  assert.ok(Object.values(inverse).every(Number.isFinite));
+});
+
+test("exact vector area is translation-stable for lines and affine arcs", () => {
+  const translated = squarePath(affineTranslation(1e12, -1e12));
+  approximately(vectorPathSignedAreaExact(translated), 100, 1e-9);
+
+  const circle: VectorPath = {
+    id: "exact-circle-area",
+    closed: true,
+    transform: composeAffine(affineScale(2, 3), affineTranslation(1e9, -1e9)),
+    provenance,
+    segments: [{
+      kind: "arc",
+      center: { x: 0, y: 0 },
+      radius: 10,
+      startAngleRad: 0,
+      sweepAngleRad: Math.PI * 2,
+    }],
+  };
+  approximately(vectorPathSignedAreaExact(circle), Math.PI * 100 * 6, 1e-8);
 });

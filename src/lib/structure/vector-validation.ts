@@ -4,15 +4,25 @@ import {
   FINISHING_OPERATIONS,
   type AffineMatrix,
   type CanonicalDieline,
+  type CanonicalDielineSource,
+  type SourceProvenance,
   type StructuralOperation,
   type StructuralTolerances,
   type Vec2,
   type VectorSegment,
 } from "./vector-domain";
+import {
+  affineConditionNumber,
+  applyAffine,
+  evaluateVectorSegment,
+  flattenVectorPath,
+  vectorPathSignedAreaExact,
+} from "./vector-math";
 
 const TAU = Math.PI * 2;
 const SHA_256 = /^[a-f0-9]{64}$/;
 const CUSTOM_OPERATION = /^custom:[a-z0-9][a-z0-9._/-]*$/i;
+const MAX_AFFINE_CONDITION_NUMBER = 1e12;
 
 export type DielineValidationIssue = Readonly<{
   code: string;
@@ -55,34 +65,181 @@ function pointDistance(a: Vec2, b: Vec2): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+function segmentRepresentativePoints(segment: VectorSegment): readonly Vec2[] {
+  switch (segment.kind) {
+    case "line":
+      return [segment.start, segment.end];
+    case "quadratic":
+      return [segment.p0, segment.p1, segment.p2, evaluateVectorSegment(segment, 0.5)];
+    case "cubic":
+      return [
+        segment.p0,
+        segment.p1,
+        segment.p2,
+        segment.p3,
+        evaluateVectorSegment(segment, 0.25),
+        evaluateVectorSegment(segment, 0.5),
+        evaluateVectorSegment(segment, 0.75),
+      ];
+    case "arc":
+    case "elliptical-arc":
+      return [
+        segment.center,
+        evaluateVectorSegment(segment, 0),
+        evaluateVectorSegment(segment, 0.25),
+        evaluateVectorSegment(segment, 0.5),
+        evaluateVectorSegment(segment, 0.75),
+        evaluateVectorSegment(segment, 1),
+      ];
+  }
+}
+
+function transformedRepresentativePoints(
+  segment: VectorSegment,
+  transform: AffineMatrix,
+): readonly Vec2[] {
+  return segmentRepresentativePoints(segment).map((point) => applyAffine(transform, point));
+}
+
+function segmentHasFiniteTransformedGeometry(
+  segment: VectorSegment,
+  transform: AffineMatrix,
+): boolean {
+  if (!transformedRepresentativePoints(segment, transform).every(isFiniteVec2)) return false;
+  if (segment.kind !== "arc" && segment.kind !== "elliptical-arc") return true;
+  const cosine = segment.kind === "arc" ? 1 : Math.cos(segment.rotationRad);
+  const sine = segment.kind === "arc" ? 0 : Math.sin(segment.rotationRad);
+  const radiusX = segment.kind === "arc" ? segment.radius : segment.radiusX;
+  const radiusY = segment.kind === "arc" ? segment.radius : segment.radiusY;
+  const cosineBasis = { x: radiusX * cosine, y: radiusX * sine };
+  const sineBasis = { x: -radiusY * sine, y: radiusY * cosine };
+  const center = applyAffine(transform, segment.center);
+  const transformedCosineBasis = {
+    x: transform.a * cosineBasis.x + transform.c * cosineBasis.y,
+    y: transform.b * cosineBasis.x + transform.d * cosineBasis.y,
+  };
+  const transformedSineBasis = {
+    x: transform.a * sineBasis.x + transform.c * sineBasis.y,
+    y: transform.b * sineBasis.x + transform.d * sineBasis.y,
+  };
+  const xEnvelope =
+    Math.abs(center.x) + Math.hypot(transformedCosineBasis.x, transformedSineBasis.x);
+  const yEnvelope =
+    Math.abs(center.y) + Math.hypot(transformedCosineBasis.y, transformedSineBasis.y);
+  return Number.isFinite(xEnvelope) && Number.isFinite(yEnvelope);
+}
+
 function segmentHasExtent(
   segment: VectorSegment,
   transform: AffineMatrix,
   epsilonMm: number,
 ): boolean {
-  let representativePoints: readonly Vec2[];
-  switch (segment.kind) {
-    case "line":
-      representativePoints = [segment.start, segment.end];
-      break;
-    case "quadratic":
-      representativePoints = [segment.p0, segment.p1, segment.p2];
-      break;
-    case "cubic":
-      representativePoints = [segment.p0, segment.p1, segment.p2, segment.p3];
-      break;
-    case "arc":
-    case "elliptical-arc":
-      // Positive radii, non-zero sweep, and a non-singular transform guarantee extent.
-      return true;
-  }
-  const transformed = representativePoints.map((point) => applyMatrix(transform, point));
+  const transformed = transformedRepresentativePoints(segment, transform);
   for (let first = 0; first < transformed.length; first += 1) {
     for (let second = first + 1; second < transformed.length; second += 1) {
       if (pointDistance(transformed[first], transformed[second]) > epsilonMm) return true;
     }
   }
   return false;
+}
+
+function cross(a: Vec2, b: Vec2, c: Vec2): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function pointOnSegment(point: Vec2, start: Vec2, end: Vec2, epsilonMm: number): boolean {
+  const length = Math.max(pointDistance(start, end), 1);
+  return (
+    Math.abs(cross(start, end, point)) <= epsilonMm * length &&
+    point.x >= Math.min(start.x, end.x) - epsilonMm &&
+    point.x <= Math.max(start.x, end.x) + epsilonMm &&
+    point.y >= Math.min(start.y, end.y) - epsilonMm &&
+    point.y <= Math.max(start.y, end.y) + epsilonMm
+  );
+}
+
+function segmentsIntersect(
+  firstStart: Vec2,
+  firstEnd: Vec2,
+  secondStart: Vec2,
+  secondEnd: Vec2,
+  epsilonMm: number,
+): boolean {
+  const c1 = cross(firstStart, firstEnd, secondStart);
+  const c2 = cross(firstStart, firstEnd, secondEnd);
+  const c3 = cross(secondStart, secondEnd, firstStart);
+  const c4 = cross(secondStart, secondEnd, firstEnd);
+  const firstLength = Math.max(pointDistance(firstStart, firstEnd), 1);
+  const secondLength = Math.max(pointDistance(secondStart, secondEnd), 1);
+  const firstTolerance = epsilonMm * firstLength;
+  const secondTolerance = epsilonMm * secondLength;
+  if (
+    ((c1 > firstTolerance && c2 < -firstTolerance) ||
+      (c1 < -firstTolerance && c2 > firstTolerance)) &&
+    ((c3 > secondTolerance && c4 < -secondTolerance) ||
+      (c3 < -secondTolerance && c4 > secondTolerance))
+  ) {
+    return true;
+  }
+  return (
+    (Math.abs(c1) <= firstTolerance && pointOnSegment(secondStart, firstStart, firstEnd, epsilonMm)) ||
+    (Math.abs(c2) <= firstTolerance && pointOnSegment(secondEnd, firstStart, firstEnd, epsilonMm)) ||
+    (Math.abs(c3) <= secondTolerance && pointOnSegment(firstStart, secondStart, secondEnd, epsilonMm)) ||
+    (Math.abs(c4) <= secondTolerance && pointOnSegment(firstEnd, secondStart, secondEnd, epsilonMm))
+  );
+}
+
+function polylineSelfIntersects(points: readonly Vec2[], closed: boolean, epsilonMm: number): boolean {
+  const segmentCount = points.length - 1 + (closed ? 1 : 0);
+  for (let first = 0; first < segmentCount; first += 1) {
+    for (let second = first + 1; second < segmentCount; second += 1) {
+      const adjacent = second === first + 1 || (closed && first === 0 && second === segmentCount - 1);
+      if (adjacent) continue;
+      if (
+        segmentsIntersect(
+          points[first],
+          points[(first + 1) % points.length],
+          points[second],
+          points[(second + 1) % points.length],
+          epsilonMm,
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function uniquePointCount(points: readonly Vec2[], epsilonMm: number): number {
+  const unique: Vec2[] = [];
+  for (const point of points) {
+    if (!unique.some((candidate) => pointDistance(candidate, point) <= epsilonMm)) unique.push(point);
+  }
+  return unique.length;
+}
+
+function provenanceIssues(
+  provenance: SourceProvenance,
+  source: CanonicalDielineSource,
+  label: string,
+): string[] {
+  const issues: string[] = [];
+  if (provenance.sourceId !== source.id) {
+    issues.push(`${label} sourceId ${provenance.sourceId} does not match dieline source ${source.id}`);
+  }
+  if (provenance.format !== source.format) {
+    issues.push(`${label} format ${provenance.format} does not match dieline source ${source.format}`);
+  }
+  if (provenance.sourceUnits !== undefined && provenance.sourceUnits !== source.sourceUnits) {
+    issues.push(
+      `${label} sourceUnits ${provenance.sourceUnits} does not match dieline source ${source.sourceUnits}`,
+    );
+  }
+  if (provenance.sourceTransform !== undefined && !isFiniteMatrix(provenance.sourceTransform)) {
+    issues.push(`${label} sourceTransform must contain finite values`);
+  }
+  return issues;
 }
 
 function segmentEndpoint(segment: VectorSegment, atEnd: boolean): Vec2 {
@@ -158,6 +315,13 @@ export function validateStructuralTolerances(
   }
   if (tolerances.curveFlatteningMm > tolerances.boundaryComparisonMm) {
     issues.push("curveFlatteningMm must not exceed boundaryComparisonMm");
+  }
+  const metricCertificateBudgetMm =
+    tolerances.topologySnapMm * 2 + tolerances.metricSampleSpacingMm / 2;
+  if (metricCertificateBudgetMm > tolerances.boundaryComparisonMm) {
+    issues.push(
+      "2 * topologySnapMm + metricSampleSpacingMm / 2 must not exceed boundaryComparisonMm",
+    );
   }
   return issues;
 }
@@ -273,6 +437,10 @@ export function validateCanonicalDieline(
     }
     entityIds.add(entity.id);
 
+    for (const message of provenanceIssues(entity.provenance, dieline.source, "entity provenance")) {
+      issues.push({ code: "provenance-mismatch", message, entityId: entity.id });
+    }
+
     if (!isStructuralOperation(entity.operation)) {
       issues.push({
         code: "operation",
@@ -315,6 +483,14 @@ export function validateCanonicalDieline(
       });
     }
     pathIds.add(path.id);
+    for (const message of provenanceIssues(path.provenance, dieline.source, "path provenance")) {
+      issues.push({
+        code: "provenance-mismatch",
+        message,
+        entityId: entity.id,
+        pathId: path.id,
+      });
+    }
     if (!isFiniteMatrix(path.transform)) {
       issues.push({
         code: "path-transform",
@@ -322,13 +498,17 @@ export function validateCanonicalDieline(
         entityId: entity.id,
         pathId: path.id,
       });
-    } else if (
-      Math.abs(path.transform.a * path.transform.d - path.transform.b * path.transform.c) <=
-      Number.EPSILON
-    ) {
+    } else if (!Number.isFinite(affineConditionNumber(path.transform))) {
       issues.push({
         code: "singular-path-transform",
         message: "path transform must not collapse structural geometry",
+        entityId: entity.id,
+        pathId: path.id,
+      });
+    } else if (affineConditionNumber(path.transform) > MAX_AFFINE_CONDITION_NUMBER) {
+      issues.push({
+        code: "ill-conditioned-path-transform",
+        message: `path transform condition number exceeds ${MAX_AFFINE_CONDITION_NUMBER}`,
         entityId: entity.id,
         pathId: path.id,
       });
@@ -351,6 +531,8 @@ export function validateCanonicalDieline(
       });
     }
 
+    let hasContinuityIssue = false;
+    let hasInvalidTransformedGeometry = false;
     path.segments.forEach((segment, segmentIndex) => {
       for (const message of validateSegment(segment)) {
         issues.push({
@@ -361,8 +543,67 @@ export function validateCanonicalDieline(
           segmentIndex,
         });
       }
+      if (segment.provenance) {
+        for (const message of provenanceIssues(
+          segment.provenance.source,
+          dieline.source,
+          "segment provenance",
+        )) {
+          issues.push({
+            code: "provenance-mismatch",
+            message,
+            entityId: entity.id,
+            pathId: path.id,
+            segmentIndex,
+          });
+        }
+        const sourceSegmentIndex = segment.provenance.sourceSegmentIndex;
+        if (
+          sourceSegmentIndex !== undefined &&
+          (!Number.isInteger(sourceSegmentIndex) || sourceSegmentIndex < 0)
+        ) {
+          issues.push({
+            code: "invalid-segment-provenance",
+            message: "sourceSegmentIndex must be a non-negative integer",
+            entityId: entity.id,
+            pathId: path.id,
+            segmentIndex,
+          });
+        }
+        const parameterRange = segment.provenance.sourceParameterRange;
+        if (
+          parameterRange &&
+          (!parameterRange.every(Number.isFinite) ||
+            parameterRange[0] < 0 ||
+            parameterRange[1] > 1 ||
+            parameterRange[0] >= parameterRange[1])
+        ) {
+          issues.push({
+            code: "invalid-segment-provenance",
+            message: "sourceParameterRange must be an increasing finite interval within 0..1",
+            entityId: entity.id,
+            pathId: path.id,
+            segmentIndex,
+          });
+        }
+      }
+      const transformedGeometryIsFinite =
+        isFiniteMatrix(path.transform) && segmentHasFiniteTransformedGeometry(segment, path.transform);
+      if (isFiniteMatrix(path.transform)) {
+        if (!transformedGeometryIsFinite) {
+          hasInvalidTransformedGeometry = true;
+          issues.push({
+            code: "non-finite-transformed-geometry",
+            message: "segment produces non-finite canonical millimetre coordinates",
+            entityId: entity.id,
+            pathId: path.id,
+            segmentIndex,
+          });
+        }
+      }
       if (
         isFiniteMatrix(path.transform) &&
+        transformedGeometryIsFinite &&
         !segmentHasExtent(segment, path.transform, dieline.tolerances.coordinateEpsilonMm)
       ) {
         issues.push({
@@ -379,10 +620,14 @@ export function validateCanonicalDieline(
           applyMatrix(path.transform, segmentEndpoint(previous, true)),
           applyMatrix(path.transform, segmentEndpoint(segment, false)),
         );
-        if (gap > dieline.tolerances.topologySnapMm) {
+        if (gap > dieline.tolerances.coordinateEpsilonMm) {
+          hasContinuityIssue = true;
           issues.push({
-            code: "path-gap",
-            message: `segment gap ${gap.toFixed(6)} mm exceeds topologySnapMm`,
+            code: gap <= dieline.tolerances.topologySnapMm ? "unsnapped-path-gap" : "path-gap",
+            message:
+              gap <= dieline.tolerances.topologySnapMm
+                ? `segment gap ${gap.toFixed(9)} mm requires an explicit topology repair`
+                : `segment gap ${gap.toFixed(9)} mm exceeds topologySnapMm`,
             entityId: entity.id,
             pathId: path.id,
             segmentIndex,
@@ -396,13 +641,93 @@ export function validateCanonicalDieline(
         applyMatrix(path.transform, segmentEndpoint(path.segments[path.segments.length - 1], true)),
         applyMatrix(path.transform, segmentEndpoint(path.segments[0], false)),
       );
-      if (gap > dieline.tolerances.topologySnapMm) {
+      if (gap > dieline.tolerances.coordinateEpsilonMm) {
+        hasContinuityIssue = true;
         issues.push({
-          code: "open-closed-path",
-          message: `closed path endpoint gap ${gap.toFixed(6)} mm exceeds topologySnapMm`,
+          code:
+            gap <= dieline.tolerances.topologySnapMm
+              ? "unsnapped-closed-path-gap"
+              : "open-closed-path",
+          message:
+            gap <= dieline.tolerances.topologySnapMm
+              ? `closed path endpoint gap ${gap.toFixed(9)} mm requires an explicit topology repair`
+              : `closed path endpoint gap ${gap.toFixed(9)} mm exceeds topologySnapMm`,
           entityId: entity.id,
           pathId: path.id,
           segmentIndex: path.segments.length - 1,
+        });
+      }
+    }
+
+    if (path.closed && !hasContinuityIssue && !hasInvalidTransformedGeometry) {
+      try {
+        const flattened = flattenVectorPath(
+          path,
+          Math.min(dieline.tolerances.curveFlatteningMm, dieline.tolerances.topologySnapMm / 4),
+          dieline.tolerances.maxSubdivisionDepth,
+          dieline.tolerances.coordinateEpsilonMm,
+        );
+        if (uniquePointCount(flattened.points, dieline.tolerances.coordinateEpsilonMm) < 3) {
+          issues.push({
+            code: "degenerate-closed-path",
+            message: "closed path must contain at least three distinct physical points",
+            entityId: entity.id,
+            pathId: path.id,
+          });
+        }
+        const exactArea = vectorPathSignedAreaExact(path);
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const point of flattened.points) {
+          minX = Math.min(minX, point.x);
+          minY = Math.min(minY, point.y);
+          maxX = Math.max(maxX, point.x);
+          maxY = Math.max(maxY, point.y);
+        }
+        const diagonalMm = Math.hypot(maxX - minX, maxY - minY);
+        let perimeterMm = 0;
+        for (let index = 0; index < flattened.points.length; index += 1) {
+          perimeterMm += pointDistance(
+            flattened.points[index],
+            flattened.points[(index + 1) % flattened.points.length],
+          );
+        }
+        const areaEpsilonMm2 = Math.max(
+          dieline.tolerances.coordinateEpsilonMm ** 2,
+          dieline.tolerances.coordinateEpsilonMm * Math.max(1, perimeterMm),
+          64 * Number.EPSILON * Math.max(1, diagonalMm ** 2) * path.segments.length,
+        );
+        if (!Number.isFinite(exactArea) || Math.abs(exactArea) <= areaEpsilonMm2) {
+          issues.push({
+            code: entity.operation === "window-cut" ? "zero-area-window-cut" : "zero-area-closed-path",
+            message: "closed structural contour must enclose finite non-zero physical area",
+            entityId: entity.id,
+            pathId: path.id,
+          });
+        }
+        if (
+          flattened.points.length >= 3 &&
+          polylineSelfIntersects(
+            flattened.points,
+            true,
+            dieline.tolerances.coordinateEpsilonMm,
+          )
+        ) {
+          issues.push({
+            code: "self-intersecting-closed-path",
+            message: "adaptively tessellated closed contour self-intersects; exact source review required",
+            entityId: entity.id,
+            pathId: path.id,
+          });
+        }
+      } catch (error) {
+        issues.push({
+          code: "invalid-closed-path",
+          message: error instanceof Error ? error.message : String(error),
+          entityId: entity.id,
+          pathId: path.id,
         });
       }
     }

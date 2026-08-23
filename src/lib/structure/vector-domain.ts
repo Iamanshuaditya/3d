@@ -140,7 +140,7 @@ export type LineSegment = VectorSegmentBase &
     end: Vec2;
   }>;
 
-/** Circular arc in centre parameterization. Positive sweep is counter-clockwise. */
+/** Circular arc in centre parameterization. Positive sweep appears clockwise in y-down sheet space. */
 export type ArcSegment = VectorSegmentBase &
   Readonly<{
     kind: "arc";

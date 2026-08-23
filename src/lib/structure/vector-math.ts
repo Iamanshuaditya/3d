@@ -33,6 +33,19 @@ export class CurveSubdivisionLimitError extends Error {
   }
 }
 
+export class DiscontinuousVectorPathError extends Error {
+  constructor(
+    readonly pathId: string,
+    readonly gapMm: number,
+    readonly segmentIndex: number,
+  ) {
+    super(
+      `Vector path ${pathId} has a ${gapMm.toFixed(9)} mm gap before segment ${segmentIndex}`,
+    );
+    this.name = "DiscontinuousVectorPathError";
+  }
+}
+
 function assertPositiveFinite(value: number, label: string): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new RangeError(`${label} must be finite and positive`);
@@ -114,19 +127,62 @@ export function affineDeterminant(matrix: AffineMatrix): number {
   return matrix.a * matrix.d - matrix.b * matrix.c;
 }
 
+/** 2-norm condition number of the linear 2x2 portion of an affine matrix. */
+export function affineConditionNumber(matrix: AffineMatrix): number {
+  const scale = Math.max(
+    Math.abs(matrix.a),
+    Math.abs(matrix.b),
+    Math.abs(matrix.c),
+    Math.abs(matrix.d),
+  );
+  if (!Number.isFinite(scale) || scale === 0) return Infinity;
+  const a = matrix.a / scale;
+  const b = matrix.b / scale;
+  const c = matrix.c / scale;
+  const d = matrix.d / scale;
+  const aa = a * a + b * b;
+  const bb = c * c + d * d;
+  const ab = a * c + b * d;
+  const trace = aa + bb;
+  const discriminant = Math.sqrt(Math.max(0, (aa - bb) * (aa - bb) + 4 * ab * ab));
+  const largestEigenvalue = (trace + discriminant) / 2;
+  const determinantMagnitude = Math.abs(a * d - b * c);
+  if (!Number.isFinite(largestEigenvalue) || largestEigenvalue <= 0) return Infinity;
+  if (!Number.isFinite(determinantMagnitude) || determinantMagnitude === 0) return Infinity;
+  // sigmaMax / sigmaMin == sigmaMax^2 / |det(A)|. This form avoids the
+  // catastrophic cancellation in trace - discriminant for thin transforms.
+  return largestEigenvalue / determinantMagnitude;
+}
+
 export function invertAffine(matrix: AffineMatrix): AffineMatrix {
-  const determinant = affineDeterminant(matrix);
-  if (!Number.isFinite(determinant) || Math.abs(determinant) <= Number.EPSILON) {
-    throw new RangeError("affine matrix is singular");
+  const conditionNumber = affineConditionNumber(matrix);
+  const scale = Math.max(
+    Math.abs(matrix.a),
+    Math.abs(matrix.b),
+    Math.abs(matrix.c),
+    Math.abs(matrix.d),
+  );
+  if (!Number.isFinite(conditionNumber) || conditionNumber > 1e12 || scale === 0) {
+    throw new RangeError("affine matrix is singular or numerically ill-conditioned");
   }
-  return {
-    a: matrix.d / determinant,
-    b: -matrix.b / determinant,
-    c: -matrix.c / determinant,
-    d: matrix.a / determinant,
-    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
-    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant,
+  const a = matrix.a / scale;
+  const b = matrix.b / scale;
+  const c = matrix.c / scale;
+  const d = matrix.d / scale;
+  const determinant = a * d - b * c;
+  const denominator = scale * determinant;
+  const inverse = {
+    a: d / denominator,
+    b: -b / denominator,
+    c: -c / denominator,
+    d: a / denominator,
+    e: (c * matrix.f - d * matrix.e) / denominator,
+    f: (b * matrix.e - a * matrix.f) / denominator,
   };
+  if (Object.values(inverse).some((value) => !Number.isFinite(value))) {
+    throw new RangeError("affine matrix inverse is not finite");
+  }
+  return inverse;
 }
 
 export function applyAffine(matrix: AffineMatrix, point: Vec2): Vec2 {
@@ -572,25 +628,58 @@ export function flattenVectorPath(
   path: VectorPath,
   toleranceMm = DEFAULT_STRUCTURAL_TOLERANCES.curveFlatteningMm,
   maxDepth = DEFAULT_STRUCTURAL_TOLERANCES.maxSubdivisionDepth,
+  continuityEpsilonMm = DEFAULT_STRUCTURAL_TOLERANCES.coordinateEpsilonMm,
 ): FlattenedVectorPath {
+  if (!Number.isFinite(continuityEpsilonMm) || continuityEpsilonMm < 0) {
+    throw new RangeError("continuityEpsilonMm must be finite and non-negative");
+  }
   if (path.segments.length === 0) return { id: path.id, points: [], closed: path.closed };
   const points: Vec2[] = [];
-  for (const segment of path.segments) {
-    const flattened = flattenVectorSegment(segment, toleranceMm, path.transform, maxDepth);
+  let previousAnalyticEnd: Vec2 | null = null;
+  for (let segmentIndex = 0; segmentIndex < path.segments.length; segmentIndex += 1) {
+    const segment = path.segments[segmentIndex];
+    const analyticStart = applyAffine(path.transform, segmentStart(segment));
+    const analyticEnd = applyAffine(path.transform, segmentEnd(segment));
+    const flattened = [...flattenVectorSegment(segment, toleranceMm, path.transform, maxDepth)];
+    // Curve subdivision and analytic endpoint evaluation can take different
+    // floating-point paths. Pin tessellation endpoints to the canonical
+    // analytic contract before checking continuity or joining polylines.
+    flattened[0] = analyticStart;
+    flattened[flattened.length - 1] = analyticEnd;
+    if (
+      previousAnalyticEnd &&
+      distanceBetweenPoints(previousAnalyticEnd, analyticStart) > continuityEpsilonMm
+    ) {
+      throw new DiscontinuousVectorPathError(
+        path.id,
+        distanceBetweenPoints(previousAnalyticEnd, analyticStart),
+        segmentIndex,
+      );
+    }
     for (let index = 0; index < flattened.length; index += 1) {
       const point = flattened[index];
-      const previous = points[points.length - 1];
-      if (index === 0 && previous && distanceBetweenPoints(previous, point) <= PARAMETER_EPSILON) {
+      const priorPoint = points[points.length - 1];
+      if (
+        index === 0 &&
+        priorPoint &&
+        distanceBetweenPoints(priorPoint, point) <= continuityEpsilonMm
+      ) {
         continue;
       }
       points.push(point);
     }
+    previousAnalyticEnd = analyticEnd;
   }
-  if (
-    path.closed &&
-    points.length > 1 &&
-    distanceBetweenPoints(points[0], points[points.length - 1]) <= PARAMETER_EPSILON
-  ) {
+  if (path.closed && points.length > 1) {
+    const analyticStart = applyAffine(path.transform, segmentStart(path.segments[0]));
+    const analyticEnd = applyAffine(
+      path.transform,
+      segmentEnd(path.segments[path.segments.length - 1]),
+    );
+    const closureGap = distanceBetweenPoints(analyticStart, analyticEnd);
+    if (closureGap > continuityEpsilonMm) {
+      throw new DiscontinuousVectorPathError(path.id, closureGap, path.segments.length);
+    }
     points.pop();
   }
   return { id: path.id, points, closed: path.closed };
@@ -661,6 +750,96 @@ export function vectorPathSignedArea(
 ): number {
   if (!path.closed) throw new RangeError("signed area is only defined for a closed path");
   return signedPolygonArea(flattenVectorPath(path, toleranceMm).points);
+}
+
+function crossVec2(a: Vec2, b: Vec2): number {
+  return a.x * b.y - a.y * b.x;
+}
+
+function subtractAnchor(point: Vec2, anchor: Vec2): Vec2 {
+  return { x: point.x - anchor.x, y: point.y - anchor.y };
+}
+
+function polynomialSegmentArea(
+  coefficients: readonly Vec2[],
+): number {
+  let integral = 0;
+  let compensation = 0;
+  for (let firstPower = 0; firstPower < coefficients.length; firstPower += 1) {
+    for (let derivativePower = 1; derivativePower < coefficients.length; derivativePower += 1) {
+      const term =
+        (derivativePower * crossVec2(coefficients[firstPower], coefficients[derivativePower])) /
+        (firstPower + derivativePower);
+      const corrected = term - compensation;
+      const next = integral + corrected;
+      compensation = next - integral - corrected;
+      integral = next;
+    }
+  }
+  return integral / 2;
+}
+
+/**
+ * Exact Green-integral signed area for lines, Béziers, and affine-transformed
+ * circular/elliptical arcs. Translation anchoring and compensated summation
+ * limit cancellation for production coordinates far from the origin.
+ */
+export function vectorPathSignedAreaExact(path: VectorPath): number {
+  if (!path.closed) throw new RangeError("signed area is only defined for a closed path");
+  if (path.segments.length === 0) throw new RangeError("cannot measure an empty vector path");
+  const anchor = applyAffine(path.transform, segmentStart(path.segments[0]));
+  const contributions: number[] = [];
+  for (const segment of path.segments) {
+    if (segment.kind === "line") {
+      const start = subtractAnchor(applyAffine(path.transform, segment.start), anchor);
+      const end = subtractAnchor(applyAffine(path.transform, segment.end), anchor);
+      contributions.push(crossVec2(start, end) / 2);
+      continue;
+    }
+    if (segment.kind === "quadratic" || segment.kind === "cubic") {
+      const points = (segment.kind === "quadratic"
+        ? [segment.p0, segment.p1, segment.p2]
+        : [segment.p0, segment.p1, segment.p2, segment.p3]
+      ).map((point) => subtractAnchor(applyAffine(path.transform, point), anchor));
+      const coefficients = segment.kind === "quadratic"
+        ? [
+            points[0],
+            scaleVec2(subtractVec2(points[1], points[0]), 2),
+            addVec2(subtractVec2(points[0], scaleVec2(points[1], 2)), points[2]),
+          ]
+        : [
+            points[0],
+            scaleVec2(subtractVec2(points[1], points[0]), 3),
+            scaleVec2(addVec2(subtractVec2(points[0], scaleVec2(points[1], 2)), points[2]), 3),
+            addVec2(
+              addVec2(scaleVec2(points[1], 3), scaleVec2(points[2], -3)),
+              addVec2(scaleVec2(points[0], -1), points[3]),
+            ),
+          ];
+      contributions.push(polynomialSegmentArea(coefficients));
+      continue;
+    }
+    const basis = arcBasis(segment);
+    const center = subtractAnchor(applyAffine(path.transform, basis.center), anchor);
+    const cosineBasis = applyAffineVector(path.transform, basis.cosineBasis);
+    const sineBasis = applyAffineVector(path.transform, basis.sineBasis);
+    const start = subtractAnchor(applyAffine(path.transform, segmentStart(segment)), anchor);
+    const end = subtractAnchor(applyAffine(path.transform, segmentEnd(segment)), anchor);
+    contributions.push(
+      (crossVec2(center, subtractVec2(end, start)) +
+        crossVec2(cosineBasis, sineBasis) * segment.sweepAngleRad) /
+        2,
+    );
+  }
+  let area = 0;
+  let compensation = 0;
+  for (const contribution of contributions) {
+    const corrected = contribution - compensation;
+    const next = area + corrected;
+    compensation = next - area - corrected;
+    area = next;
+  }
+  return area;
 }
 
 /** In canonical y-down sheet coordinates, positive area is visually clockwise. */
