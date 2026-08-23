@@ -6,17 +6,23 @@ type SurfaceSelectorProps = {
   surfaces: EditableSurface[];
   activeId: string;
   onSelect: (id: string) => void;
+  ariaLabel?: string;
 };
 
 /**
  * Surface switcher (§22). Hidden for single-surface products like the bottle,
  * but ready for a box exposing FRONT/BACK/LEFT/RIGHT/TOP/BOTTOM.
  */
-export function SurfaceSelector({ surfaces, activeId, onSelect }: SurfaceSelectorProps) {
+export function SurfaceSelector({
+  surfaces,
+  activeId,
+  onSelect,
+  ariaLabel = "Printable surfaces",
+}: SurfaceSelectorProps) {
   if (surfaces.length <= 1) return null;
 
   return (
-    <div role="tablist" aria-label="Printable surfaces" className="flex flex-wrap gap-2">
+    <div role="tablist" aria-label={ariaLabel} className="flex flex-wrap gap-2">
       {surfaces.map((surface) => {
         const active = surface.id === activeId;
         return (

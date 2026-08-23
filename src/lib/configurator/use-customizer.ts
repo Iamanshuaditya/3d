@@ -65,7 +65,11 @@ function historyReducer(
  * drive exactly the same engine — the 2D design remains the source of truth
  * and the 3D view is a live CanvasTexture preview.
  */
-export function useCustomizer(config: ProductConfig, requestedProjectId: string | null = null) {
+export function useCustomizer(
+  config: ProductConfig,
+  requestedProjectId: string | null = null,
+  keyboardShortcutsEnabled = true,
+) {
   const [history, dispatch] = useReducer(historyReducer, config, (c) =>
     createHistory(createEmptyDocument(c)),
   );
@@ -588,6 +592,7 @@ export function useCustomizer(config: ProductConfig, requestedProjectId: string 
 
   // ---- Keyboard shortcuts ---------------------------------------------------
   useEffect(() => {
+    if (!keyboardShortcutsEnabled) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && /^(INPUT|TEXTAREA)$/.test(target.tagName)) return;
@@ -606,7 +611,14 @@ export function useCustomizer(config: ProductConfig, requestedProjectId: string 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, removeElement, activeSurfaceId, markCommitted, scheduleDirty]);
+  }, [
+    selectedId,
+    removeElement,
+    activeSurfaceId,
+    keyboardShortcutsEnabled,
+    markCommitted,
+    scheduleDirty,
+  ]);
 
   useEffect(() => {
     scheduleDirty(activeSurfaceId);

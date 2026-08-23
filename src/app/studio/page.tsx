@@ -3,6 +3,7 @@ import { StudioShell } from "@/components/studio/StudioShell";
 import { PRODUCTS, DEFAULT_PRODUCT_ID } from "@/lib/configurator/product-config";
 import { parseOptionSelection } from "@/platform/products/configuration-resolver";
 import { ProductDomainError } from "@/platform/products/errors";
+import type { ProductPresentationMode } from "@/platform/products/types";
 import { getProductCatalogService } from "@/server/products/container";
 
 export const metadata: Metadata = {
@@ -23,12 +24,17 @@ export default async function StudioPage({
   const { product, project, version, options } = await searchParams;
   const productId = product ?? DEFAULT_PRODUCT_ID;
   let config = null;
+  let presentationMode: ProductPresentationMode | null = null;
   let resolutionError: string | null = null;
   try {
     const selection = parseOptionSelection(options ? JSON.parse(options) : {});
-    config = (
-      await getProductCatalogService().resolve(productId, version ?? null, selection)
-    ).productConfig;
+    const resolved = await getProductCatalogService().resolve(
+      productId,
+      version ?? null,
+      selection,
+    );
+    config = resolved.productConfig;
+    presentationMode = resolved.presentation.mode;
   } catch (error) {
     resolutionError = error instanceof ProductDomainError
       ? error.message
@@ -45,7 +51,7 @@ export default async function StudioPage({
     catalogue.unshift({ id: config.id, name: config.name });
   }
 
-  if (!config) {
+  if (!config || !presentationMode) {
     return (
       <main className="mx-auto max-w-[640px] px-6 py-24">
         <h1 className="text-[24px] font-semibold tracking-tight text-[var(--st-text)]">
@@ -65,6 +71,7 @@ export default async function StudioPage({
     <StudioShell
       key={`${config.id}:${config.configurationId}:${project ?? "new"}`}
       config={config}
+      presentationMode={presentationMode}
       catalogue={catalogue}
       requestedProjectId={project ?? null}
     />

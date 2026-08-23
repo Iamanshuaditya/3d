@@ -4,6 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import dynamic from "next/dynamic";
 import { Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
+import type { ProductPresentationMode } from "@/platform/products/types";
+import { resolveStudioPresentation } from "@/platform/presentation/resolve-studio-presentation";
 import { useCustomizer } from "@/lib/configurator/use-customizer";
 import { useUnfold } from "@/lib/configurator/use-unfold";
 import {
@@ -16,6 +18,7 @@ import { UnfoldControl } from "@/components/configurator/UnfoldControl";
 import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
 import { StudioPanel } from "./StudioPanel";
+import { StudioPreview } from "./StudioPreview";
 import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
 import { normalizePrintJob } from "@/lib/print/normalize-job";
 import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
@@ -43,6 +46,7 @@ const Product3DViewer = dynamic(
 
 type StudioShellProps = {
   config: ProductConfig;
+  presentationMode: ProductPresentationMode;
   catalogue: CatalogueEntry[];
   requestedProjectId: string | null;
 };
@@ -56,8 +60,14 @@ const MAX_ZOOM = 200;
 
 type PanPoint = { x: number; y: number };
 
-export function StudioShell({ config, catalogue, requestedProjectId }: StudioShellProps) {
-  const c = useCustomizer(config, requestedProjectId);
+export function StudioShell({
+  config,
+  presentationMode,
+  catalogue,
+  requestedProjectId,
+}: StudioShellProps) {
+  const [previewing, setPreviewing] = useState(false);
+  const c = useCustomizer(config, requestedProjectId, !previewing);
   const [tool, setTool] = useState<StudioTool>("Text");
   const [zoom, setZoom] = useState(70);
   const [pan, setPan] = useState<PanPoint>({ x: 0, y: 0 });
@@ -83,6 +93,10 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
 
   // ---- Structural presentation (capability-driven, not product-specific) ----
   const presentation = useMemo(() => resolveProductPresentation(config), [config]);
+  const studioPresentation = useMemo(
+    () => resolveStudioPresentation(config, presentationMode),
+    [config, presentationMode],
+  );
   const unfoldPlan =
     presentation.mode === "open-close" || presentation.mode === "progressive-unfold"
       ? presentation.plan
@@ -265,7 +279,12 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
   }, [config, surface]);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--st-bg)] text-[var(--st-text)]">
+    <>
+      <div
+        aria-hidden={previewing ? true : undefined}
+        inert={previewing ? true : undefined}
+        className="flex h-screen flex-col overflow-hidden bg-[var(--st-bg)] text-[var(--st-text)]"
+      >
       <StudioTopBar
         catalogue={catalogue}
         activeProductId={config.id}
@@ -273,6 +292,10 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
         canRedo={c.canRedo}
         onUndo={c.undo}
         onRedo={c.redo}
+        onPreview={() => {
+          c.setSelectedId(null);
+          setPreviewing(true);
+        }}
         onExport={exportProductionPdf}
         saveState={c.saveState}
         beforeNavigate={c.saveNow}
@@ -324,24 +347,26 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
         </div>
       )}
 
-      {/* Mobile view switcher */}
-      <div className="flex gap-1 border-b border-[var(--st-line)] bg-[var(--st-surface)] p-2 lg:hidden">
-        {(["design", "preview"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setMobileTab(t)}
-            aria-pressed={mobileTab === t}
-            className={`flex-1 rounded-lg px-4 py-2 text-[13px] font-medium capitalize transition-colors ${
-              mobileTab === t
-                ? "bg-[var(--st-accent)] text-[var(--st-accent-ink)]"
-                : "bg-[var(--st-raised)] text-[var(--st-dim)]"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      {/* Mobile split switcher; 2D-first products use the explicit proof dialog. */}
+      {studioPresentation.previewKind === "3d-product" && (
+        <div className="flex gap-1 border-b border-[var(--st-line)] bg-[var(--st-surface)] p-2 lg:hidden">
+          {(["design", "preview"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setMobileTab(t)}
+              aria-pressed={mobileTab === t}
+              className={`flex-1 rounded-lg px-4 py-2 text-[13px] font-medium capitalize transition-colors ${
+                mobileTab === t
+                  ? "bg-[var(--st-accent)] text-[var(--st-accent-ink)]"
+                  : "bg-[var(--st-raised)] text-[var(--st-dim)]"
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div
         className={`relative flex min-h-0 flex-1 transition-opacity ${
@@ -375,9 +400,12 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
             {config.editableSurfaces.length > 1 && (
               <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-xl bg-[var(--st-surface)]/95 p-1.5 shadow-lg backdrop-blur">
                 <SurfaceSelector
-                  surfaces={config.editableSurfaces}
+                  surfaces={studioPresentation.targets.map((target) =>
+                    config.editableSurfaces.find((candidate) => candidate.id === target.surfaceId)!,
+                  )}
                   activeId={c.activeSurfaceId}
                   onSelect={c.selectSurface}
+                  ariaLabel={studioPresentation.navigationLabel}
                 />
               </div>
             )}
@@ -547,71 +575,88 @@ export function StudioShell({ config, catalogue, requestedProjectId }: StudioShe
         </div>
 
         {/* ---- 3D preview ---- */}
-        <section
-          aria-label="3D preview"
-          className={`${
-            mobileTab === "preview" ? "flex" : "hidden"
-          } relative min-w-0 flex-1 flex-col border-l border-[var(--st-line)] bg-[var(--st-bg)] lg:flex lg:w-[36vw] lg:min-w-[460px] lg:max-w-[720px] lg:flex-none`}
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--st-line)] px-4 py-2.5">
-            <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--st-faint)]">
-              Preview
-            </span>
+        {!previewing && studioPresentation.previewKind === "3d-product" && (
+          <section
+            aria-label="3D preview"
+            className={`${
+              mobileTab === "preview" ? "flex" : "hidden"
+            } relative min-w-0 flex-1 flex-col border-l border-[var(--st-line)] bg-[var(--st-bg)] lg:flex lg:w-[36vw] lg:min-w-[460px] lg:max-w-[720px] lg:flex-none`}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--st-line)] px-4 py-2.5">
+              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--st-faint)]">
+                Preview
+              </span>
 
-            <div className="flex items-center gap-2">
-              <UnfoldControl
-                presentation={presentation}
-                status={unfold.status}
-                onNext={unfold.next}
-                onPrevious={unfold.previous}
-                onReset={unfold.reset}
-              />
-              <button
-                type="button"
-                role="switch"
-                aria-checked={animated}
-                onClick={() => setAnimated((v) => !v)}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--st-dim)] transition-colors hover:text-[var(--st-text)]"
-              >
-                Auto-motion
-                <span
-                  aria-hidden="true"
-                  className={`relative h-[18px] w-8 rounded-full transition-colors ${
-                    animated ? "bg-[var(--st-accent)]" : "bg-[var(--st-raised)]"
-                  }`}
+              <div className="flex items-center gap-2">
+                <UnfoldControl
+                  presentation={presentation}
+                  status={unfold.status}
+                  onNext={unfold.next}
+                  onPrevious={unfold.previous}
+                  onReset={unfold.reset}
+                />
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={animated}
+                  onClick={() => setAnimated((v) => !v)}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--st-dim)] transition-colors hover:text-[var(--st-text)]"
                 >
+                  Auto-motion
                   <span
-                    className={`absolute top-[3px] h-3 w-3 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-all ${
-                      animated ? "left-[17px]" : "left-[3px]"
+                    aria-hidden="true"
+                    className={`relative h-[18px] w-8 rounded-full transition-colors ${
+                      animated ? "bg-[var(--st-accent)]" : "bg-[var(--st-raised)]"
                     }`}
-                  />
-                </span>
-              </button>
+                  >
+                    <span
+                      className={`absolute top-[3px] h-3 w-3 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-all ${
+                        animated ? "left-[17px]" : "left-[3px]"
+                      }`}
+                    />
+                  </span>
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="min-h-0 flex-1 p-3">
-            <div className="h-full overflow-hidden rounded-xl ring-1 ring-[var(--st-line)]">
-              <Product3DViewer
-                config={config}
-                textures={c.textures}
-                materialTextures={c.materialTextures}
-                consumeDirty={c.consumeDirty}
-                pendingPreset={pendingPreset}
-                onPresetApplied={() => setPendingPreset(null)}
-                onValidated={c.handleValidated}
-                onSurfaceClick={c.selectSurface}
-                highlightedMeshName={c.hoveredMeshName}
-                onMeshHover={c.setHoveredMeshName}
-                onMeshClick={c.selectMesh}
-                hoverParallax={animated}
-                hingeAngles={unfold.angles}
-                dielineView={Boolean(unfold.status?.isFlat)}
-              />
+            <div className="min-h-0 flex-1 p-3">
+              <div className="h-full overflow-hidden rounded-xl ring-1 ring-[var(--st-line)]">
+                <Product3DViewer
+                  config={config}
+                  textures={c.textures}
+                  materialTextures={c.materialTextures}
+                  consumeDirty={c.consumeDirty}
+                  pendingPreset={pendingPreset}
+                  onPresetApplied={() => setPendingPreset(null)}
+                  onValidated={c.handleValidated}
+                  onSurfaceClick={c.selectSurface}
+                  highlightedMeshName={c.hoveredMeshName}
+                  onMeshHover={c.setHoveredMeshName}
+                  onMeshClick={c.selectMesh}
+                  hoverParallax={animated}
+                  hingeAngles={unfold.angles}
+                  dielineView={Boolean(unfold.status?.isFlat)}
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
       </div>
-    </div>
+      </div>
+      {previewing && (
+        <StudioPreview
+          config={config}
+          customizer={c}
+          studioPresentation={studioPresentation}
+          structuralPresentation={presentation}
+          unfold={unfold}
+          animated={animated}
+          onAnimatedChange={setAnimated}
+          pendingPreset={pendingPreset}
+          onPresetApplied={() => setPendingPreset(null)}
+          onClose={() => setPreviewing(false)}
+        />
+      )}
+    </>
   );
 }

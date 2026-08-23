@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
+import { ChevronDown, Download, Eye, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { ProjectSaveState } from "@/platform/projects/types";
 
 export type CatalogueEntry = { id: string; name: string };
@@ -14,6 +14,7 @@ type StudioTopBarProps = {
   onUndo: () => void;
   onRedo: () => void;
   onExport: () => void;
+  onPreview: () => void;
   saveState: ProjectSaveState;
   beforeNavigate: () => Promise<boolean>;
   exporting?: boolean;
@@ -36,6 +37,7 @@ export function StudioTopBar({
   onUndo,
   onRedo,
   onExport,
+  onPreview,
   saveState,
   beforeNavigate,
   exporting = false,
@@ -135,9 +137,20 @@ export function StudioTopBar({
 
       <button
         type="button"
+        onClick={onPreview}
+        disabled={saveState === "loading"}
+        className="ml-auto flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-raised)] px-3 py-2 text-[14px] font-semibold text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)] disabled:opacity-40 sm:px-4"
+      >
+        <Eye className="h-4 w-4" />
+        <span className="hidden sm:inline">Preview</span>
+        <span className="sr-only sm:hidden">Open production preview</span>
+      </button>
+
+      <button
+        type="button"
         onClick={onExport}
         disabled={exporting}
-        className="ml-auto flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[14px] font-semibold text-[var(--st-accent-ink)] transition-opacity hover:opacity-90 sm:px-4"
+        className="flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[14px] font-semibold text-[var(--st-accent-ink)] transition-opacity hover:opacity-90 sm:px-4"
       >
         <Download className={`h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
         <span className="hidden sm:inline">

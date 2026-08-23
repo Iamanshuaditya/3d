@@ -37,9 +37,9 @@ type DesignEditorProps = {
    * inline arrow here would change identity every render and thrash the
    * registration effect below into an infinite loop.
    */
-  onCanvasReady: (surfaceId: string, canvas: HTMLCanvasElement | null) => void;
+  onCanvasReady?: (surfaceId: string, canvas: HTMLCanvasElement | null) => void;
   /** Fired whenever pixels change so the 3D preview can re-upload. */
-  onDirty: (surfaceId: string) => void;
+  onDirty?: (surfaceId: string) => void;
   /** Selected/hovered production panel, shared bidirectionally with the GLB. */
   selectedSectionId?: string | null;
   hoveredMeshName?: string | null;
@@ -53,6 +53,8 @@ type DesignEditorProps = {
     creases: { points: number[]; closed: boolean }[];
     safety?: { points: number[]; closed: boolean }[];
   };
+  /** Renders the same artwork without selection, dragging, guides, or texture ownership. */
+  readOnly?: boolean;
 };
 
 export function DesignEditor({
@@ -73,6 +75,7 @@ export function DesignEditor({
   onSectionHover,
   showProductionChrome = true,
   dieline,
+  readOnly = false,
 }: DesignEditorProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -113,13 +116,14 @@ export function DesignEditor({
   // then sends that clean canvas to Three.js. Besides matching production, this
   // is what prevents untouched pixels from appearing black on the pouch.
   useEffect(() => {
+    if (!onCanvasReady || readOnly) return;
     const output = document.createElement("canvas");
     output.width = W;
     output.height = H;
     textureCanvasRef.current = output;
     onCanvasReady(surface.id, output);
     return () => onCanvasReady(surface.id, null);
-  }, [H, W, onCanvasReady, surface.id]);
+  }, [H, W, onCanvasReady, readOnly, surface.id]);
 
   // Copy after Konva has painted the artwork layer. The UI layer is deliberately
   // excluded, so panel highlighting, rulers and production guides never print.
@@ -175,7 +179,7 @@ export function DesignEditor({
           context.restore();
         }
       }
-      onDirty(surface.id);
+      onDirty?.(surface.id);
     });
     return () => cancelAnimationFrame(frame);
   }, [H, W, design, images, embroidery, onDirty, sections, surface.defaultBackground, surface.id]);
@@ -192,7 +196,7 @@ export function DesignEditor({
   const handleDragMove = useCallback(
     (el: DesignElement, e: Konva.KonvaEventObject<DragEvent>) => {
       onChange(el.id, { x: e.target.x(), y: e.target.y() }, true);
-      onDirty(surface.id);
+      onDirty?.(surface.id);
     },
     [onChange, onDirty, surface.id],
   );
@@ -211,7 +215,7 @@ export function DesignEditor({
         },
         true,
       );
-      onDirty(surface.id);
+      onDirty?.(surface.id);
     },
     [onChange, onDirty, surface.id],
   );
@@ -274,12 +278,14 @@ export function DesignEditor({
             onMouseMove={() => publishSectionHover(sectionAtPointer()?.meshName ?? null)}
             onMouseLeave={() => publishSectionHover(null)}
             onMouseDown={(e) => {
+              if (readOnly) return;
               if (e.target !== e.target.getStage()) return;
               onSelect(null);
               const section = sectionAtPointer();
               if (section) onSectionSelect?.(section.id);
             }}
             onTouchStart={(e) => {
+              if (readOnly) return;
               if (e.target !== e.target.getStage()) return;
               onSelect(null);
               const section = sectionAtPointer();
@@ -301,17 +307,21 @@ export function DesignEditor({
                   scaleX: el.scaleX,
                   scaleY: el.scaleY,
                   opacity: el.opacity,
-                  draggable: true,
+                  draggable: !readOnly,
                   ref: (node: Konva.Node | null) => {
                     if (node) nodeRefs.current[el.id] = node;
                     else delete nodeRefs.current[el.id];
                   },
-                  onMouseDown: () => onSelect(el.id),
-                  onTouchStart: () => onSelect(el.id),
-                  onDragMove: (e: Konva.KonvaEventObject<DragEvent>) => handleDragMove(el, e),
-                  onDragEnd: onCommit,
-                  onTransform: (e: Konva.KonvaEventObject<Event>) => handleTransform(el, e),
-                  onTransformEnd: onCommit,
+                  onMouseDown: readOnly ? undefined : () => onSelect(el.id),
+                  onTouchStart: readOnly ? undefined : () => onSelect(el.id),
+                  onDragMove: readOnly
+                    ? undefined
+                    : (e: Konva.KonvaEventObject<DragEvent>) => handleDragMove(el, e),
+                  onDragEnd: readOnly ? undefined : onCommit,
+                  onTransform: readOnly
+                    ? undefined
+                    : (e: Konva.KonvaEventObject<Event>) => handleTransform(el, e),
+                  onTransformEnd: readOnly ? undefined : onCommit,
                 };
 
                 if (el.type === "image") {
@@ -398,17 +408,19 @@ export function DesignEditor({
               {showGuides && safe > 0 && (
                 <Rect x={safe} y={safe} width={W - safe * 2} height={H - safe * 2} stroke="#3a9ad9" strokeWidth={3} dash={[14, 10]} listening={false} />
               )}
-              <Transformer
-                ref={transformerRef}
-                rotateEnabled
-                keepRatio
-                anchorSize={18}
-                borderStroke="#3a9ad9"
-                anchorStroke="#3a9ad9"
-                boundBoxFunc={(oldBox, newBox) =>
-                  newBox.width < 20 || newBox.height < 20 ? oldBox : newBox
-                }
-              />
+              {!readOnly && (
+                <Transformer
+                  ref={transformerRef}
+                  rotateEnabled
+                  keepRatio
+                  anchorSize={18}
+                  borderStroke="#3a9ad9"
+                  anchorStroke="#3a9ad9"
+                  boundBoxFunc={(oldBox, newBox) =>
+                    newBox.width < 20 || newBox.height < 20 ? oldBox : newBox
+                  }
+                />
+              )}
             </Layer>
           </Stage>
         </div>
