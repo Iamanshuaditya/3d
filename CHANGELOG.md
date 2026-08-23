@@ -19,8 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than a flat dieline, so it cannot be a procedural carton, but it still
   folds flat in three authored stages.
 - Onboarding passes a manifest's `articulation` block through to `product.json`.
+- `harness/embroidery_perf.mjs` — measures long-task blocking and reports
+  whether the worker was actually used, so a silent fallback cannot be mistaken
+  for slow code. `--no-worker` exercises the inline path.
 
 ### Changed
+- **Stitch generation runs in a Web Worker.** Switching a 21 cm placement to
+  embroidery blocked the main thread for 2033 ms; it now blocks for 0 ms, with
+  no task over 50 ms. The pipeline is unchanged — only the canvas factory
+  differs (`OffscreenCanvas` in the worker), so there is no second
+  implementation to drift.
+- Both quality tiers go off-thread, not just the full one. The preview tier was
+  left inline on the assumption it was cheap; measured, it cost 546 ms on a
+  large placement, because cost is linear in raster area and it had no ceiling.
+- Each tier now has an explicit raster ceiling (`MAX_PIXELS`), and the sizing
+  decision is a pure function with tests, so a tier cannot silently become as
+  expensive as the one above it.
+- Recompute debounce is a single 180 ms gate; the previous stitching stays on
+  screen until the new one lands, which reads as refinement rather than a stall.
 - Presentation is `open-close` only when a plan has exactly one step and does
   not reach flat; anything with more stages gets the stepped control. A hinged
   case that opens and then folds out an easel has two meaningful stages and now
