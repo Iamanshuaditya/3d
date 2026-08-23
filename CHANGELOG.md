@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Artwork was mirrored on assembled cartons.** `toUv` mapped the dieline's
+  x straight to u, which skipped the flip a blank gets before folding — so the
+  printed face ended up outermost but read from behind. Inverting u applies the
+  flip once for the whole sheet, so chirality is fixed while artwork stays
+  continuous across every crease. Measured on 14/14 mailer panels and every
+  main clamshell panel before the change.
+- The clamshell's gussets, rim strips, locking ears and locking tabs carried
+  hand-authored corner lists that ignored which tray and which side they were
+  on, leaving half of them mirrored independently of the above.
+  `addThickPanel` now normalises that pairing at build time; panels that
+  already read correctly are untouched.
+
+### Changed
+- The mailer's `left` / `right` section metadata swaps sheet position
+  (`xCm` 0.8 <-> 30.8). Panel ids and labels name a panel's final position on
+  the box, so the side panel drawn on the right of the sheet is the box's left
+  wall. `contentRotation` is unchanged.
+- The dieline camera preset views the flattened blank from below, with a fill
+  light, since that is the side the print is on.
+
+The editor canvas, the dieline overlay and the production PDF are unchanged —
+`npm run validate:pdf` reports identical page geometry.
+
 ### Added
 - **Progressive 3D to 2D unfolding.** Articulated products advance one
   structural stage per click, from assembled to the printed dieline, driven by

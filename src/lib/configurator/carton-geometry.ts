@@ -31,8 +31,29 @@ export type CartonTree = {
   dispose: () => void;
 };
 
+/**
+ * Dieline millimetres -> customization UV.
+ *
+ * BOTH axes are inverted, and the u inversion is the one that matters.
+ *
+ * A carton printed on the outside is folded with the printed face turned AWAY
+ * from the blank's own top side — physically, the sheet is flipped over before
+ * folding. Flipping a sheet reverses one axis, so the panel drawn on the left
+ * of the printed dieline becomes the RIGHT-hand wall of the assembled box.
+ *
+ * Mapping u straight through (`x / width`) skips that flip, which leaves the
+ * printed face outermost — correct — but read from behind, so every logo on
+ * the assembled carton came out mirrored. Inverting u here applies the flip
+ * once, coherently, for the whole sheet: adjacent panels still sample adjacent
+ * canvas regions, so artwork stays continuous across every crease.
+ *
+ * The editor canvas and the production PDF are untouched: they remain the true
+ * printed sheet, seen from the printed side. Only the mapping onto the folded
+ * mesh changes. Panel ids and section metadata name the panel's FINAL position
+ * on the box, which is why `LEFT` sits on the right of the dieline.
+ */
 function toUv(spec: CartonSpec, x: number, y: number): Uv {
-  return [x / spec.width, 1 - y / spec.height];
+  return [1 - x / spec.width, 1 - y / spec.height];
 }
 
 function rectUvs(spec: CartonSpec, coords: number[]): Uv[] {
@@ -98,16 +119,50 @@ type BuildContext = {
   geometries: THREE.BufferGeometry[];
 };
 
+/**
+ * Does this (points, uvs) pairing read the right way round from `outward`?
+ *
+ * Chirality is not winding and not the normal: it is whether the map from
+ * (u, v) to (screen-right, screen-up) preserves orientation for someone
+ * looking at the printed face. Compare the signed area of the first triangle
+ * in UV space against its signed area as that viewer sees it.
+ */
+function uvHandedness(points: THREE.Vector3[], uvs: Uv[], outward: THREE.Vector3): number {
+  const forward = outward.clone().normalize();
+  const hint = Math.abs(forward.y) > 0.9
+    ? new THREE.Vector3(0, 0, -1)
+    : new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(hint, forward).normalize();
+  const up = new THREE.Vector3().crossVectors(forward, right).normalize();
+  const area = (a: number[], b: number[], c: number[]) =>
+    (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+  const screen = points.slice(0, 3).map((point) => [point.dot(right), point.dot(up)]);
+  const texture = uvs.slice(0, 3).map((uv) => [uv[0], uv[1]]);
+  return Math.sign(area(texture[0], texture[1], texture[2])) * Math.sign(area(screen[0], screen[1], screen[2]));
+}
+
 /** Builds a real paperboard panel: printed face, plain inner face, and exposed edge. */
 function addThickPanel(
   context: BuildContext,
   parent: THREE.Group,
   id: string,
   outerPoints: THREE.Vector3[],
-  uvs: Uv[],
+  sourceUvs: Uv[],
   outward: THREE.Vector3,
 ) {
   const normal = outward.clone().normalize();
+  // The clamshell's gussets, rim strips, locking ears and tabs take a few
+  // corners of a neighbouring panel's rect so they carry a plausible slice of
+  // print. Those corner lists were authored per shape, but the geometry
+  // mirrors across `side` and again between the base tray and the lid while
+  // the lists did not — so half of them came out mirrored. They have no
+  // continuity contract with any neighbour, so normalising the pairing here
+  // beats hand-maintaining eight coordinate lists that each have to know
+  // which tray and which side they are on. Panels that already read correctly
+  // are left exactly as authored.
+  const uvs = uvHandedness(outerPoints, sourceUvs, normal) < 0
+    ? [...sourceUvs].reverse()
+    : sourceUvs;
   const innerPoints = outerPoints.map((point) =>
     point.clone().addScaledVector(normal, -context.spec.boardThickness),
   );

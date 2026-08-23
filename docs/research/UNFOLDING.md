@@ -94,16 +94,20 @@ Hinge ids are panel ids. `to` is `"flat" | "open" | "assembled" | <degrees>`;
 ## The flat pose
 
 At the last stage every hinge is at 0 and each panel's centre lands at its
-dieline offset from the root panel — asserted to 0.1 mm. The camera flies to an
-overhead framing, and the carton renders as its **printed sheet**: the
-unprinted board faces are dropped (`setDielineView`), because a carton printed
-on the outside folds away from its print and would otherwise show its inside.
-See `ARCHITECTURE_AUDIT.md` §5 for the measurement behind that.
+dieline offset from the root panel — asserted to 0.1 mm. The carton renders as
+its **printed sheet**: the unprinted board faces are dropped
+(`setDielineView`), because a carton printed on the outside folds away from its
+print and would otherwise show its inside.
+
+The camera flies to a framing **below** the sheet, because that printed side
+faces down once the blank is flat — which is what makes the final stage
+reproduce the editor canvas instead of its mirror image. A fill light comes on
+with it so the blank reads as white board. See `ARCHITECTURE_AUDIT.md` §5.
 
 A perspective camera is kept rather than swapping to orthographic: OrbitControls'
 distance clamps, the hover-parallax rig and every authored preset are tuned for
-perspective, and at that distance it is the top-down *angle* that makes the pose
-legible, not the absence of convergence.
+perspective, and at that distance it is the square-on *angle* that makes the
+pose legible, not the absence of convergence.
 
 ---
 

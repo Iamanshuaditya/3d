@@ -387,8 +387,13 @@ export const mailerBoxProduct: ProductConfig = {
         { id: "front", label: "Front", meshName: "FRONT", xCm: 6.8, yCm: 43.0, widthCm: 24, heightCm: 6, contentRotation: 180 },
         { id: "back", label: "Back", meshName: "BACK", xCm: 6.8, yCm: 21.0, widthCm: 24, heightCm: 6, contentRotation: 0 },
         { id: "base", label: "Base", meshName: "BASE", xCm: 6.8, yCm: 27.0, widthCm: 24, heightCm: 16, contentRotation: 0 },
-        { id: "left", label: "Left side", meshName: "LEFT", xCm: 0.8, yCm: 27.0, widthCm: 6, heightCm: 16, contentRotation: 90 },
-        { id: "right", label: "Right side", meshName: "RIGHT", xCm: 30.8, yCm: 27.0, widthCm: 6, heightCm: 16, contentRotation: -90 },
+        // The blank is flipped before folding, so the side panel drawn on the
+        // RIGHT of the printed sheet becomes the box's LEFT wall. Panel ids
+        // and labels name the wall's final position on the product, which is
+        // what the customer means by "left side"; the xCm is where that panel
+        // lives on the sheet. See `toUv` in carton-geometry.ts.
+        { id: "left", label: "Left side", meshName: "LEFT", xCm: 30.8, yCm: 27.0, widthCm: 6, heightCm: 16, contentRotation: 90 },
+        { id: "right", label: "Right side", meshName: "RIGHT", xCm: 0.8, yCm: 27.0, widthCm: 6, heightCm: 16, contentRotation: -90 },
       ],
     },
   ],

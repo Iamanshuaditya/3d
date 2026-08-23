@@ -181,36 +181,87 @@ the same transforms the editor uses. Every other profile is untouched.
 
 ---
 
-## 5. Discovered pre-existing defect: exterior artwork chirality
+## 5. Exterior artwork chirality (found, measured, fixed)
 
-Measured, not guessed (`tests/unfold/carton-chirality.test.ts`):
+### The defect
 
-- On every panel of an assembled generic carton the printed quad IS the
-  outermost board surface — correct.
-- Its face normal points **into** the box on every panel
-  (`normal · outward = -1.000` for BASE, BACK, FRONT, LEFT, RIGHT, LID_TOP).
+Measured on every printable panel of both cartons: the printed quad was the
+outermost board surface (correct) but its face normal pointed **into** the box
+(`normal · outward = -1.000`). So the exterior was seen through the back of the
+printed face and **artwork read mirrored on the assembled carton**.
 
-So the exterior is viewed through the back of the printed face and artwork
-reads **mirrored** on the assembled carton.
+The diagnosis that mattered: chirality is not winding and not the normal. It is
+whether the map from `(u, v)` to `(screen-right, screen-up)` preserves
+orientation for someone looking at the printed face. Compare the signed area of
+a triangle in UV space against its signed area as that viewer sees it — same
+sign reads correctly, opposite sign is mirrored. That check is now
+`tests/unfold/carton-chirality.test.ts`, and it was negative on 14/14 mailer
+panels and on every main clamshell panel.
 
-This is not a sign flip. It is a chirality constraint:
+### Why it is a one-line change and not a sign flip
 
-> A carton printed on the outside folds *away* from its print. A blank whose
-> top view matches the editor therefore assembles with the print inside, and a
-> blank that assembles print-out is seen from its unprinted side when flat.
+A carton printed on the outside is folded with the printed face turned AWAY
+from the blank's own top side — physically, the sheet is **flipped over before
+folding**. Flipping a sheet reverses one axis. `toUv` mapped `u = x / width`
+straight through, skipping the flip.
 
-Fixing the exterior means changing which physical wall each dieline panel
-becomes, which invalidates the authored `contentRotation` / `sections`
-metadata on shipped products. That is a scoped migration with its own
-validation pass, and it is deliberately **not** bundled with this work. The
-current behaviour is pinned by a test so it cannot change by accident.
+Inverting u applies the flip once, coherently, across the whole sheet:
 
-The flat pose sidesteps it honestly: at the final stage the carton renders as
-its printed sheet (`setDielineView` drops the unprinted board faces), which
-reproduces the editor canvas exactly — position, orientation and chirality all
-verified per-vertex in `tests/unfold/flat-dieline.test.ts`.
+```ts
+function toUv(spec, x, y) { return [1 - x / spec.width, 1 - y / spec.height]; }
+```
 
----
+Because the inversion is global rather than per-panel, adjacent panels still
+sample adjacent canvas regions, so **artwork stays continuous across every
+crease**. A per-panel flip would have fixed chirality and broken continuity;
+that is why it is done here and not in the panel builder.
+
+### The consequence, and the migration it required
+
+Flipping the sheet means the panel drawn on the LEFT of the printed dieline
+becomes the box's RIGHT-hand wall. Panel ids and section labels name a panel's
+**final position on the product** — which is what a customer means by "left
+side" — so the migration was to move the metadata, not to rename the walls:
+
+| | before | after |
+|---|---|---|
+| `sections.left` (mesh `LEFT`) | `xCm: 0.8` | `xCm: 30.8` |
+| `sections.right` (mesh `RIGHT`) | `xCm: 30.8` | `xCm: 0.8` |
+
+`contentRotation` is unchanged: removing a mirror does not change the rotation
+component. The centre column (lid, back, base, front, roll) is symmetric about
+the sheet and did not move at all.
+
+### What deliberately did NOT change
+
+- **The editor canvas** — still the true printed sheet, seen from the printed
+  side.
+- **The production PDF** — `dielineOverlay` and the artwork raster are
+  untouched; `npm run validate:pdf` still passes with identical page geometry.
+- **Geometry, hinges, unfolding** — no mesh moved. The fix is entirely in the
+  UV mapping.
+
+### The clamshell's separate problem
+
+The tapered clamshell builds its gussets, rim strips, locking ears and tabs
+from hand-authored corner lists that take a few corners of a neighbouring
+panel's rect. The geometry mirrors across `side` and again between the base
+tray and the lid, but those lists did not — so half of them were mirrored
+*independently* of the systematic defect above, in both directions.
+
+Those fragments have no continuity contract with any neighbour, so
+`addThickPanel` now normalises the pairing at build time rather than asking
+eight coordinate lists to each know which tray and which side they are on.
+Panels that already read correctly are left exactly as authored, so the large
+printable walls are untouched.
+
+### The flat pose
+
+The flattened blank shows its printed side, which faces down — so the dieline
+camera preset now sits **below** the sheet looking up, with a fill light to
+match. That is what makes the final stage reproduce the editor canvas rather
+than its mirror image. Verified per-vertex in `flat-dieline.test.ts` and
+visually in `docs/research/diagnostics/unfold-mailer/stage-06.png`.
 
 ## 6. Invariants now enforced by tests
 
@@ -218,7 +269,9 @@ verified per-vertex in `tests/unfold/flat-dieline.test.ts`.
 |---|---|
 | Flattened panel transform == dieline panel transform (< 0.1 mm) | `flat-dieline.test.ts` |
 | Every flat panel is coplanar and printed-side up | `flat-dieline.test.ts` |
-| Per-vertex UV == its own dieline coordinate (catches mirroring and quarter-turns) | `flat-dieline.test.ts` |
+| Per-vertex UV == its own dieline coordinate (catches quarter-turns and UV drift) | `flat-dieline.test.ts` |
+| Artwork reads unmirrored on every assembled panel of every carton | `carton-chirality.test.ts` |
+| The printed face is on the outside of every enclosing wall | `carton-chirality.test.ts` |
 | UVs identical at every unfold stage (artwork never shifts) | `flat-dieline.test.ts` |
 | Children flatten no later than their parents | `unfold-plan.test.ts` |
 | Rapid/interleaved clicks are deterministic and cannot overflow | `unfold-state.test.ts` |

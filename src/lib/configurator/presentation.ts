@@ -60,15 +60,20 @@ export function hasArticulation(presentation: ProductPresentation): boolean {
 const VIEWER_FOV_DEG = 32;
 
 /**
- * Overhead framing for the fully-unfolded pose.
+ * Framing for the fully-unfolded pose: the blank seen from its PRINTED side.
  *
- * The flat carton IS its dieline, so the camera should read it the way the 2D
- * editor does. We keep the PerspectiveCamera rather than swapping in an
- * orthographic one: OrbitControls' distance clamps, the hover-parallax rig and
- * every authored preset are all tuned for perspective, and at this distance
- * the convergence over a 40cm sheet is not what makes the pose legible — the
- * top-down angle is. A few degrees of tilt keeps OrbitControls off its polar
- * limit (`minPolarAngle`) instead of gimbal-locking at true nadir.
+ * The flat carton is its dieline, so the camera should read it exactly the way
+ * the 2D editor does. Because a carton printed on the outside is folded with
+ * the sheet flipped over (see `toUv`), the printed side of the flattened blank
+ * faces down — so this preset sits below the sheet looking up, which is what
+ * makes the pose reproduce the editor canvas rather than its mirror image.
+ *
+ * We keep the PerspectiveCamera rather than swapping in an orthographic one:
+ * OrbitControls' distance clamps, the hover-parallax rig and every authored
+ * preset are all tuned for perspective, and at this distance the convergence
+ * over a 40cm sheet is not what makes the pose legible — the square-on angle
+ * is. A few degrees of tilt keeps OrbitControls off its polar limit
+ * (`maxPolarAngle`, PI * 0.98) instead of gimbal-locking at true zenith.
  */
 export function dielineCameraPreset(
   config: ProductConfig,
@@ -81,12 +86,13 @@ export function dielineCameraPreset(
     config.camera.maxDistance,
     Math.max(config.camera.minDistance, fitted),
   );
-  const tilt = 0.06;
+  // Comfortably inside OrbitControls' PI * 0.98 polar limit.
+  const tilt = 0.09;
   const y = config.modelYOffset ?? 0;
   return {
     id: "dieline",
     label: "Dieline",
-    position: [0, y + distance * Math.cos(tilt), distance * Math.sin(tilt)],
+    position: [0, y - distance * Math.cos(tilt), -distance * Math.sin(tilt)],
     target: [0, y, 0],
   };
 }

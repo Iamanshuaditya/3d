@@ -371,6 +371,12 @@ export function Product3DViewer({
           </>
         )}
 
+        {/* The flattened blank is presented from its printed side, which faces
+            down — so the standing key light rakes across its back. This fill
+            exists purely so the dieline pose reads as white board rather than
+            as a grey silhouette. */}
+        {dielineView && <directionalLight position={[0, -6, -2.5]} intensity={1.1} />}
+
         <Suspense fallback={<LoadingOverlay />}>
           {pouchSpec ? (
             <PouchModel
