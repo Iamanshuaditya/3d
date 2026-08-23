@@ -1,4 +1,5 @@
 import type { EmbroiderySettings, ThreadRun } from "@/types/embroidery";
+import { context2d, domCanvasFactory, type CanvasFactory, type RasterSurface } from "./canvas";
 
 /**
  * Turns a stitch plan into the material maps the renderer consumes.
@@ -12,18 +13,11 @@ import type { EmbroiderySettings, ThreadRun } from "@/types/embroidery";
  */
 
 export type EmbroideryMaps = {
-  colour: HTMLCanvasElement;
-  normal: HTMLCanvasElement;
-  roughness: HTMLCanvasElement;
-  mask: HTMLCanvasElement;
+  colour: RasterSurface;
+  normal: RasterSurface;
+  roughness: RasterSurface;
+  mask: RasterSurface;
 };
-
-function createCanvas(width: number, height: number) {
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  return canvas;
-}
 
 /** One path per thread colour, so 50 000 stitches cost 50 000 lineTos, not 50 000 draws. */
 function strokeRuns(
@@ -53,12 +47,13 @@ export function renderEmbroideryMaps(
   height: number,
   pxPerMm: number,
   settings: EmbroiderySettings,
+  createCanvas: CanvasFactory = domCanvasFactory,
 ): EmbroideryMaps {
   const threadPx = Math.max(1, settings.threadWidthMm * pxPerMm);
 
   // ---- height: thread bodies, then a brighter core so each strand reads ----
   const heightCanvas = createCanvas(width, height);
-  const heightContext = heightCanvas.getContext("2d", { willReadFrequently: true })!;
+  const heightContext = context2d(heightCanvas, { willReadFrequently: true });
   heightContext.fillStyle = "#000000";
   heightContext.fillRect(0, 0, width, height);
   heightContext.globalCompositeOperation = "lighter";
@@ -69,14 +64,14 @@ export function renderEmbroideryMaps(
 
   // ---- mask ----
   const maskCanvas = createCanvas(width, height);
-  const maskContext = maskCanvas.getContext("2d")!;
+  const maskContext = context2d(maskCanvas);
   maskContext.fillStyle = "#000000";
   maskContext.fillRect(0, 0, width, height);
   strokeRuns(maskContext, runs, threadPx, () => "#ffffff");
 
   // ---- roughness: thread is smoother than the cloth it sits on ----
   const roughnessCanvas = createCanvas(width, height);
-  const roughnessContext = roughnessCanvas.getContext("2d")!;
+  const roughnessContext = context2d(roughnessCanvas);
   const threadRoughness = Math.round((1 - settings.sheen * 0.55) * 255);
   roughnessContext.fillStyle = "#f2f2f2";
   roughnessContext.fillRect(0, 0, width, height);
@@ -89,7 +84,7 @@ export function renderEmbroideryMaps(
 
   // ---- colour: flat thread, then shaded by the height field ----
   const colourCanvas = createCanvas(width, height);
-  const colourContext = colourCanvas.getContext("2d", { willReadFrequently: true })!;
+  const colourContext = context2d(colourCanvas, { willReadFrequently: true });
   colourContext.clearRect(0, 0, width, height);
   strokeRuns(colourContext, runs, threadPx, (run) => run.colour);
   const colourData = colourContext.getImageData(0, 0, width, height);
@@ -97,7 +92,7 @@ export function renderEmbroideryMaps(
   // ---- normal from height, and bake a light touch of the same relief into
   // the 2D colour so the flat editor preview also reads as thread ----
   const normalCanvas = createCanvas(width, height);
-  const normalContext = normalCanvas.getContext("2d")!;
+  const normalContext = context2d(normalCanvas);
   const normalData = normalContext.createImageData(width, height);
   const strength = settings.reliefMm * pxPerMm * 0.09;
 
