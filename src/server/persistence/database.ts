@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 export type VortexDatabase = Database.Database;
 
@@ -161,6 +161,37 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (4, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 5) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE production_artifacts (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          project_revision INTEGER NOT NULL CHECK (project_revision >= 1),
+          product_version_id TEXT NOT NULL,
+          configuration_id TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('pdf')),
+          mime_type TEXT NOT NULL CHECK (mime_type IN ('application/pdf')),
+          filename TEXT NOT NULL,
+          byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          preflight_report_json TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (project_id, project_revision)
+            REFERENCES project_revisions(project_id, revision) ON DELETE RESTRICT,
+          UNIQUE(project_id, project_revision, kind)
+        );
+
+        CREATE INDEX production_artifacts_project_idx
+          ON production_artifacts(project_id, created_at DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (5, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

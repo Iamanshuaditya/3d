@@ -53,7 +53,10 @@ function issue(
   issues.push(value);
 }
 
-export function preflightPrintJob(job: NormalizedPrintJob): PreflightReport {
+export function preflightPrintJob(
+  job: NormalizedPrintJob,
+  createdAt = new Date().toISOString(),
+): PreflightReport {
   const issues: PreflightIssue[] = [];
   const checks: PreflightReport["checks"] = [];
 
@@ -79,6 +82,7 @@ export function preflightPrintJob(job: NormalizedPrintJob): PreflightReport {
   let imageResolutionOk = true;
   let imageMetadataOk = true;
   let bleedOk = true;
+  let artworkTreatmentsOk = true;
 
   for (const entry of job.surfaces) {
     const { surface, design, dieline } = entry;
@@ -144,6 +148,16 @@ export function preflightPrintJob(job: NormalizedPrintJob): PreflightReport {
 
     for (const element of design.elements) {
       if (element.type !== "image") continue;
+      if (element.treatment?.mode === "embroidery") {
+        artworkTreatmentsOk = false;
+        issue(issues, {
+          code: "EMBROIDERY_PRODUCTION_UNSUPPORTED",
+          severity: "error",
+          surfaceId: surface.id,
+          elementId: element.id,
+          message: `${element.sourceName ?? element.id} uses visual embroidery preview settings. Vortex does not yet generate machine-ready embroidery files.`,
+        });
+      }
       const ppi = effectiveImagePpi(
         element,
         surface.editorWidth,
@@ -217,6 +231,13 @@ export function preflightPrintJob(job: NormalizedPrintJob): PreflightReport {
       detail: imageResolutionOk ? `All images meet ${job.profile.minimumImagePpi} PPI minimum.` : "An image is below the minimum effective PPI.",
     },
     {
+      name: "Production artwork treatments",
+      passed: artworkTreatmentsOk,
+      detail: artworkTreatmentsOk
+        ? "Every artwork treatment has a supported production representation."
+        : "Visual embroidery preview cannot be emitted as machine embroidery production data.",
+    },
+    {
       name: "Color-managed output",
       passed: true,
       detail: `${job.profile.standard} with ${job.profile.outputConditionIdentifier} ${job.profile.outputIcc.alternate} output intent${job.profile.maximumTotalAreaCoveragePercent ? ` (${job.profile.maximumTotalAreaCoveragePercent}% TAC profile)` : ""}.`,
@@ -242,7 +263,7 @@ export function preflightPrintJob(job: NormalizedPrintJob): PreflightReport {
     engineVersion: "1.0",
     profileId: job.profile.id,
     standard: job.profile.standard,
-    createdAt: new Date().toISOString(),
+    createdAt,
     passed: !issues.some((candidate) => candidate.severity === "error"),
     issues,
     checks,

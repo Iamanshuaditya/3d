@@ -93,3 +93,15 @@ export function projectAssetStorageKey(
   }
   return `projects/${projectId}/${assetId}.${extension}`;
 }
+
+export function productionArtifactStorageKey(
+  projectId: string,
+  artifactId: string,
+  extension: "pdf",
+) {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!uuid.test(projectId) || !uuid.test(artifactId)) {
+    throw new Error("Project and production artifact ids must be UUIDs.");
+  }
+  return `production/${projectId}/${artifactId}.${extension}`;
+}

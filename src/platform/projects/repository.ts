@@ -20,6 +20,12 @@ export interface ProjectRepository {
     owner: ProjectOwner,
     assetId: string | null,
   ): Promise<boolean>;
+  setStatusForRevision(
+    id: string,
+    owner: ProjectOwner,
+    expectedRevision: number,
+    status: DesignProject["status"],
+  ): Promise<boolean>;
   createAsset(input: CreateProjectAssetInput): Promise<ProjectAsset>;
   findAsset(id: string, projectId: string, owner: ProjectOwner): Promise<ProjectAsset | null>;
   listAssets(projectId: string, owner: ProjectOwner): Promise<ProjectAsset[]>;

@@ -151,8 +151,11 @@ export class SqliteProjectRepository implements ProjectRepository {
   async update(input: UpdateProjectInput): Promise<UpdateProjectResult> {
     const result = this.database.transaction((): UpdateProjectResult => {
       const existing = this.database.prepare(`
-        SELECT revision FROM design_projects WHERE id = ? AND ${OWNER_SQL}
-      `).get(input.id, input.owner.type, input.owner.id) as { revision: number } | undefined;
+        SELECT revision, status FROM design_projects WHERE id = ? AND ${OWNER_SQL}
+      `).get(input.id, input.owner.type, input.owner.id) as {
+        revision: number;
+        status: ProjectStatus;
+      } | undefined;
       if (!existing) return { kind: "not-found" };
       if (existing.revision !== input.expectedRevision) {
         return { kind: "conflict", currentRevision: existing.revision };
@@ -160,6 +163,11 @@ export class SqliteProjectRepository implements ProjectRepository {
 
       const nextRevision = existing.revision + 1;
       const designJson = JSON.stringify(input.design);
+      const nextStatus = input.status ?? (
+        existing.status === "ready_for_preflight" || existing.status === "production_ready"
+          ? "draft"
+          : null
+      );
       const changed = this.database.prepare(`
         UPDATE design_projects
         SET design_json = ?, revision = ?, updated_at = ?,
@@ -170,7 +178,7 @@ export class SqliteProjectRepository implements ProjectRepository {
         nextRevision,
         input.now,
         input.title ?? null,
-        input.status ?? null,
+        nextStatus,
         input.id,
         input.owner.type,
         input.owner.id,
@@ -213,6 +221,19 @@ export class SqliteProjectRepository implements ProjectRepository {
       UPDATE design_projects SET preview_asset_id = ?
       WHERE id = ? AND ${OWNER_SQL}
     `).run(assetId, id, owner.type, owner.id);
+    return result.changes === 1;
+  }
+
+  async setStatusForRevision(
+    id: string,
+    owner: ProjectOwner,
+    expectedRevision: number,
+    status: ProjectStatus,
+  ): Promise<boolean> {
+    const result = this.database.prepare(`
+      UPDATE design_projects SET status = ?
+      WHERE id = ? AND ${OWNER_SQL} AND revision = ? AND status != 'archived'
+    `).run(status, id, owner.type, owner.id, expectedRevision);
     return result.changes === 1;
   }
 

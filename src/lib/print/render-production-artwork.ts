@@ -1,13 +1,7 @@
 import type { DesignElement, EditableSection } from "@/types/configurator";
-import type { NormalizedPrintSurface } from "./types";
+import type { NormalizedPrintSurface, RenderedProductionArtwork } from "./types";
 
 const MM_PER_INCH = 25.4;
-
-export type RenderedArtwork = {
-  pngBytes: Uint8Array;
-  pixelWidth: number;
-  pixelHeight: number;
-};
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -126,7 +120,7 @@ function applySectionTransforms(
 export async function renderProductionArtwork(
   entry: NormalizedPrintSurface,
   ppi: number,
-): Promise<RenderedArtwork> {
+): Promise<RenderedProductionArtwork> {
   if (document.fonts?.ready) await document.fonts.ready;
 
   const physicalWidthMm = entry.surface.physicalWidthCm * 10;

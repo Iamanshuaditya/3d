@@ -100,6 +100,21 @@ export type RasterizedPrintSurface = NormalizedPrintSurface & {
   rasterHeight: number;
 };
 
+export type RenderedProductionArtwork = {
+  pngBytes: Uint8Array;
+  pixelWidth: number;
+  pixelHeight: number;
+};
+
+/** Environment adapter: browser canvas today, Sharp on the production server. */
+export type ProductionArtworkRenderer = (
+  surface: NormalizedPrintSurface,
+  ppi: number,
+) => Promise<RenderedProductionArtwork>;
+
+/** Environment adapter for integrity-checked embedded/public ICC bytes. */
+export type IccProfileLoader = (profile: IccProfileDefinition) => Promise<Uint8Array>;
+
 export type ProductionPdfResult = {
   bytes: Uint8Array;
   fileName: string;

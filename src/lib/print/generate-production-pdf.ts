@@ -14,7 +14,9 @@ import { renderProductionArtwork } from "./render-production-artwork";
 import { loadIccProfile } from "./load-icc-profile";
 import type {
   NormalizedPrintJob,
+  IccProfileLoader,
   PreflightReport,
+  ProductionArtworkRenderer,
   ProductionPdfResult,
   TechnicalLayerProfile,
 } from "./types";
@@ -73,9 +75,14 @@ function ensureDictionary(parent: PDFDict, key: string, context: PDFDocument["co
   return created;
 }
 
-async function addOutputIntent(pdf: PDFDocument, job: NormalizedPrintJob, report: PreflightReport) {
+async function addOutputIntent(
+  pdf: PDFDocument,
+  job: NormalizedPrintJob,
+  report: PreflightReport,
+  loadProfile: IccProfileLoader,
+) {
   const context = pdf.context;
-  const outputBytes = await loadIccProfile(job.profile.outputIcc);
+  const outputBytes = await loadProfile(job.profile.outputIcc);
   const outputStream = context.flateStream(outputBytes, {
     N: job.profile.outputIcc.components,
     Alternate: job.profile.outputIcc.alternate,
@@ -85,7 +92,7 @@ async function addOutputIntent(pdf: PDFDocument, job: NormalizedPrintJob, report
     job.profile.sourceIcc.id === job.profile.outputIcc.id
       ? outputRef
       : context.register(
-          context.flateStream(await loadIccProfile(job.profile.sourceIcc), {
+          context.flateStream(await loadProfile(job.profile.sourceIcc), {
             N: job.profile.sourceIcc.components,
             Alternate: job.profile.sourceIcc.alternate,
           }),
@@ -109,15 +116,19 @@ async function addOutputIntent(pdf: PDFDocument, job: NormalizedPrintJob, report
   return sourceRef;
 }
 
-function addPdfXInfo(pdf: PDFDocument, job: NormalizedPrintJob) {
+function addPdfXInfo(pdf: PDFDocument, job: NormalizedPrintJob, createdAt: string) {
+  const artifactDate = new Date(createdAt);
+  if (Number.isNaN(artifactDate.valueOf())) {
+    throw new Error("Production report has an invalid creation time.");
+  }
   pdf.context.header = PDFHeader.forVersion(1, 6);
   pdf.setTitle(`${job.product.name} production artwork`);
   pdf.setSubject(`Production artwork generated for ${job.profile.label}`);
   pdf.setCreator("Vortex Studio");
   pdf.setProducer("Vortex Print Engine 1.0");
   pdf.setKeywords([job.product.id, job.profile.id, "production artwork", "PDF/X-4"]);
-  pdf.setCreationDate(new Date());
-  pdf.setModificationDate(new Date());
+  pdf.setCreationDate(artifactDate);
+  pdf.setModificationDate(artifactDate);
 
   const infoRef = pdf.context.trailerInfo.Info;
   const info = infoRef ? pdf.context.lookup(infoRef, PDFDict) : undefined;
@@ -277,10 +288,29 @@ function addTechnicalPaths(
   page.pushOperators(...operators);
 }
 
-export async function generateProductionPdf(job: NormalizedPrintJob): Promise<ProductionPdfResult> {
-  const report = preflightPrintJob(job);
-  if (!report.passed) {
-    const messages = report.issues
+export type GenerateProductionPdfOptions = {
+  renderArtwork?: ProductionArtworkRenderer;
+  loadProfile?: IccProfileLoader;
+  /** Additional server checks may be supplied, but cannot bypass core preflight. */
+  preflightReport?: PreflightReport;
+};
+
+export async function generateProductionPdf(
+  job: NormalizedPrintJob,
+  options: GenerateProductionPdfOptions = {},
+): Promise<ProductionPdfResult> {
+  const coreReport = preflightPrintJob(job, options.preflightReport?.createdAt);
+  const report = options.preflightReport ?? coreReport;
+  if (
+    report.profileId !== job.profile.id ||
+    report.standard !== job.profile.standard ||
+    report.engine !== "Vortex Print Engine"
+  ) {
+    throw new Error("Production preflight report does not match this print job.");
+  }
+  if (!coreReport.passed || !report.passed) {
+    const failedReport = !coreReport.passed ? coreReport : report;
+    const messages = failedReport.issues
       .filter((issue) => issue.severity === "error")
       .map((issue) => issue.message)
       .join("\n");
@@ -288,8 +318,13 @@ export async function generateProductionPdf(job: NormalizedPrintJob): Promise<Pr
   }
 
   const pdf = await PDFDocument.create();
-  addPdfXInfo(pdf, job);
-  const iccRef = await addOutputIntent(pdf, job, report);
+  addPdfXInfo(pdf, job, report.createdAt);
+  const iccRef = await addOutputIntent(
+    pdf,
+    job,
+    report,
+    options.loadProfile ?? loadIccProfile,
+  );
   const cutLayer = makeTechnicalLayer(pdf, job.profile.layers.cut, 1);
   const creaseLayer = makeTechnicalLayer(pdf, job.profile.layers.crease, 2);
   const layers = [cutLayer, creaseLayer];
@@ -306,7 +341,10 @@ export async function generateProductionPdf(job: NormalizedPrintJob): Promise<Pr
     page.setArtBox(0, 0, pageWidthPt, pageHeightPt);
     addPageResources(pdf, page, iccRef, layers);
 
-    const artwork = await renderProductionArtwork(entry, job.profile.renderPpi);
+    const artwork = await (options.renderArtwork ?? renderProductionArtwork)(
+      entry,
+      job.profile.renderPpi,
+    );
     const image = await pdf.embedPng(artwork.pngBytes);
     page.drawImage(image, { x: 0, y: 0, width: pageWidthPt, height: pageHeightPt });
 
