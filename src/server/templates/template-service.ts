@@ -20,6 +20,7 @@ import type {
 import type { ProjectService } from "@/server/projects/project-service";
 import { renderDesignPreview } from "@/server/projects/project-preview";
 import type { TemplateCatalogService } from "./template-catalog-service";
+import type { TemplateAssetService } from "./template-asset-service";
 
 function previewUrl(template: DesignTemplateVersion) {
   return `/api/v1/templates/${encodeURIComponent(template.templateId)}/preview?version=${encodeURIComponent(template.id)}`;
@@ -39,6 +40,7 @@ export class TemplateService {
     private readonly templates: TemplateCatalogService,
     private readonly products: ProductCatalogReader,
     private readonly projects: ProjectService,
+    private readonly assets: TemplateAssetService,
   ) {}
 
   private mapError(error: unknown): never {
@@ -138,12 +140,9 @@ export class TemplateService {
           "This template is not compatible with the selected product configuration.",
         );
       }
-      if (template.assetIds.length) {
-        throw new TemplateDomainError(
-          "TEMPLATE_ASSET_CLONING_REQUIRED",
-          "Artwork-backed templates are not enabled until template asset cloning is configured.",
-        );
-      }
+      const templateArtwork = await Promise.all(
+        template.assetIds.map((assetId) => this.assets.read(assetId)),
+      );
       const personalization = mergePersonalizationData(
         parsePersonalizationData(template.defaultPersonalization),
         parsePersonalizationData(request.personalization),
@@ -158,6 +157,16 @@ export class TemplateService {
         optionSelection: resolved.selection,
         templateVersionId: template.id,
         design,
+        templateArtwork: templateArtwork.map(({ asset }) => ({
+          templateAssetId: asset.id,
+          filename: asset.filename,
+          mimeType: asset.mimeType,
+          byteSize: asset.byteSize,
+          width: asset.width,
+          height: asset.height,
+          sha256: asset.sha256,
+          storageKey: asset.storageKey,
+        })),
         title: request.title ?? template.name,
         creationKey: request.clientRequestId,
       });
@@ -169,12 +178,6 @@ export class TemplateService {
   async preview(templateId: string, versionId?: string) {
     try {
       const template = await this.templates.version(templateId, versionId);
-      if (template.assetIds.length) {
-        throw new TemplateDomainError(
-          "TEMPLATE_PREVIEW_ASSETS_UNAVAILABLE",
-          "This template preview needs a template asset resolver.",
-        );
-      }
       const compatibility = template.compatibility[0];
       const resolved = await this.products.resolve(
         compatibility.productId,
@@ -187,7 +190,15 @@ export class TemplateService {
           "Template preview configuration is unavailable.",
         );
       }
-      return await renderDesignPreview(template.designDocumentTemplate, resolved.productConfig);
+      return await renderDesignPreview(
+        template.designDocumentTemplate,
+        resolved.productConfig,
+        async (assetId) => {
+          if (!template.assetIds.includes(assetId)) return null;
+          const { asset, object } = await this.assets.read(assetId);
+          return { bytes: object.bytes, mimeType: asset.mimeType };
+        },
+      );
     } catch (error) {
       return this.mapError(error);
     }

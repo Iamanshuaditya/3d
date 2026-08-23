@@ -47,6 +47,17 @@ import { renderProjectPreview } from "./project-preview";
 type Clock = () => string;
 type IdGenerator = () => string;
 
+export type TemplateArtworkSource = {
+  templateAssetId: string;
+  filename: string;
+  mimeType: ProjectAsset["mimeType"];
+  byteSize: number;
+  width: number;
+  height: number;
+  sha256: string;
+  storageKey: string;
+};
+
 export type UpdateProjectRequest = {
   expectedRevision: number;
   design: unknown;
@@ -256,11 +267,12 @@ export class ProjectService {
     creationKey?: unknown;
     design?: unknown;
     sourceTemplateVersionId?: string | null;
+    templateArtwork?: TemplateArtworkSource[];
   }): Promise<DesignProjectDto> {
     const { resolved } = input;
     const product = resolved.productConfig;
     const creationKey = this.validateCreationKey(input.creationKey);
-    const design = input.design === undefined
+    let design = input.design === undefined
       ? createEmptyDocument(product)
       : parseDesignDocument(input.design);
     if (design.productId !== product.id) {
@@ -273,23 +285,67 @@ export class ProjectService {
     ) {
       throw new ValidationError("INVALID_TEMPLATE_VERSION", "Template version id is invalid.");
     }
-    if (
-      input.sourceTemplateVersionId &&
-      Object.values(design.surfaces).some((surface) =>
-        surface.elements.some((element) => element.type === "image"),
-      )
-    ) {
+    const now = this.clock();
+    const requestedProjectId = this.generateId();
+    const initialAssets: ProjectAsset[] = [];
+    const copiedStorageKeys: string[] = [];
+    const templateArtwork = input.templateArtwork ?? [];
+    if (input.sourceTemplateVersionId) {
+      const referenced = new Set(collectAssetIds(design));
+      const supplied = new Map(templateArtwork.map((asset) => [asset.templateAssetId, asset]));
+      if (
+        referenced.size !== supplied.size ||
+        [...referenced].some((assetId) => !supplied.has(assetId))
+      ) {
+        throw new ValidationError(
+          "TEMPLATE_ASSET_MISMATCH",
+          "The template artwork set does not match its immutable document references.",
+        );
+      }
+    } else if (templateArtwork.length) {
       throw new ValidationError(
-        "TEMPLATE_ASSET_CLONING_REQUIRED",
-        "This template contains artwork assets that cannot yet be cloned into a project.",
+        "TEMPLATE_ASSET_CONTEXT_INVALID",
+        "Template artwork cannot be attached to a non-template project.",
       );
     }
 
-    const now = this.clock();
     let project: DesignProject;
     try {
+      const replacements = new Map<string, string>();
+      for (const source of templateArtwork) {
+        const assetId = this.generateId();
+        const extension = source.mimeType === "image/jpeg"
+          ? "jpg"
+          : source.mimeType === "image/webp"
+            ? "webp"
+            : "png";
+        const storageKey = projectAssetStorageKey(requestedProjectId, assetId, extension);
+        await this.objectStore.copy(source.storageKey, storageKey);
+        copiedStorageKeys.push(storageKey);
+        replacements.set(source.templateAssetId, assetId);
+        initialAssets.push({
+          id: assetId,
+          projectId: requestedProjectId,
+          kind: "artwork",
+          filename: source.filename,
+          mimeType: source.mimeType,
+          byteSize: source.byteSize,
+          width: source.width,
+          height: source.height,
+          sha256: source.sha256,
+          storageKey,
+          createdAt: now,
+        });
+      }
+      if (replacements.size) {
+        design = replaceAssetIds(design, replacements);
+        design = canonicalizeArtworkMetadata(
+          design,
+          new Map(initialAssets.map((asset) => [asset.id, asset])),
+        );
+      }
       project = await this.repository.create({
-        id: this.generateId(),
+        id: requestedProjectId,
         title: normalizeProjectTitle(input.title, product.name),
         productId: product.id,
         productVersionId: resolved.productVersionId,
@@ -298,10 +354,12 @@ export class ProjectService {
         sourceTemplateVersionId: input.sourceTemplateVersionId ?? null,
         owner: input.owner,
         design: stripRuntimeImageSources(design),
+        initialAssets,
         creationKey,
         now,
       });
     } catch (error) {
+      await Promise.all(copiedStorageKeys.map((key) => this.objectStore.delete(key)));
       if (error instanceof GuestIdentityAlreadyClaimedError) {
         throw new PlatformError(
           "GUEST_IDENTITY_CLAIMED",
@@ -310,6 +368,9 @@ export class ProjectService {
         );
       }
       throw error;
+    }
+    if (project.id !== requestedProjectId) {
+      await Promise.all(copiedStorageKeys.map((key) => this.objectStore.delete(key)));
     }
     if (
       project.productId !== product.id ||
@@ -355,6 +416,7 @@ export class ProjectService {
     optionSelection: unknown;
     templateVersionId: string;
     design: unknown;
+    templateArtwork?: TemplateArtworkSource[];
     title?: unknown;
     creationKey?: unknown;
   }): Promise<DesignProjectDto> {
@@ -376,6 +438,7 @@ export class ProjectService {
       creationKey: input.creationKey,
       design: input.design,
       sourceTemplateVersionId: input.templateVersionId,
+      templateArtwork: input.templateArtwork,
     });
   }
 

@@ -5,6 +5,7 @@ import {
 import { parseDesignDocument } from "@/platform/projects/design-document";
 import type { ProductCatalogReader } from "@/platform/products/types";
 import { TemplateDomainError } from "@/platform/templates/errors";
+import type { TemplateAssetReader } from "@/platform/templates/assets";
 import {
   parsePersonalizationData,
   validateFieldKey,
@@ -96,6 +97,7 @@ export class TemplateCatalogService {
   constructor(
     private readonly repository: TemplateCatalogRepository,
     private readonly products: ProductCatalogReader,
+    private readonly assets: TemplateAssetReader,
     private readonly codeDefinitions: Readonly<Record<string, DesignTemplateDefinition>> =
       CODE_TEMPLATE_DEFINITIONS,
     private readonly codeVersions: Readonly<Record<string, DesignTemplateVersion>> =
@@ -184,7 +186,15 @@ export class TemplateCatalogService {
           }
           boundKeys.add(element.binding.key);
         }
-        if (element.type === "image" && element.assetId) documentAssetIds.add(element.assetId);
+        if (element.type === "image") {
+          if (!element.assetId || element.src) {
+            throw new TemplateDomainError(
+              "TEMPLATE_ASSET_REFERENCE_INVALID",
+              "Published image layers must use a stable template asset id without a URL.",
+            );
+          }
+          documentAssetIds.add(element.assetId);
+        }
       }
     }
     for (const key of definitions.keys()) {
@@ -196,6 +206,7 @@ export class TemplateCatalogService {
       }
     }
     if (
+      version.assetIds.length !== new Set(version.assetIds).size ||
       canonicalJson([...documentAssetIds].sort()) !==
       canonicalJson([...new Set(version.assetIds)].sort())
     ) {
@@ -203,6 +214,14 @@ export class TemplateCatalogService {
         "TEMPLATE_ASSET_MISMATCH",
         "Template asset references do not match its declared stable assets.",
       );
+    }
+    for (const assetId of version.assetIds) {
+      if (!(await this.assets.findById(assetId))) {
+        throw new TemplateDomainError(
+          "TEMPLATE_ASSET_MISSING",
+          `Template asset ${assetId} does not exist in the platform catalogue.`,
+        );
+      }
     }
     const defaults = parsePersonalizationData(version.defaultPersonalization);
     validatePlaceholderValues(version.placeholderDefinitions, defaults, {

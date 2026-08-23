@@ -93,6 +93,8 @@ export type CreateProjectInput = {
   sourceTemplateVersionId?: string | null;
   owner: ProjectOwner;
   design: DesignDocument;
+  /** Assets inserted in the same transaction as revision 1. */
+  initialAssets?: ProjectAsset[];
   /** Owner-scoped key that makes create retries safe. */
   creationKey?: string;
   now: string;

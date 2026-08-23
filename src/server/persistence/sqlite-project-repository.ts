@@ -134,6 +134,29 @@ export class SqliteProjectRepository implements ProjectRepository {
         INSERT INTO project_revisions(project_id, revision, design_json, created_at)
         VALUES (?, 1, ?, ?)
       `).run(input.id, designJson, input.now);
+      for (const asset of input.initialAssets ?? []) {
+        if (asset.projectId !== input.id || asset.kind !== "artwork") {
+          throw new Error("Initial project assets must be artwork owned by the new project.");
+        }
+        this.database.prepare(`
+          INSERT INTO project_assets (
+            id, project_id, kind, filename, mime_type, byte_size, width, height,
+            sha256, storage_key, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          asset.id,
+          asset.projectId,
+          asset.kind,
+          asset.filename,
+          asset.mimeType,
+          asset.byteSize,
+          asset.width,
+          asset.height,
+          asset.sha256,
+          asset.storageKey,
+          asset.createdAt,
+        );
+      }
       return this.database.prepare(`
         SELECT * FROM design_projects WHERE id = ? AND ${OWNER_SQL}
       `).get(input.id, input.owner.type, input.owner.id) as ProjectRow;

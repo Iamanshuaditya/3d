@@ -25,9 +25,11 @@ import { ProductCatalogService } from "@/server/products/product-catalog-service
 import { SqliteProductCatalogRepository } from "@/server/products/sqlite-product-catalog-repository";
 import { FilesystemObjectStore } from "@/server/storage/filesystem-object-store";
 import { SqliteTemplateCatalogRepository } from "@/server/templates/sqlite-template-catalog-repository";
+import { SqliteTemplateAssetRepository } from "@/server/templates/sqlite-template-asset-repository";
+import { TemplateAssetService } from "@/server/templates/template-asset-service";
 import { TemplateCatalogService } from "@/server/templates/template-catalog-service";
 import { TemplateService } from "@/server/templates/template-service";
-import type { DesignDocument, TextElement } from "@/types/configurator";
+import type { DesignDocument, ImageElement, TextElement } from "@/types/configurator";
 
 const guest: ProjectOwner = {
   type: "guest",
@@ -37,26 +39,32 @@ const guest: ProjectOwner = {
 async function fixture(t: TestContext) {
   const directory = await mkdtemp(join(tmpdir(), "vortex-template-test-"));
   const database = openVortexDatabase(":memory:");
+  const objectStore = new FilesystemObjectStore(join(directory, "objects"));
   const products = new ProductCatalogService(
     new SqliteProductCatalogRepository(database),
   );
   const projects = new ProjectService(
     new SqliteProjectRepository(database),
-    new FilesystemObjectStore(join(directory, "objects")),
+    objectStore,
     undefined,
     undefined,
     products,
+  );
+  const assets = new TemplateAssetService(
+    new SqliteTemplateAssetRepository(database),
+    objectStore,
   );
   const catalogue = new TemplateCatalogService(
     new SqliteTemplateCatalogRepository(database),
     products,
+    assets,
   );
-  const service = new TemplateService(catalogue, products, projects);
+  const service = new TemplateService(catalogue, products, projects, assets);
   t.after(async () => {
     database.close();
     await rm(directory, { recursive: true, force: true });
   });
-  return { products, projects, catalogue, service };
+  return { database, products, projects, assets, catalogue, service };
 }
 
 function boundText(document: DesignDocument, key: string): TextElement {
@@ -241,6 +249,140 @@ test("template preview is a real PNG rendered from the same document", async (t)
   const preview = await service.preview("team-launch-shirt", "team-launch-shirt@1");
   assert.equal(Buffer.from(preview.bytes).subarray(1, 4).toString("ascii"), "PNG");
   assert.ok(preview.width > 0 && preview.height > 0);
+});
+
+test("immutable platform artwork previews and copies into an ordinary project", async (t) => {
+  const { database, products, projects, assets, catalogue, service } = await fixture(t);
+  const bytes = await import("sharp").then(({ default: sharp }) => sharp({
+    create: {
+      width: 80,
+      height: 40,
+      channels: 4,
+      background: { r: 22, g: 105, b: 210, alpha: 1 },
+    },
+  }).png().toBuffer());
+  const asset = await assets.upload("operator-template-publisher", "../brand-mark.png", bytes);
+
+  const version = structuredClone(CODE_TEMPLATE_VERSIONS["team-launch-shirt@1"]);
+  version.id = "image-shirt@1";
+  version.templateId = "image-shirt";
+  version.name = "Image shirt";
+  version.assetIds = [asset.id];
+  version.publishedAt = "2026-08-24T01:00:00.000Z";
+  const image: ImageElement = {
+    id: "catalogue-brand-mark",
+    type: "image",
+    assetId: asset.id,
+    x: 60,
+    y: 80,
+    width: 200,
+    height: 100,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    opacity: 1,
+  };
+  version.designDocumentTemplate.surfaces["front-chest"].elements.push(image);
+  const definition: DesignTemplateDefinition = {
+    ...structuredClone(CODE_TEMPLATE_DEFINITIONS["team-launch-shirt"]),
+    id: version.templateId,
+    name: version.name,
+    currentVersionId: version.id,
+    updatedAt: version.publishedAt,
+  };
+  await catalogue.publish(definition, version);
+
+  const preview = await service.preview(version.templateId, version.id);
+  assert.equal(Buffer.from(preview.bytes).subarray(1, 4).toString("ascii"), "PNG");
+
+  const shirt = await products.resolve("tshirt", null, {});
+  const request = {
+    templateVersionId: version.id,
+    productId: "tshirt",
+    productVersionId: shirt.productVersionId,
+    optionSelection: {},
+    personalization: { company: { name: "IMAGE", tagline: "PERSISTED" } },
+    clientRequestId: "566783b4-1a5f-4f9d-848e-17a75d64a51e",
+  };
+  const created = await service.instantiate(guest, version.templateId, request);
+  const retry = await service.instantiate(guest, version.templateId, request);
+  assert.equal(retry.id, created.id);
+  assert.equal(created.assets.length, 1);
+  assert.notEqual(created.assets[0].id, asset.id, "catalogue bytes are copied into owner scope");
+  const projectImage = created.design.surfaces["front-chest"].elements.find(
+    (element) => element.id === image.id,
+  );
+  assert.equal(projectImage?.type, "image");
+  if (projectImage?.type !== "image") assert.fail("expected image template layer");
+  assert.equal(projectImage.assetId, created.assets[0].id);
+  assert.match(projectImage.src ?? "", new RegExp(`/projects/${created.id}/assets/`));
+  assert.equal(
+    Buffer.compare(
+      Buffer.from((await projects.readAsset(guest, created.id, created.assets[0].id)).object.bytes),
+      bytes,
+    ),
+    0,
+  );
+  assert.equal(
+    (database.prepare("SELECT COUNT(*) AS count FROM project_assets WHERE project_id = ?")
+      .get(created.id) as { count: number }).count,
+    1,
+    "idempotent retries do not duplicate project artwork",
+  );
+
+  database.prepare(`
+    UPDATE design_template_definitions
+    SET status = 'draft', current_version_id = NULL
+    WHERE id = ?
+  `).run(version.templateId);
+  const reopened = await projects.open(guest, created.id);
+  assert.equal(reopened.assets.length, 1, "unpublishing cannot break an existing project");
+  const duplicate = await projects.duplicate(guest, created.id);
+  assert.equal(duplicate.assets.length, 1);
+  assert.notEqual(duplicate.assets[0].id, reopened.assets[0].id);
+});
+
+test("publishing fails closed when a template asset is missing or URL-backed", async (t) => {
+  const { catalogue } = await fixture(t);
+  const version = structuredClone(CODE_TEMPLATE_VERSIONS["team-launch-shirt@1"]);
+  version.id = "unsafe-image-shirt@1";
+  version.templateId = "unsafe-image-shirt";
+  version.name = "Unsafe image shirt";
+  version.assetIds = ["28f8e2f7-ea91-45f1-87a5-61c6bb2e3c96"];
+  version.publishedAt = "2026-08-24T01:15:00.000Z";
+  const unsafeImage: ImageElement = {
+    id: "unsafe-image",
+    type: "image",
+    assetId: version.assetIds[0],
+    src: "https://example.test/not-durable.png",
+    x: 0,
+    y: 0,
+    width: 10,
+    height: 10,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    opacity: 1,
+  };
+  version.designDocumentTemplate.surfaces["front-chest"].elements.push(unsafeImage);
+  const definition: DesignTemplateDefinition = {
+    ...structuredClone(CODE_TEMPLATE_DEFINITIONS["team-launch-shirt"]),
+    id: version.templateId,
+    name: version.name,
+    currentVersionId: version.id,
+    updatedAt: version.publishedAt,
+  };
+  await assert.rejects(
+    () => catalogue.publish(definition, version),
+    (error) => error instanceof TemplateDomainError &&
+      error.code === "TEMPLATE_ASSET_REFERENCE_INVALID",
+  );
+
+  delete unsafeImage.src;
+  await assert.rejects(
+    () => catalogue.publish(definition, version),
+    (error) => error instanceof TemplateDomainError && error.code === "TEMPLATE_ASSET_MISSING",
+  );
 });
 
 test("a template cannot instantiate against an unrelated product", async (t) => {

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 10;
 
 export type VortexDatabase = Database.Database;
 
@@ -396,6 +396,33 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (9, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 10) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE template_assets (
+          id TEXT PRIMARY KEY,
+          filename TEXT NOT NULL,
+          mime_type TEXT NOT NULL CHECK (
+            mime_type IN ('image/png', 'image/jpeg', 'image/webp')
+          ),
+          byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+          width INTEGER NOT NULL CHECK (width > 0),
+          height INTEGER NOT NULL CHECK (height > 0),
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          created_by TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX template_assets_checksum_idx
+          ON template_assets(sha256, created_at DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (10, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }
