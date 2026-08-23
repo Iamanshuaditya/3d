@@ -264,6 +264,7 @@ function versionFixture(
     definition: {
       id: productId,
       status: "published",
+      visibility: "unlisted",
       currentVersionId: id,
       createdAt: publishedAt,
       updatedAt: publishedAt,
