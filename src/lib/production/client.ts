@@ -1,6 +1,7 @@
 import { ProjectApiError } from "@/lib/projects/client";
 import type {
   ProductionArtifactDto,
+  ProductionArtifactKind,
   ProductionPreflightDto,
 } from "@/platform/production/types";
 
@@ -38,12 +39,16 @@ export async function preflightProject(projectId: string, revision?: number) {
   return result.preflight;
 }
 
-export async function generateProductionArtifact(projectId: string, revision?: number) {
+export async function generateProductionArtifact(
+  projectId: string,
+  revision?: number,
+  kind: ProductionArtifactKind = "pdf",
+) {
   const result = await requestJson<{ artifact: ProductionArtifactDto }>(
     `/api/v1/projects/${encodeURIComponent(projectId)}/production/artifacts`,
     {
       method: "POST",
-      body: JSON.stringify({ kind: "pdf", ...(revision ? { revision } : {}) }),
+      body: JSON.stringify({ kind, ...(revision ? { revision } : {}) }),
     },
   );
   return result.artifact;
@@ -55,4 +60,3 @@ export async function listProductionArtifacts(projectId: string) {
   );
   return result.artifacts;
 }
-

@@ -8,6 +8,10 @@ export class PdfProductionExporter implements ProductionExporter {
   readonly mimeType = "application/pdf" as const;
   private readonly loadProfile = createServerIccProfileLoader();
 
+  supports() {
+    return true;
+  }
+
   async export(request: Parameters<ProductionExporter["export"]>[0]) {
     const result = await generateProductionPdf(request.job, {
       preflightReport: request.report,

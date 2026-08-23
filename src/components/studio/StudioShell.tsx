@@ -13,7 +13,7 @@ import {
   dielineCameraPreset,
   resolveProductPresentation,
 } from "@/lib/configurator/presentation";
-import { CARTONS } from "@/lib/configurator/carton-spec";
+import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 import { UnfoldControl } from "@/components/configurator/UnfoldControl";
 import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
@@ -23,6 +23,8 @@ import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
 import { generateProductionArtifact } from "@/lib/production/client";
 import { ProjectApiError } from "@/lib/projects/client";
 import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
+import { supportsManufacturingSvg } from "@/lib/print/manufacturing-geometry";
+import type { ProductionArtifactKind } from "@/platform/production/types";
 
 const DesignEditor = dynamic(
   () => import("@/components/configurator/DesignEditor").then((m) => m.DesignEditor),
@@ -78,7 +80,7 @@ export function StudioShell({
   // available at all times and is the predictable default.
   const [animated, setAnimated] = useState(false);
   const [mobileTab, setMobileTab] = useState<"design" | "preview">("design");
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<ProductionArtifactKind | null>(null);
   const [exportNotice, setExportNotice] = useState<{
     kind: "success" | "error";
     message: string;
@@ -125,7 +127,7 @@ export function StudioShell({
     wasFlatRef.current = isFlat;
 
     if (isFlat) {
-      const spec = CARTONS[config.cartonSpecId ?? ""];
+      const spec = resolveCartonSpec(config);
       if (!spec) return;
       movedCameraRef.current = true;
       setPendingPreset(dielineCameraPreset(config, spec.width, spec.height));
@@ -237,16 +239,16 @@ export function StudioShell({
     }));
   }, []);
 
-  const exportProductionPdf = useCallback(async () => {
+  const exportProduction = useCallback(async (kind: ProductionArtifactKind) => {
     if (exporting) return;
-    setExporting(true);
+    setExporting(kind);
     setExportNotice(null);
     try {
       if (!c.projectId) throw new Error("Wait for the project to finish opening.");
       if (!(await c.saveNow())) {
         throw new Error("Save the current changes before generating production artwork.");
       }
-      const artifact = await generateProductionArtifact(c.projectId);
+      const artifact = await generateProductionArtifact(c.projectId, undefined, kind);
       const anchor = document.createElement("a");
       anchor.href = artifact.downloadUrl;
       anchor.download = artifact.filename;
@@ -258,8 +260,8 @@ export function StudioShell({
       setExportNotice({
         kind: "success",
         message: warningCount
-          ? `Immutable revision ${artifact.projectRevision} PDF stored and downloaded after preflight with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
-          : `Immutable revision ${artifact.projectRevision} PDF stored and downloaded. Geometry, artwork integrity, image resolution, ICC output intent, and manufacturing paths passed preflight.`,
+          ? `Immutable revision ${artifact.projectRevision} ${artifact.kind.toUpperCase()} stored and downloaded after preflight with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
+          : `Immutable revision ${artifact.projectRevision} ${artifact.kind.toUpperCase()} stored and downloaded. Geometry, artwork integrity, image resolution, and manufacturing paths passed preflight.`,
       });
     } catch (error) {
       const report = error instanceof ProjectApiError
@@ -275,10 +277,10 @@ export function StudioShell({
           ? `Production preflight failed:\n${preflightMessages.join("\n")}`
           : error instanceof Error
             ? error.message
-            : "Production PDF export failed.",
+            : `Production ${kind.toUpperCase()} export failed.`,
       });
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   }, [c, exporting]);
 
@@ -312,7 +314,9 @@ export function StudioShell({
           setPreviewing(true);
         }}
         previewButtonRef={previewButtonRef}
-        onExport={exportProductionPdf}
+        onExport={() => void exportProduction("pdf")}
+        onExportSvg={() => void exportProduction("svg")}
+        canExportSvg={supportsManufacturingSvg(config)}
         saveState={c.saveState}
         beforeNavigate={c.saveNow}
         exporting={exporting}

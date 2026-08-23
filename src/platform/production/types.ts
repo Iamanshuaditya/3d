@@ -1,7 +1,7 @@
 import type { PreflightReport } from "@/lib/print/types";
 
-export type ProductionArtifactKind = "pdf";
-export type ProductionArtifactMimeType = "application/pdf";
+export type ProductionArtifactKind = "pdf" | "svg";
+export type ProductionArtifactMimeType = "application/pdf" | "image/svg+xml";
 
 /** Immutable metadata for bytes generated from one exact project revision. */
 export type ProductionArtifact = {
@@ -39,4 +39,3 @@ export type CreateProductionArtifactResult = {
   artifact: ProductionArtifact;
   created: boolean;
 };
-

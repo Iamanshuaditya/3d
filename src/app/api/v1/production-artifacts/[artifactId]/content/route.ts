@@ -16,13 +16,14 @@ export async function GET(request: NextRequest, context: Context) {
     return new NextResponse(bytes.buffer, {
       headers: {
         "Cache-Control": "private, no-store",
+        "Content-Security-Policy": "sandbox",
         "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(artifact.filename)}`,
         "Content-Length": String(object.byteSize),
         "Content-Type": artifact.mimeType,
+        "Cross-Origin-Resource-Policy": "same-origin",
         ETag: `"${artifact.sha256}"`,
         "X-Content-Type-Options": "nosniff",
       },
     });
   });
 }
-

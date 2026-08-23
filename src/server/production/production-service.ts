@@ -366,6 +366,12 @@ export class ProductionService {
       );
     }
     const snapshot = await this.snapshot(owner, projectId, projectRevision);
+    if (!exporter.supports(snapshot.job)) {
+      throw new ValidationError(
+        "PRODUCTION_FORMAT_UNSUPPORTED",
+        `Production format ${kind} is not valid for this resolved product structure.`,
+      );
+    }
     if (!snapshot.report.passed) {
       logEvent("production.preflight-failed", {
         projectId,
@@ -404,7 +410,7 @@ export class ProductionService {
     }
 
     const artifactId = this.generateId();
-    const storageKey = productionArtifactStorageKey(projectId, artifactId, "pdf");
+    const storageKey = productionArtifactStorageKey(projectId, artifactId, kind);
     const createdAt = snapshot.report.createdAt;
     const artifact: ProductionArtifact = {
       id: artifactId,
@@ -414,7 +420,9 @@ export class ProductionService {
       configurationId: snapshot.project.configurationId,
       kind,
       mimeType: exporter.mimeType,
-      filename: `${snapshot.job.product.id}-r${projectRevision}-${snapshot.job.profile.id}.pdf`,
+      filename: kind === "pdf"
+        ? `${snapshot.job.product.id}-r${projectRevision}-${snapshot.job.profile.id}.pdf`
+        : `${snapshot.job.product.id}-r${projectRevision}-dieline.svg`,
       byteSize: exported.bytes.byteLength,
       sha256: sha256(exported.bytes),
       storageKey,

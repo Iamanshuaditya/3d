@@ -23,6 +23,6 @@ export type ProductionExportResult = {
 export interface ProductionExporter {
   readonly kind: ProductionArtifactKind;
   readonly mimeType: ProductionArtifactMimeType;
+  supports(job: NormalizedPrintJob): boolean;
   export(request: ProductionExportRequest): Promise<ProductionExportResult>;
 }
-

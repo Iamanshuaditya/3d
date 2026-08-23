@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 export type VortexDatabase = Database.Database;
 
@@ -192,6 +192,46 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (5, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 6) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE production_artifacts_v6 (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          project_revision INTEGER NOT NULL CHECK (project_revision >= 1),
+          product_version_id TEXT NOT NULL,
+          configuration_id TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('pdf', 'svg')),
+          mime_type TEXT NOT NULL CHECK (
+            (kind = 'pdf' AND mime_type = 'application/pdf') OR
+            (kind = 'svg' AND mime_type = 'image/svg+xml')
+          ),
+          filename TEXT NOT NULL,
+          byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          preflight_report_json TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (project_id, project_revision)
+            REFERENCES project_revisions(project_id, revision) ON DELETE RESTRICT,
+          UNIQUE(project_id, project_revision, kind)
+        );
+
+        INSERT INTO production_artifacts_v6
+          SELECT * FROM production_artifacts;
+
+        DROP TABLE production_artifacts;
+        ALTER TABLE production_artifacts_v6 RENAME TO production_artifacts;
+
+        CREATE INDEX production_artifacts_project_idx
+          ON production_artifacts(project_id, created_at DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (6, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

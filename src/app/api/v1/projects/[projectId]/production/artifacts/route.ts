@@ -26,12 +26,13 @@ export async function POST(request: NextRequest, context: Context) {
       throw new ValidationError("INVALID_REQUEST", "Production generation request is invalid.");
     }
     const values = body as { revision?: unknown; kind?: unknown };
-    const kind: ProductionArtifactKind = values.kind === undefined || values.kind === "pdf"
-      ? "pdf"
+    const kind: ProductionArtifactKind =
+      values.kind === undefined || values.kind === "pdf" || values.kind === "svg"
+      ? (values.kind ?? "pdf")
       : (() => {
           throw new ValidationError(
             "PRODUCTION_FORMAT_UNSUPPORTED",
-            "Only PDF production artifacts are currently available.",
+            "Only PDF and manufacturing SVG artifacts are currently available.",
           );
         })();
     const { projectId } = await context.params;
@@ -48,4 +49,3 @@ export async function POST(request: NextRequest, context: Context) {
     );
   });
 }
-

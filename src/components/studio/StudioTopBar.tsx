@@ -2,8 +2,9 @@
 
 import type { Ref } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, Eye, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
+import { ChevronDown, Download, Eye, FileCode2, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { ProjectSaveState } from "@/platform/projects/types";
+import type { ProductionArtifactKind } from "@/platform/production/types";
 
 export type CatalogueEntry = { id: string; name: string };
 
@@ -15,11 +16,13 @@ type StudioTopBarProps = {
   onUndo: () => void;
   onRedo: () => void;
   onExport: () => void;
+  onExportSvg: () => void;
+  canExportSvg: boolean;
   onPreview: () => void;
   previewButtonRef: Ref<HTMLButtonElement>;
   saveState: ProjectSaveState;
   beforeNavigate: () => Promise<boolean>;
-  exporting?: boolean;
+  exporting?: ProductionArtifactKind | null;
 };
 
 const SAVE_STATUS: Record<ProjectSaveState, { label: string; dot: string }> = {
@@ -39,11 +42,13 @@ export function StudioTopBar({
   onUndo,
   onRedo,
   onExport,
+  onExportSvg,
+  canExportSvg,
   onPreview,
   previewButtonRef,
   saveState,
   beforeNavigate,
-  exporting = false,
+  exporting = null,
 }: StudioTopBarProps) {
   const router = useRouter();
   const status = SAVE_STATUS[saveState];
@@ -153,17 +158,32 @@ export function StudioTopBar({
       <button
         type="button"
         onClick={onExport}
-        disabled={exporting || saveState === "loading"}
+        disabled={Boolean(exporting) || saveState === "loading"}
         className="flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[14px] font-semibold text-[var(--st-accent-ink)] transition-opacity hover:opacity-90 sm:px-4"
       >
-        <Download className={`h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
+        <Download className={`h-4 w-4 ${exporting === "pdf" ? "animate-pulse" : ""}`} />
         <span className="hidden sm:inline">
-          {exporting ? "Preparing PDF…" : "Download print PDF"}
+          {exporting === "pdf" ? "Preparing PDF…" : "Download print PDF"}
         </span>
         <span className="sr-only sm:hidden">
-          {exporting ? "Preparing print PDF" : "Download print-ready PDF"}
+          {exporting === "pdf" ? "Preparing print PDF" : "Download print-ready PDF"}
         </span>
       </button>
+
+      {canExportSvg && (
+        <button
+          type="button"
+          onClick={onExportSvg}
+          disabled={Boolean(exporting) || saveState === "loading"}
+          title="Download manufacturing dieline SVG"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--st-raised)] text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)] disabled:opacity-40"
+        >
+          <FileCode2 className={`h-4 w-4 ${exporting === "svg" ? "animate-pulse" : ""}`} />
+          <span className="sr-only">
+            {exporting === "svg" ? "Preparing manufacturing SVG" : "Download manufacturing SVG"}
+          </span>
+        </button>
+      )}
     </header>
   );
 }
