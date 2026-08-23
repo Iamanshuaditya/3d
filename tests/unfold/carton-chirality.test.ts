@@ -1,36 +1,66 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import type { CartonSpec } from "@/types/carton";
 import { CARTONS } from "@/lib/configurator/carton-spec";
 import { applyHingeAngles, buildCartonTree } from "@/lib/configurator/carton-geometry";
 import { anglesAtStage, cartonUnfoldPlan } from "@/lib/configurator/unfold-plan";
 
 /**
- * Chirality of the generic folded-carton construction.
+ * Artwork must read the right way round on the assembled carton.
  *
- * KNOWN PRE-EXISTING DEFECT, pinned here rather than silently changed.
+ * This is the check that a normal, a winding test or a monotonic "is v
+ * increasing" test all pass while the customer's logo comes out backwards.
+ * Chirality is whether the map from (u, v) to (screen-right, screen-up)
+ * preserves orientation for someone looking at the printed face — so we
+ * compare the signed area of one triangle in UV space against its signed area
+ * as that viewer sees it. Same sign: readable. Opposite sign: mirrored.
  *
- * `toUv` maps a panel's dieline rect straight onto the canvas and the panels
- * fold UP out of that plane. The consequence, measured below, is that on the
- * assembled carton every printed panel is the outermost board surface (right)
- * but its face normal points into the box (wrong) — so artwork on the box
- * EXTERIOR is seen through the back of the printed quad and reads mirrored.
- *
- * The two properties are in genuine tension: a carton printed on the outside
- * folds away from its print, so a blank whose top view matches the editor
- * necessarily assembles with the print inside, and vice versa. Fixing the
- * exterior therefore means changing which physical wall each dieline panel
- * becomes, which invalidates the authored `sections` metadata on shipped
- * products. It is a scoped migration, not a one-line flip, and it is
- * deliberately NOT bundled with the unfolding work.
- *
- * This test documents today's behaviour precisely so it cannot change by
- * accident.
+ * It was measured negative on every panel before the `toUv` u-inversion; see
+ * `docs/research/ARCHITECTURE_AUDIT.md` §5.
  */
 
-const spec = CARTONS["mailer-box"];
+function geometryCentre(mesh: THREE.Mesh) {
+  const attribute = mesh.geometry.getAttribute("position");
+  const sum = new THREE.Vector3();
+  const point = new THREE.Vector3();
+  for (let i = 0; i < attribute.count; i += 1) {
+    sum.add(mesh.localToWorld(point.fromBufferAttribute(attribute, i)));
+  }
+  return sum.multiplyScalar(1 / attribute.count);
+}
 
-function assembledTree() {
+function readability(printed: THREE.Mesh, board: THREE.Mesh) {
+  const position = printed.geometry.getAttribute("position");
+  const uv = printed.geometry.getAttribute("uv");
+  const index = printed.geometry.getIndex();
+  const triangle = index ? [index.getX(0), index.getX(1), index.getX(2)] : [0, 1, 2];
+
+  const world = triangle.map((i) =>
+    printed.localToWorld(new THREE.Vector3().fromBufferAttribute(position, i)),
+  );
+  const uvs = triangle.map((i) => new THREE.Vector2(uv.getX(i), uv.getY(i)));
+
+  // Which side is the printed face on? The unprinted board is always behind
+  // it. Deriving it that way keeps this test independent of the two builders'
+  // opposite winding conventions.
+  const outward = geometryCentre(printed).sub(geometryCentre(board)).normalize();
+  const hint = Math.abs(outward.y) > 0.9
+    ? new THREE.Vector3(0, 0, -1)
+    : new THREE.Vector3(0, 1, 0);
+  const right = new THREE.Vector3().crossVectors(hint, outward).normalize();
+  const up = new THREE.Vector3().crossVectors(outward, right).normalize();
+
+  const screen = world.map((p) => new THREE.Vector2(p.dot(right), p.dot(up)));
+  const area = (a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2) =>
+    (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+
+  return (
+    Math.sign(area(uvs[0], uvs[1], uvs[2])) * Math.sign(area(screen[0], screen[1], screen[2]))
+  );
+}
+
+function assembled(spec: CartonSpec) {
   const material = new THREE.MeshBasicMaterial();
   const tree = buildCartonTree(spec, material, material, material);
   applyHingeAngles(tree, anglesAtStage(cartonUnfoldPlan(spec)!, 0));
@@ -38,45 +68,59 @@ function assembledTree() {
   return tree;
 }
 
-const WALLS = ["BASE", "BACK", "FRONT", "LEFT", "RIGHT", "LID_TOP"];
+for (const spec of Object.values(CARTONS)) {
+  test(`${spec.id}: artwork reads correctly on every assembled panel`, () => {
+    const tree = assembled(spec);
+    const checked: string[] = [];
+    for (const [id, printed] of Object.entries(tree.meshes)) {
+      const board = tree.root.getObjectByName(`${id}__inner`) as THREE.Mesh | undefined;
+      assert.ok(board, `${id} has no board face to orient against`);
+      assert.equal(
+        readability(printed, board),
+        1,
+        `${spec.id}/${id}: artwork is mirrored on the assembled carton`,
+      );
+      checked.push(id);
+    }
+    assert.ok(checked.length >= 10, `only ${checked.length} panels were checked`);
+    tree.dispose();
+  });
 
-test("the printed panel is the outermost board surface on every wall", () => {
-  const tree = assembledTree();
-  const centroid = new THREE.Box3().setFromObject(tree.root).getCenter(new THREE.Vector3());
-  for (const id of WALLS) {
-    const printed = tree.meshes[id].getWorldPosition(new THREE.Vector3());
-    const board = tree.root
-      .getObjectByName(`${id}__inner`)!
-      .getWorldPosition(new THREE.Vector3());
-    assert.ok(
-      board.distanceTo(centroid) < printed.distanceTo(centroid),
-      `${id}: the unprinted board should sit inside the printed face`,
+  test(`${spec.id}: the printed face is on the outside of every enclosing wall`, () => {
+    const tree = assembled(spec);
+    const centroid = new THREE.Box3().setFromObject(tree.root).getCenter(new THREE.Vector3());
+    // A panel folded back on itself is an interior reinforcement, not a wall:
+    // a roll-end tray's roll-over ends up printed-side against the inside of
+    // the front wall, which is correct. Read that from the spec's fold angle
+    // rather than from panel names.
+    const foldedInside = new Set(
+      spec.panels.filter((panel) => (panel.angle ?? 0) >= 150).map((panel) => panel.id),
     );
-  }
-  tree.dispose();
-});
+    let walls = 0;
+    for (const [id, printed] of Object.entries(tree.meshes)) {
+      if (foldedInside.has(id)) continue;
+      const board = tree.root.getObjectByName(`${id}__inner`) as THREE.Mesh;
+      const outward = geometryCentre(printed).sub(geometryCentre(board)).normalize();
+      const awayFromCentre = geometryCentre(printed).sub(centroid).normalize();
+      const alignment = outward.dot(awayFromCentre);
+      // Projecting flanges — rim strips, locking ears, corner gussets — sit
+      // edge-on to the carton's centre, so "inside vs outside" is not defined
+      // for them. Only enclosing walls are.
+      if (Math.abs(alignment) < 0.5) continue;
+      walls += 1;
+      assert.ok(
+        alignment > 0,
+        `${spec.id}/${id}: the printed face points into the carton, not out of it`,
+      );
+    }
+    assert.ok(walls >= 5, `only ${walls} enclosing walls were found to check`);
+    tree.dispose();
+  });
 
-test("PINNED DEFECT: exterior artwork is mirrored because printed normals face inward", () => {
-  const tree = assembledTree();
-  const centroid = new THREE.Box3().setFromObject(tree.root).getCenter(new THREE.Vector3());
-  for (const id of WALLS) {
-    const mesh = tree.meshes[id];
-    const normal = new THREE.Vector3(0, 1, 0)
-      .applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion()))
-      .normalize();
-    const outward = mesh.getWorldPosition(new THREE.Vector3()).sub(centroid).normalize();
-    // Change this expectation only together with a migration of every
-    // product's `sections` metadata — see the comment at the top of the file.
-    assert.ok(
-      normal.dot(outward) < -0.99,
-      `${id}: printed normal is no longer inward — the chirality convention changed`,
-    );
-  }
-  tree.dispose();
-});
+}
 
 test("the dieline view drops the unprinted board so the blank reads as printed", () => {
-  const tree = assembledTree();
+  const tree = assembled(CARTONS["mailer-box"]);
   assert.ok(tree.boardMeshes.length > 0);
   assert.ok(tree.boardMeshes.every((mesh) => mesh.visible));
   tree.dispose();

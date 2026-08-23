@@ -30,10 +30,13 @@ const yTuck = 8, yLidTop = yTuck + TUCK, yBack = yLidTop + D, yBase = yBack + H;
 const yFront = yBase + D, yRoll = yFront + H;
 const DIELINE_H = yRoll + ROLL + 8;
 
+// Labels name the panel's FINAL position on the assembled box. The blank is
+// flipped before folding, so the column drawn on the LEFT of the sheet becomes
+// the box's RIGHT wall — which is exactly what these labels have to prove.
 const PANELS = [
   ["BASE", XM, yBase, W, D], ["BACK", XM, yBack, W, H], ["FRONT", XM, yFront, W, H],
-  ["LEFT", X0, yBase, H, D], ["RIGHT", XR, yBase, H, D], ["LID", XM, yLidTop, W, D],
-  ["TUCK", XM, yTuck, W, TUCK], ["L-FLAP", X0, yLidTop, H, D], ["R-FLAP", XR, yLidTop, H, D],
+  ["RIGHT", X0, yBase, H, D], ["LEFT", XR, yBase, H, D], ["LID", XM, yLidTop, W, D],
+  ["TUCK", XM, yTuck, W, TUCK], ["R-FLAP", X0, yLidTop, H, D], ["L-FLAP", XR, yLidTop, H, D],
   ["DUST", X0, yBase - DUST, H, DUST], ["DUST", XR, yBase - DUST, H, DUST],
   ["DUST", X0, yFront, H, DUST], ["DUST", XR, yFront, H, DUST],
   ["ROLL", XM, yRoll, W, ROLL],
