@@ -1,4 +1,5 @@
 import type { CartonSpec, DielinePath } from "@/types/carton";
+import type { ProductConfig } from "@/types/configurator";
 import { mailerBoxSpec } from "./mailer-box-spec";
 
 /**
@@ -258,3 +259,9 @@ export const CARTONS: Record<string, CartonSpec> = {
   [burgerBoxSpec.id]: burgerBoxSpec,
   [mailerBoxSpec.id]: mailerBoxSpec,
 };
+
+/** Resolve the immutable embedded structure first, then the legacy registry. */
+export function resolveCartonSpec(config: ProductConfig): CartonSpec | null {
+  if (config.family !== "folded-carton") return null;
+  return config.cartonSpec ?? CARTONS[config.cartonSpecId ?? ""] ?? null;
+}

@@ -77,7 +77,7 @@ function conditionMatches(condition: OptionCondition, values: OptionSelection) {
   }
 }
 
-function ruleMatches(rule: OptionRule | undefined, values: OptionSelection) {
+export function optionRuleMatches(rule: OptionRule | undefined, values: OptionSelection) {
   if (!rule) return true;
   const all = rule.all ?? [];
   const any = rule.any ?? [];
@@ -179,7 +179,7 @@ function resolveSelect(
   if (!choice) {
     throw new ProductDomainError("OPTION_VALUE_INVALID", `${raw} is not valid for ${option.label}.`);
   }
-  if (!ruleMatches(choice.availableWhen, merged)) {
+  if (!optionRuleMatches(choice.availableWhen, merged)) {
     throw new ProductDomainError(
       "OPTION_VALUE_UNAVAILABLE",
       `${choice.label} is unavailable for the selected configuration.`,
@@ -279,7 +279,7 @@ export function resolveProductConfiguration(
   const selection: OptionSelection = Object.create(null) as OptionSelection;
   for (const option of version.definition.options) {
     const supplied = Object.hasOwn(input, option.id);
-    if (!ruleMatches(option.visibleWhen, merged)) {
+    if (!optionRuleMatches(option.visibleWhen, merged)) {
       if (supplied) {
         throw new ProductDomainError(
           "OPTION_NOT_VISIBLE",
@@ -289,7 +289,7 @@ export function resolveProductConfiguration(
       }
       continue;
     }
-    if (!ruleMatches(option.availableWhen, merged)) {
+    if (!optionRuleMatches(option.availableWhen, merged)) {
       if (supplied || option.required) {
         throw new ProductDomainError(
           "OPTION_UNAVAILABLE",

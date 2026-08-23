@@ -1,6 +1,6 @@
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import type { UnfoldPlan } from "@/types/unfold";
-import { CARTONS } from "./carton-spec";
+import { resolveCartonSpec } from "./carton-spec";
 import { cartonUnfoldPlan } from "./unfold-plan";
 import { glbUnfoldPlan } from "./glb-articulation";
 
@@ -30,7 +30,7 @@ export function resolveProductPresentation(config: ProductConfig): ProductPresen
   if (config.presentation === "static") return { mode: "static" };
 
   if (config.family === "folded-carton") {
-    const spec = CARTONS[config.cartonSpecId ?? ""];
+    const spec = resolveCartonSpec(config);
     if (!spec) return { mode: "static" };
     return classify(cartonUnfoldPlan(spec));
   }

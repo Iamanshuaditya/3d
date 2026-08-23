@@ -1,5 +1,6 @@
 import type { GlbArticulationSpec } from "./unfold";
 import type { ArtworkRenderMode, ArtworkTreatment } from "./embroidery";
+import type { CartonSpec } from "./carton";
 
 /**
  * Core contracts for the product customization engine.
@@ -221,6 +222,12 @@ export type ProductConfig = {
   modelUrl: string;
   /** Required for family "folded-carton" — key into the carton registry. */
   cartonSpecId?: string;
+  /**
+   * Resolved, version-pinned structural carton. Parameterized products embed
+   * this so dimensions/dielines cannot drift with a mutable runtime registry.
+   * Legacy fixed products continue to resolve `cartonSpecId`.
+   */
+  cartonSpec?: CartonSpec;
   /** Required for family "pouch" — key into the pouch registry. */
   pouchSpecId?: string;
   /**

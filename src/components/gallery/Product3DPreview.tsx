@@ -8,7 +8,7 @@ import type { ProductConfig } from "@/types/configurator";
 import { ProductModel } from "@/components/configurator/ProductModel";
 import { CartonModel } from "@/components/configurator/CartonModel";
 import { PouchModel } from "@/components/configurator/PouchModel";
-import { CARTONS } from "@/lib/configurator/carton-spec";
+import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
 import { previewBackground } from "@/lib/configurator/product-summary";
 
@@ -48,8 +48,7 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
   // carton, otherwise a GLB. Products in the first two families carry no mesh
   // file, so routing one of them to the GLB loader would request "" and get
   // the HTML 404 page back.
-  const cartonSpec =
-    config.family === "folded-carton" ? CARTONS[config.cartonSpecId ?? ""] : null;
+  const cartonSpec = resolveCartonSpec(config);
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
   const useClearBarrierResponse = config.materialProfile === "clear-barrier-gloss";
   // A config with no generated geometry and no mesh file has nothing to draw.

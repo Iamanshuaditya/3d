@@ -1,5 +1,5 @@
 import type { ProductConfig, SurfaceDieline } from "@/types/configurator";
-import { CARTONS } from "./carton-spec";
+import { resolveCartonSpec } from "./carton-spec";
 import { dielineOverlay } from "./carton-geometry";
 import { POUCHES } from "./pouch-spec";
 import { pouchDielineOverlay } from "./pouch-geometry";
@@ -16,7 +16,7 @@ export function resolveSurfaceDieline(
   if (surface.dieline) return surface.dieline;
 
   if (config.family === "folded-carton") {
-    const spec = CARTONS[config.cartonSpecId ?? ""];
+    const spec = resolveCartonSpec(config);
     if (spec) return dielineOverlay(spec, surface.editorWidth, surface.editorHeight);
   }
 

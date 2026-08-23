@@ -21,6 +21,7 @@ import type {
   ResolvedProductConfiguration,
 } from "@/platform/products/types";
 import { canonicalJson, canonicalJsonSha256 } from "@/server/persistence/canonical-json";
+import { PRODUCT_CONFIGURATION_PROVIDERS } from "@/lib/configurator/product-configuration-providers";
 
 export function canonicalProductJson(value: unknown) {
   return canonicalJson(value);
@@ -75,7 +76,8 @@ export class ProductCatalogService implements ProductCatalogReader {
 
   constructor(
     private readonly repository: ProductCatalogRepository,
-    private readonly providers: Readonly<Record<string, ProductConfigurationProvider>> = {},
+    private readonly providers: Readonly<Record<string, ProductConfigurationProvider>> =
+      PRODUCT_CONFIGURATION_PROVIDERS,
     private readonly codeDefinitions: Readonly<Record<string, ProductDefinition>> =
       CODE_PRODUCT_DEFINITIONS,
     private readonly codeVersions: Readonly<Record<string, ProductVersion>> = CODE_PRODUCT_VERSIONS,

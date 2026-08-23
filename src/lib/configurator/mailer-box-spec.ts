@@ -1,206 +1,241 @@
 import type { CartonSpec, DielinePath, DielinePoint } from "@/types/carton";
 
-/**
- * Premium e-commerce mailer box — FEFCO 0427-style roll-end tray with a
- * hinged, tuck-front lid. 240 × 160 × 60 mm.
- *
- * Dieline column, top to bottom:
- *
- *   lid tuck -> lid top -> back wall -> floor -> front wall -> front roll-over
- *
- * Lid side flaps hang off the lid top; the floor carries the two side walls,
- * each with a dust flap toward the back and the front. The outer silhouette is
- * authored as ONE continuous contour (rounded tuck corners, thumb notch,
- * tapered flaps), which also yields the production bleed line by numeric
- * offset — the same construction a packaging CAD tool performs.
- */
-
-// Box dimensions (mm)
-const W = 240;
-const D = 160;
-const H = 60;
-const TUCK = 42;
-const ROLL = 54;
-const DUST = 38;
-
-// Dieline layout (mm, y down)
-const X0 = 8;                 // left margin to side-flap outer edge
-const XM = X0 + H;            // centre column left edge
-const XR = XM + W;            // centre column right edge
-export const MAILER_DIELINE_W = XR + H + X0;
-const yTuck = 8;
-const yLidTop = yTuck + TUCK;       // 50
-const yBack = yLidTop + D;          // 210
-const yBase = yBack + H;            // 270
-const yFront = yBase + D;           // 430
-const yRoll = yFront + H;           // 490
-export const MAILER_DIELINE_H = yRoll + ROLL + 8;
-
-const CX = MAILER_DIELINE_W / 2;
-
-// ---------------------------------------------------------------- helpers
+/** Customer dimensions for the FEFCO 0427-style roll-end mailer structure. */
+export type MailerBoxParameters = {
+  /** Internal long side of the assembled tray. */
+  lengthMm: number;
+  /** Internal short side of the assembled tray. */
+  widthMm: number;
+  /** Assembled wall depth. */
+  depthMm: number;
+  boardThicknessMm: number;
+  /** Manufacturing layout margin outside the structural blank. */
+  layoutMarginMm?: number;
+  id?: string;
+};
 
 const pt = (x: number, y: number): DielinePoint => ({ x, y });
 
-/** Quarter/partial arc as polyline points, angles in degrees. */
-function arc(cx: number, cy: number, r: number, a0: number, a1: number, n = 10): DielinePoint[] {
-  return Array.from({ length: n + 1 }, (_, i) => {
-    const a = ((a0 + ((a1 - a0) * i) / n) * Math.PI) / 180;
-    return pt(cx + r * Math.cos(a), cy + r * Math.sin(a));
+/** Quarter/partial arc as deterministic polyline points, angles in degrees. */
+function arc(
+  cx: number,
+  cy: number,
+  radius: number,
+  start: number,
+  end: number,
+  segments = 10,
+): DielinePoint[] {
+  return Array.from({ length: segments + 1 }, (_, index) => {
+    const angle = ((start + ((end - start) * index) / segments) * Math.PI) / 180;
+    return pt(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
   });
-}
-
-const mirror = (points: DielinePoint[]): DielinePoint[] =>
-  points.map(({ x, y }) => pt(2 * CX - x, y));
-
-/**
- * The full outer silhouette, one closed contour. Authored as the LEFT half
- * from the top-centre thumb notch down to the bottom-centre, then mirrored.
- */
-function outerContour(): DielinePoint[] {
-  const left: DielinePoint[] = [
-    // top edge, centre -> left (thumb notch handled at centre below)
-    pt(CX - 11, yTuck),
-    pt(XM + 16, yTuck),
-    // tuck top-left rounded corner
-    ...arc(XM + 16, yTuck + 16, 16, 270, 180),
-    // tuck left edge down to the lid-top row
-    pt(XM, yLidTop),
-    // lid side flap: slight taper out, rounded outer corners
-    pt(X0 + 10, yLidTop + 4),
-    ...arc(X0 + 10, yLidTop + 14, 10, 270, 180),
-    pt(X0, yBack - 12),
-    ...arc(X0 + 10, yBack - 12, 10, 180, 90),
-    pt(XM - 4, yBack - 2),
-    pt(XM, yBack),
-    // slit down the centre-column edge between lid flap and dust flap
-    pt(XM, yBack + 22),
-    // back dust flap (attached to the side wall's back edge)
-    pt(X0 + 12, yBack + 23),
-    ...arc(X0 + 12, yBack + 33, 10, 270, 180),
-    pt(X0 + 2, yBase),
-    // side wall outer edge
-    pt(X0, yBase),
-    pt(X0, yFront),
-    // front dust flap
-    pt(X0 + 2, yFront),
-    ...arc(X0 + 12, yFront + DUST - 11, 10, 180, 90),
-    pt(XM - 2, yFront + DUST),
-    pt(XM, yFront + 22),
-    pt(XM, yFront),
-    // front wall + roll-over, rounded bottom corner
-    pt(XM, yRoll),
-    pt(XM, yRoll + ROLL - 12),
-    ...arc(XM + 12, yRoll + ROLL - 12, 12, 180, 90),
-    pt(CX, yRoll + ROLL),
-  ];
-  // left half runs top-centre -> left side -> bottom-centre; the mirrored,
-  // reversed copy runs bottom-centre -> right side -> top-centre; the thumb
-  // notch (half circle dipping into the tuck) closes the top edge.
-  return [...left, ...mirror(left).reverse(), ...arc(CX, yTuck, 11, 0, 180)];
 }
 
 /** Approximate outward polygon offset (average vertex normals, miter). */
 function offsetContour(points: DielinePoint[], distance: number): DielinePoint[] {
-  const n = points.length;
-  const out: DielinePoint[] = [];
-  for (let i = 0; i < n; i += 1) {
-    const prev = points[(i - 1 + n) % n];
-    const cur = points[i];
-    const next = points[(i + 1) % n];
-    const d1 = { x: cur.x - prev.x, y: cur.y - prev.y };
-    const d2 = { x: next.x - cur.x, y: next.y - cur.y };
-    const l1 = Math.hypot(d1.x, d1.y) || 1;
-    const l2 = Math.hypot(d2.x, d2.y) || 1;
-    // outward normal for a counter-clockwise contour in y-down space
-    const n1 = { x: d1.y / l1, y: -d1.x / l1 };
-    const n2 = { x: d2.y / l2, y: -d2.x / l2 };
-    let nx = n1.x + n2.x;
-    let ny = n1.y + n2.y;
-    const ln = Math.hypot(nx, ny) || 1;
-    nx /= ln;
-    ny /= ln;
-    out.push(pt(cur.x + nx * distance, cur.y + ny * distance));
-  }
-  return out;
+  return points.map((current, index) => {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const next = points[(index + 1) % points.length];
+    const incoming = { x: current.x - previous.x, y: current.y - previous.y };
+    const outgoing = { x: next.x - current.x, y: next.y - current.y };
+    const incomingLength = Math.hypot(incoming.x, incoming.y) || 1;
+    const outgoingLength = Math.hypot(outgoing.x, outgoing.y) || 1;
+    const incomingNormal = {
+      x: incoming.y / incomingLength,
+      y: -incoming.x / incomingLength,
+    };
+    const outgoingNormal = {
+      x: outgoing.y / outgoingLength,
+      y: -outgoing.x / outgoingLength,
+    };
+    let normalX = incomingNormal.x + outgoingNormal.x;
+    let normalY = incomingNormal.y + outgoingNormal.y;
+    const normalLength = Math.hypot(normalX, normalY) || 1;
+    normalX /= normalLength;
+    normalY /= normalLength;
+    return pt(current.x + normalX * distance, current.y + normalY * distance);
+  });
 }
 
-const contour = outerContour();
-// Determine winding so the offset goes outward, not inward.
-const signedArea = contour.reduce((acc, p, i) => {
-  const q = contour[(i + 1) % contour.length];
-  return acc + (p.x * q.y - q.x * p.y);
-}, 0);
-const bleedContour = offsetContour(contour, signedArea > 0 ? 3 : -3);
+function finitePositive(label: string, value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Mailer ${label} must be a finite positive millimetre value.`);
+  }
+}
 
-const path = (points: DielinePoint[], closed = false): DielinePath => ({ points, closed });
-const line = (x1: number, y1: number, x2: number, y2: number): DielinePath =>
-  path([pt(x1, y1), pt(x2, y2)]);
+/**
+ * Generates one authoritative packaging structure. Its panel tree, physical
+ * blank, cuts, creases, UVs, assembled mesh and unfold plan all share these
+ * exact values; consumers must not recalculate a second version.
+ */
+export function createMailerBoxSpec(parameters: MailerBoxParameters): CartonSpec {
+  const {
+    lengthMm: length,
+    widthMm: width,
+    depthMm: depth,
+    boardThicknessMm: boardThickness,
+    layoutMarginMm: margin = 8,
+  } = parameters;
+  finitePositive("length", length);
+  finitePositive("width", width);
+  finitePositive("depth", depth);
+  finitePositive("board thickness", boardThickness);
+  finitePositive("layout margin", margin);
+  if (boardThickness >= depth / 3) {
+    throw new Error("Mailer board thickness is incompatible with the selected depth.");
+  }
 
-// ------------------------------------------------------------------ spec
+  // Construction details scale with wall depth. At the legacy/default 60 mm
+  // depth these evaluate to the proven authored values.
+  const scale = depth / 60;
+  const detail = (legacyMillimetres: number) => legacyMillimetres * scale;
+  const tuck = detail(42);
+  const roll = detail(54);
+  const dust = detail(38);
+  const left = margin;
+  const centreLeft = left + depth;
+  const centreRight = centreLeft + length;
+  const dielineWidth = centreRight + depth + margin;
+  const yTuck = margin;
+  const yLidTop = yTuck + tuck;
+  const yBack = yLidTop + width;
+  const yBase = yBack + depth;
+  const yFront = yBase + width;
+  const yRoll = yFront + depth;
+  const dielineHeight = yRoll + roll + margin;
+  const centreX = dielineWidth / 2;
+  const mirror = (points: DielinePoint[]) =>
+    points.map(({ x, y }) => pt(2 * centreX - x, y));
 
-export const mailerBoxSpec: CartonSpec = {
+  const outerLeft: DielinePoint[] = [
+    pt(centreX - detail(11), yTuck),
+    pt(centreLeft + detail(16), yTuck),
+    ...arc(
+      centreLeft + detail(16),
+      yTuck + detail(16),
+      detail(16),
+      270,
+      180,
+    ),
+    pt(centreLeft, yLidTop),
+    pt(left + detail(10), yLidTop + detail(4)),
+    ...arc(left + detail(10), yLidTop + detail(14), detail(10), 270, 180),
+    pt(left, yBack - detail(12)),
+    ...arc(left + detail(10), yBack - detail(12), detail(10), 180, 90),
+    pt(centreLeft - detail(4), yBack - detail(2)),
+    pt(centreLeft, yBack),
+    pt(centreLeft, yBack + detail(22)),
+    pt(left + detail(12), yBack + detail(23)),
+    ...arc(left + detail(12), yBack + detail(33), detail(10), 270, 180),
+    pt(left + detail(2), yBase),
+    pt(left, yBase),
+    pt(left, yFront),
+    pt(left + detail(2), yFront),
+    ...arc(
+      left + detail(12),
+      yFront + dust - detail(11),
+      detail(10),
+      180,
+      90,
+    ),
+    pt(centreLeft - detail(2), yFront + dust),
+    pt(centreLeft, yFront + detail(22)),
+    pt(centreLeft, yFront),
+    pt(centreLeft, yRoll),
+    pt(centreLeft, yRoll + roll - detail(12)),
+    ...arc(
+      centreLeft + detail(12),
+      yRoll + roll - detail(12),
+      detail(12),
+      180,
+      90,
+    ),
+    pt(centreX, yRoll + roll),
+  ];
+  const contour = [
+    ...outerLeft,
+    ...mirror(outerLeft).reverse(),
+    ...arc(centreX, yTuck, detail(11), 0, 180),
+  ];
+  const signedArea = contour.reduce((total, point, index) => {
+    const next = contour[(index + 1) % contour.length];
+    return total + point.x * next.y - next.x * point.y;
+  }, 0);
+  const bleedContour = offsetContour(contour, signedArea > 0 ? 3 : -3);
+  const path = (points: DielinePoint[], closed = false): DielinePath => ({
+    points,
+    closed,
+  });
+  const line = (x1: number, y1: number, x2: number, y2: number): DielinePath =>
+    path([pt(x1, y1), pt(x2, y2)]);
+
+  return {
+    id: parameters.id ??
+      `mailer-box-0427-${length}x${width}x${depth}-bt${boardThickness}`,
+    name: `Mailer Box ${length}×${width}×${depth} mm`,
+    width: dielineWidth,
+    height: dielineHeight,
+    boardThickness,
+    lidClosedAngle: 90,
+    lidOpenAngle: -50,
+    panels: [
+      { id: "BASE", rect: { x: centreLeft, y: yBase, w: length, h: width } },
+      { id: "BACK", rect: { x: centreLeft, y: yBack, w: length, h: depth }, parent: "BASE", angle: 90 },
+      { id: "LID_TOP", rect: { x: centreLeft, y: yLidTop, w: length, h: width }, parent: "BACK", angle: 90, hinge: "lid" },
+      { id: "LID_TUCK", rect: { x: centreLeft, y: yTuck, w: length, h: tuck }, parent: "LID_TOP", angle: 100 },
+      { id: "LID_LEFT", rect: { x: left, y: yLidTop, w: depth, h: width }, parent: "LID_TOP", angle: 90 },
+      { id: "LID_RIGHT", rect: { x: centreRight, y: yLidTop, w: depth, h: width }, parent: "LID_TOP", angle: 90 },
+      { id: "LEFT", rect: { x: left, y: yBase, w: depth, h: width }, parent: "BASE", angle: 90 },
+      { id: "RIGHT", rect: { x: centreRight, y: yBase, w: depth, h: width }, parent: "BASE", angle: 90 },
+      { id: "DUST_BL", rect: { x: left, y: yBase - dust, w: depth, h: dust }, parent: "LEFT", angle: 95 },
+      { id: "DUST_BR", rect: { x: centreRight, y: yBase - dust, w: depth, h: dust }, parent: "RIGHT", angle: 95 },
+      { id: "DUST_FL", rect: { x: left, y: yFront, w: depth, h: dust }, parent: "LEFT", angle: 95 },
+      { id: "DUST_FR", rect: { x: centreRight, y: yFront, w: depth, h: dust }, parent: "RIGHT", angle: 95 },
+      { id: "FRONT", rect: { x: centreLeft, y: yFront, w: length, h: depth }, parent: "BASE", angle: 90 },
+      { id: "FRONT_ROLL", rect: { x: centreLeft, y: yRoll, w: length, h: roll }, parent: "FRONT", angle: 178 },
+    ],
+    unfold: {
+      mode: "hinge-graph",
+      steps: [
+        { id: "open", label: "Open the lid", reverseLabel: "Close the lid", hingeIds: ["LID_TOP"], to: "open" },
+        { id: "tuck", label: "Release the tuck flap", hingeIds: ["LID_TUCK"], to: "flat" },
+        { id: "lid-flaps", label: "Unfold the lid side flaps", hingeIds: ["LID_LEFT", "LID_RIGHT"], to: "flat" },
+        { id: "lid", label: "Lay the lid flat", hingeIds: ["LID_TOP"], to: "flat" },
+        { id: "dust", label: "Unfold the dust flaps", hingeIds: ["DUST_BL", "DUST_BR", "DUST_FL", "DUST_FR", "FRONT_ROLL"], to: "flat" },
+        { id: "walls", label: "Lay the walls flat", hingeIds: ["BACK", "FRONT", "LEFT", "RIGHT"], to: "flat" },
+      ],
+    },
+    dieline: {
+      cuts: [path(contour, true)],
+      creases: [
+        line(centreLeft, yLidTop, centreRight, yLidTop),
+        line(centreLeft, yBack, centreRight, yBack),
+        line(centreLeft, yBase, centreRight, yBase),
+        line(centreLeft, yFront, centreRight, yFront),
+        line(centreLeft, yRoll, centreRight, yRoll),
+        line(centreLeft, yLidTop, centreLeft, yBack),
+        line(centreRight, yLidTop, centreRight, yBack),
+        line(centreLeft, yBase, centreLeft, yFront),
+        line(centreRight, yBase, centreRight, yFront),
+        line(left, yBase, centreLeft, yBase),
+        line(centreRight, yBase, centreRight + depth, yBase),
+        line(left, yFront, centreLeft, yFront),
+        line(centreRight, yFront, centreRight + depth, yFront),
+      ],
+      bleed: [path(bleedContour, true)],
+    },
+  };
+}
+
+/** Legacy fixed structure. Keep this id and exact 8 mm layout for old versions. */
+export const mailerBoxSpec = createMailerBoxSpec({
   id: "mailer-box",
-  name: "Mailer Box 240×160×60",
-  width: MAILER_DIELINE_W,
-  height: MAILER_DIELINE_H,
-  boardThickness: 1.5,
-  lidClosedAngle: 90,
-  lidOpenAngle: -50,
-  panels: [
-    { id: "BASE", rect: { x: XM, y: yBase, w: W, h: D } },
-    { id: "BACK", rect: { x: XM, y: yBack, w: W, h: H }, parent: "BASE", angle: 90 },
-    { id: "LID_TOP", rect: { x: XM, y: yLidTop, w: W, h: D }, parent: "BACK", angle: 90, hinge: "lid" },
-    { id: "LID_TUCK", rect: { x: XM, y: yTuck, w: W, h: TUCK }, parent: "LID_TOP", angle: 100 },
-    { id: "LID_LEFT", rect: { x: X0, y: yLidTop, w: H, h: D }, parent: "LID_TOP", angle: 90 },
-    { id: "LID_RIGHT", rect: { x: XR, y: yLidTop, w: H, h: D }, parent: "LID_TOP", angle: 90 },
-    { id: "LEFT", rect: { x: X0, y: yBase, w: H, h: D }, parent: "BASE", angle: 90 },
-    { id: "RIGHT", rect: { x: XR, y: yBase, w: H, h: D }, parent: "BASE", angle: 90 },
-    // Dust flaps and the front roll-over are real board, sized from the
-    // printed contour above. They were previously 0.01mm placeholders, which
-    // meant the assembled box had no visible flaps and — more importantly —
-    // the flattened pose could not reproduce the dieline it prints from.
-    { id: "DUST_BL", rect: { x: X0, y: yBase - DUST, w: H, h: DUST }, parent: "LEFT", angle: 95 },
-    { id: "DUST_BR", rect: { x: XR, y: yBase - DUST, w: H, h: DUST }, parent: "RIGHT", angle: 95 },
-    { id: "DUST_FL", rect: { x: X0, y: yFront, w: H, h: DUST }, parent: "LEFT", angle: 95 },
-    { id: "DUST_FR", rect: { x: XR, y: yFront, w: H, h: DUST }, parent: "RIGHT", angle: 95 },
-    { id: "FRONT", rect: { x: XM, y: yFront, w: W, h: H }, parent: "BASE", angle: 90 },
-    { id: "FRONT_ROLL", rect: { x: XM, y: yRoll, w: W, h: ROLL }, parent: "FRONT", angle: 178 },
-  ],
-  /**
-   * Authored unfolding sequence. A roll-end tray does not come apart in
-   * topological order — the tuck releases before the side flaps, and the dust
-   * flaps have to clear the walls before the tray can lie down — so the order
-   * is production data, not something to infer from the panel tree.
-   */
-  unfold: {
-    mode: "hinge-graph",
-    steps: [
-      { id: "open", label: "Open the lid", reverseLabel: "Close the lid", hingeIds: ["LID_TOP"], to: "open" },
-      { id: "tuck", label: "Release the tuck flap", hingeIds: ["LID_TUCK"], to: "flat" },
-      { id: "lid-flaps", label: "Unfold the lid side flaps", hingeIds: ["LID_LEFT", "LID_RIGHT"], to: "flat" },
-      { id: "lid", label: "Lay the lid flat", hingeIds: ["LID_TOP"], to: "flat" },
-      { id: "dust", label: "Unfold the dust flaps", hingeIds: ["DUST_BL", "DUST_BR", "DUST_FL", "DUST_FR", "FRONT_ROLL"], to: "flat" },
-      { id: "walls", label: "Lay the walls flat", hingeIds: ["BACK", "FRONT", "LEFT", "RIGHT"], to: "flat" },
-    ],
-  },
-  dieline: {
-    cuts: [path(contour, true)],
-    creases: [
-      line(XM, yLidTop, XR, yLidTop),          // tuck fold
-      line(XM, yBack, XR, yBack),              // lid hinge
-      line(XM, yBase, XR, yBase),              // back wall base
-      line(XM, yFront, XR, yFront),            // front wall
-      line(XM, yRoll, XR, yRoll),              // roll-over
-      line(XM, yLidTop, XM, yBack),            // lid side flaps
-      line(XR, yLidTop, XR, yBack),
-      line(XM, yBase, XM, yFront),             // side walls
-      line(XR, yBase, XR, yFront),
-      line(X0, yBase, XM, yBase),              // dust flap folds
-      line(XR, yBase, XR + H, yBase),
-      line(X0, yFront, XM, yFront),
-      line(XR, yFront, XR + H, yFront),
-    ],
-    bleed: [path(bleedContour, true)],
-  },
-};
+  lengthMm: 240,
+  widthMm: 160,
+  depthMm: 60,
+  boardThicknessMm: 1.5,
+  layoutMarginMm: 8,
+});
+
+export const MAILER_DIELINE_W = mailerBoxSpec.width;
+export const MAILER_DIELINE_H = mailerBoxSpec.height;

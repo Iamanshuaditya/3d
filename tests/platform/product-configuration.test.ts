@@ -5,9 +5,11 @@ import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { getProduct, PRODUCTS } from "@/lib/configurator/product-config";
 import {
+  CODE_PRODUCT_VERSIONS,
   legacyDefinitionSnapshot,
   legacyProductVersion,
 } from "@/lib/configurator/product-definitions";
+import { PRODUCT_CONFIGURATION_PROVIDERS } from "@/lib/configurator/product-configuration-providers";
 import {
   resolveProductConfiguration,
   validateProductVersion,
@@ -209,6 +211,33 @@ test("the compatibility adapter preserves every registered engine configuration"
     legacyDefinitionSnapshot(PRODUCTS["mailer-box-001"]).capabilities.parameterizedDimensions,
     false,
     "the fixed mailer spec must not pretend to be a parameterized product",
+  );
+});
+
+test("the current Mailer version resolves one immutable parameterized structure", () => {
+  const version = CODE_PRODUCT_VERSIONS["mailer-box-001@3"];
+  assert.ok(version);
+  assert.equal(version.definition.capabilities.parameterizedDimensions, true);
+  assert.equal(version.resolution.kind, "provider");
+  const resolved = resolveProductConfiguration(
+    version,
+    { length: 200, width: 150, depth: 70, board_thickness: 1.5 },
+    PRODUCT_CONFIGURATION_PROVIDERS,
+  );
+  const spec = resolved.productConfig.cartonSpec;
+  assert.ok(spec);
+  assert.equal(spec.width, 356);
+  assert.equal(spec.height, 568);
+  assert.equal(resolved.productConfig.editableSurfaces[0].physicalWidthCm * 10, spec.width);
+  assert.equal(resolved.productConfig.editableSurfaces[0].physicalHeightCm * 10, spec.height);
+  assert.throws(
+    () => resolveProductConfiguration(
+      version,
+      { length: 200, width: 150, depth: 80, board_thickness: 1.5 },
+      PRODUCT_CONFIGURATION_PROVIDERS,
+    ),
+    (error) =>
+      error instanceof ProductDomainError && error.code === "CONFIGURATION_UNMANUFACTURABLE",
   );
 });
 

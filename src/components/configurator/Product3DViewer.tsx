@@ -12,7 +12,7 @@ import { ProductModel } from "./ProductModel";
 import { CartonModel } from "./CartonModel";
 import { PouchModel } from "./PouchModel";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
-import { CARTONS } from "@/lib/configurator/carton-spec";
+import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 
 type Product3DViewerProps = {
   config: ProductConfig;
@@ -268,7 +268,7 @@ export function Product3DViewer({
   hingeAngles,
   dielineView = false,
 }: Product3DViewerProps) {
-  const cartonSpec = config.family === "folded-carton" ? CARTONS[config.cartonSpecId ?? ""] : null;
+  const cartonSpec = resolveCartonSpec(config);
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
   const useClearBarrierResponse = config.materialProfile === "clear-barrier-gloss";
   const useFabricResponse = config.materialProfile === "cotton-fabric";
