@@ -6,6 +6,7 @@ import { modelFilePath, summarize } from "@/lib/configurator/product-summary";
 import { ProductGallery, type GalleryItem } from "@/components/gallery/ProductGallery";
 import { getProductCatalogService } from "@/server/products/container";
 import type { ProductConfig } from "@/types/configurator";
+import { AccountControl } from "@/components/auth/AccountControl";
 
 export const metadata: Metadata = {
   title: "Product library",
@@ -61,12 +62,15 @@ export default async function LibraryPage() {
           <h1 className="text-[32px] font-semibold leading-[1.1] tracking-tight text-[var(--st-text)] sm:text-[40px]">
             Product library
           </h1>
-          <Link
-            href="/designs"
-            className="rounded-lg bg-[var(--st-raised)] px-4 py-2.5 text-[13px] font-semibold text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
-          >
-            My designs
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/designs"
+              className="rounded-lg bg-[var(--st-raised)] px-4 py-2.5 text-[13px] font-semibold text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
+            >
+              My designs
+            </Link>
+            <AccountControl />
+          </div>
         </div>
         <p className="mt-3 max-w-[54ch] text-[15px] leading-[1.6] text-[var(--st-dim)]">
           Every product registered in the configurator, rendered from the same

@@ -9,7 +9,12 @@ import { createEmptyDocument } from "@/lib/configurator/design-state";
 import { getProduct } from "@/lib/configurator/product-config";
 import { DEFAULT_EMBROIDERY } from "@/types/embroidery";
 import type { DesignDocument, ImageElement, TextElement } from "@/types/configurator";
-import { ConflictError, NotFoundError, ValidationError } from "@/platform/projects/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  PlatformError,
+  ValidationError,
+} from "@/platform/projects/errors";
 import type { ProjectOwner } from "@/platform/projects/types";
 import { openVortexDatabase } from "@/server/persistence/database";
 import { SqliteProjectRepository } from "@/server/persistence/sqlite-project-repository";
@@ -227,17 +232,34 @@ test("duplicate copies stable artwork and archive removes a project from the lib
   );
 });
 
-test("guest projects can be claimed by an authenticated owner without exposing them", async (t) => {
+test("guest project claiming is idempotent, concurrent, and exclusive", async (t) => {
   const { service } = await fixture(t);
   const user: Extract<ProjectOwner, { type: "user" }> = {
     type: "user",
     id: "user-42",
   };
+  const attacker: Extract<ProjectOwner, { type: "user" }> = {
+    type: "user",
+    id: "user-attacker",
+  };
   const created = await service.create(guest, "tshirt");
 
-  assert.equal(await service.claimGuestProjects(guest, user), 1);
+  const concurrent = await Promise.all([
+    service.claimGuestProjects(guest, user),
+    service.claimGuestProjects(guest, user),
+  ]);
+  assert.equal(concurrent.reduce((total, count) => total + count, 0), 1);
+  assert.equal(await service.claimGuestProjects(guest, user), 0);
   await assert.rejects(() => service.open(guest, created.id), NotFoundError);
   assert.equal((await service.open(user, created.id)).ownerType, "user");
+  await assert.rejects(
+    () => service.claimGuestProjects(guest, attacker),
+    (error) => error instanceof PlatformError && error.code === "GUEST_ALREADY_CLAIMED",
+  );
+  await assert.rejects(
+    () => service.create(guest, "tshirt"),
+    (error) => error instanceof PlatformError && error.code === "GUEST_IDENTITY_CLAIMED",
+  );
 });
 
 test("project creation is idempotent per owner and client request", async (t) => {

@@ -13,7 +13,12 @@ import type {
   ProductCatalogReader,
   ResolvedProductConfiguration,
 } from "@/platform/products/types";
-import { ConflictError, NotFoundError, ValidationError } from "@/platform/projects/errors";
+import {
+  ConflictError,
+  NotFoundError,
+  PlatformError,
+  ValidationError,
+} from "@/platform/projects/errors";
 import {
   collectAssetIds,
   hydrateImageSources,
@@ -22,7 +27,10 @@ import {
   replaceAssetIds,
   stripRuntimeImageSources,
 } from "@/platform/projects/design-document";
-import type { ProjectRepository } from "@/platform/projects/repository";
+import {
+  GuestIdentityAlreadyClaimedError,
+  type ProjectRepository,
+} from "@/platform/projects/repository";
 import type {
   DesignProject,
   DesignProjectDto,
@@ -278,19 +286,31 @@ export class ProjectService {
     }
 
     const now = this.clock();
-    const project = await this.repository.create({
-      id: this.generateId(),
-      title: normalizeProjectTitle(input.title, product.name),
-      productId: product.id,
-      productVersionId: resolved.productVersionId,
-      configurationId: resolved.configurationId,
-      optionSelection: resolved.selection,
-      sourceTemplateVersionId: input.sourceTemplateVersionId ?? null,
-      owner: input.owner,
-      design: stripRuntimeImageSources(design),
-      creationKey,
-      now,
-    });
+    let project: DesignProject;
+    try {
+      project = await this.repository.create({
+        id: this.generateId(),
+        title: normalizeProjectTitle(input.title, product.name),
+        productId: product.id,
+        productVersionId: resolved.productVersionId,
+        configurationId: resolved.configurationId,
+        optionSelection: resolved.selection,
+        sourceTemplateVersionId: input.sourceTemplateVersionId ?? null,
+        owner: input.owner,
+        design: stripRuntimeImageSources(design),
+        creationKey,
+        now,
+      });
+    } catch (error) {
+      if (error instanceof GuestIdentityAlreadyClaimedError) {
+        throw new PlatformError(
+          "GUEST_IDENTITY_CLAIMED",
+          "This guest session was already claimed. Refresh before creating another design.",
+          409,
+        );
+      }
+      throw error;
+    }
     if (
       project.productId !== product.id ||
       project.configurationId !== resolved.configurationId ||
@@ -577,13 +597,23 @@ export class ProjectService {
     return this.summaryDto(updated);
   }
 
-  /** Called by a future authenticated session adapter after successful login. */
+  /** Atomically transfers every project reachable through a signed guest session. */
   async claimGuestProjects(
     guestOwner: Extract<ProjectOwner, { type: "guest" }>,
     userOwner: Extract<ProjectOwner, { type: "user" }>,
   ) {
-    const count = await this.repository.claimAll(guestOwner, userOwner, this.clock());
-    logEvent("projects.claimed", { count });
-    return count;
+    const result = await this.repository.claimAll(guestOwner, userOwner, this.clock());
+    if (result.kind === "claimed-by-another-user") {
+      throw new PlatformError(
+        "GUEST_ALREADY_CLAIMED",
+        "This guest session was already claimed by another account.",
+        409,
+      );
+    }
+    logEvent("projects.claimed", {
+      userId: userOwner.id,
+      count: result.count,
+    });
+    return result.count;
   }
 }

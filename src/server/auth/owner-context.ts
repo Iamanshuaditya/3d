@@ -11,9 +11,28 @@ export interface AuthenticationProvider {
   authenticatedOwner(request: NextRequest): Promise<Extract<ProjectOwner, { type: "user" }> | null>;
 }
 
-class AnonymousOnlyAuthenticationProvider implements AuthenticationProvider {
-  async authenticatedOwner() {
-    return null;
+type SessionResolver = (
+  headers: Headers,
+) => Promise<{ user: { id: string } } | null>;
+
+export class BetterAuthAuthenticationProvider implements AuthenticationProvider {
+  constructor(
+    private readonly resolveSession: SessionResolver = async (headers) => {
+      const { getAuth } = await import("@/server/auth/better-auth");
+      return getAuth().api.getSession({ headers });
+    },
+  ) {}
+
+  async authenticatedOwner(request: NextRequest) {
+    const session = await this.resolveSession(request.headers);
+    const userId = session?.user.id;
+    if (!userId) return null;
+    console.info(JSON.stringify({
+      scope: "vortex-platform",
+      event: "auth.user-resolved",
+      userId,
+    }));
+    return { type: "user" as const, id: userId };
   }
 }
 
@@ -93,29 +112,60 @@ function loadGuestSecret(): Uint8Array {
 }
 
 let codec: GuestIdentityCodec | null = null;
-let authenticationProvider: AuthenticationProvider = new AnonymousOnlyAuthenticationProvider();
+let authenticationProvider: AuthenticationProvider = new BetterAuthAuthenticationProvider();
 
 export function setAuthenticationProvider(provider: AuthenticationProvider) {
   authenticationProvider = provider;
 }
 
+export function resetAuthenticationProvider() {
+  authenticationProvider = new BetterAuthAuthenticationProvider();
+}
+
+function guestIdentityCodec() {
+  codec ??= new GuestIdentityCodec(loadGuestSecret());
+  return codec;
+}
+
+export async function resolveAuthenticatedOwner(request: NextRequest) {
+  return authenticationProvider.authenticatedOwner(request);
+}
+
+export function resolveSignedGuestOwner(
+  request: NextRequest,
+): Extract<ProjectOwner, { type: "guest" }> | null {
+  const guestId = guestIdentityCodec().verify(request.cookies.get(COOKIE_NAME)?.value);
+  return guestId ? { type: "guest", id: guestId } : null;
+}
+
 export async function resolveOwnerContext(request: NextRequest): Promise<OwnerContext> {
-  const authenticated = await authenticationProvider.authenticatedOwner(request);
+  const authenticated = await resolveAuthenticatedOwner(request);
   if (authenticated) return { owner: authenticated, pendingGuestCookie: null };
 
-  codec ??= new GuestIdentityCodec(loadGuestSecret());
   const existingToken = request.cookies.get(COOKIE_NAME)?.value;
-  const existingId = codec.verify(existingToken);
+  const existingId = guestIdentityCodec().verify(existingToken);
   if (existingId) {
     return { owner: { type: "guest", id: existingId }, pendingGuestCookie: null };
   }
 
-  const token = codec.issue();
-  const guestId = codec.verify(token)!;
+  const token = guestIdentityCodec().issue();
+  const guestId = guestIdentityCodec().verify(token)!;
   return {
     owner: { type: "guest", id: guestId },
     pendingGuestCookie: token,
   };
+}
+
+export function clearGuestCookie(response: NextResponse) {
+  response.cookies.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+    priority: "high",
+  });
+  return response;
 }
 
 export function applyOwnerCookie(response: NextResponse, context: OwnerContext) {

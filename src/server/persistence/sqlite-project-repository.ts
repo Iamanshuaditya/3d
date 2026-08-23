@@ -1,5 +1,8 @@
 import type { DesignDocument } from "@/types/configurator";
-import type { ProjectRepository } from "@/platform/projects/repository";
+import {
+  GuestIdentityAlreadyClaimedError,
+  type ProjectRepository,
+} from "@/platform/projects/repository";
 import type {
   CreateProjectAssetInput,
   CreateProjectInput,
@@ -89,6 +92,12 @@ export class SqliteProjectRepository implements ProjectRepository {
   async create(input: CreateProjectInput): Promise<DesignProject> {
     const designJson = JSON.stringify(input.design);
     const row = this.database.transaction(() => {
+      if (input.owner.type === "guest") {
+        const claimed = this.database.prepare(`
+          SELECT 1 FROM project_owner_claims WHERE guest_id = ?
+        `).get(input.owner.id);
+        if (claimed) throw new GuestIdentityAlreadyClaimedError();
+      }
       const inserted = this.database.prepare(`
         INSERT INTO design_projects (
           id, title, product_id, product_version_id, configuration_id,
@@ -333,13 +342,38 @@ export class SqliteProjectRepository implements ProjectRepository {
       : null;
   }
 
-  async claimAll(from: ProjectOwner, to: ProjectOwner, now: string): Promise<number> {
-    if (from.type === to.type && from.id === to.id) return 0;
-    const result = this.database.prepare(`
-      UPDATE design_projects
-      SET owner_type = ?, owner_id = ?, updated_at = ?
-      WHERE owner_type = ? AND owner_id = ?
-    `).run(to.type, to.id, now, from.type, from.id);
-    return result.changes;
+  async claimAll(
+    from: Extract<ProjectOwner, { type: "guest" }>,
+    to: Extract<ProjectOwner, { type: "user" }>,
+    now: string,
+  ) {
+    return this.database.transaction(() => {
+      const existing = this.database.prepare(`
+        SELECT user_id FROM project_owner_claims WHERE guest_id = ?
+      `).get(from.id) as { user_id: string } | undefined;
+      if (existing && existing.user_id !== to.id) {
+        return { kind: "claimed-by-another-user" as const };
+      }
+
+      const result = this.database.prepare(`
+        UPDATE design_projects
+        SET owner_type = 'user', owner_id = ?, updated_at = ?
+        WHERE owner_type = 'guest' AND owner_id = ?
+      `).run(to.id, now, from.id);
+
+      if (existing) {
+        this.database.prepare(`
+          UPDATE project_owner_claims
+          SET project_count = project_count + ?, claimed_at = ?
+          WHERE guest_id = ? AND user_id = ?
+        `).run(result.changes, now, from.id, to.id);
+      } else {
+        this.database.prepare(`
+          INSERT INTO project_owner_claims(guest_id, user_id, project_count, claimed_at)
+          VALUES (?, ?, ?, ?)
+        `).run(from.id, to.id, result.changes, now);
+      }
+      return { kind: "claimed" as const, count: result.changes };
+    })();
   }
 }

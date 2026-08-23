@@ -9,6 +9,17 @@ import type {
   UpdateProjectResult,
 } from "./types";
 
+export class GuestIdentityAlreadyClaimedError extends Error {
+  constructor() {
+    super("The guest identity has already been claimed.");
+    this.name = "GuestIdentityAlreadyClaimedError";
+  }
+}
+
+export type GuestProjectClaimResult =
+  | { kind: "claimed"; count: number }
+  | { kind: "claimed-by-another-user" };
+
 export interface ProjectRepository {
   create(input: CreateProjectInput): Promise<DesignProject>;
   findById(id: string, owner: ProjectOwner): Promise<DesignProject | null>;
@@ -35,5 +46,9 @@ export interface ProjectRepository {
     revision: number,
     owner: ProjectOwner,
   ): Promise<ProjectRevision | null>;
-  claimAll(from: ProjectOwner, to: ProjectOwner, now: string): Promise<number>;
+  claimAll(
+    from: Extract<ProjectOwner, { type: "guest" }>,
+    to: Extract<ProjectOwner, { type: "user" }>,
+    now: string,
+  ): Promise<GuestProjectClaimResult>;
 }

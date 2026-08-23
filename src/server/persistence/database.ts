@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 export type VortexDatabase = Database.Database;
 
@@ -324,6 +324,78 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (8, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 9) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE auth_users (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT NOT NULL UNIQUE,
+          emailVerified INTEGER NOT NULL CHECK (emailVerified IN (0, 1)),
+          image TEXT,
+          createdAt DATE NOT NULL,
+          updatedAt DATE NOT NULL
+        );
+
+        CREATE TABLE auth_sessions (
+          id TEXT PRIMARY KEY,
+          expiresAt DATE NOT NULL,
+          token TEXT NOT NULL UNIQUE,
+          createdAt DATE NOT NULL,
+          updatedAt DATE NOT NULL,
+          ipAddress TEXT,
+          userAgent TEXT,
+          userId TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX auth_sessions_userId_idx ON auth_sessions(userId);
+
+        CREATE TABLE auth_accounts (
+          id TEXT PRIMARY KEY,
+          issuer TEXT NOT NULL,
+          accountId TEXT NOT NULL,
+          providerId TEXT NOT NULL,
+          userId TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+          accessToken TEXT,
+          refreshToken TEXT,
+          idToken TEXT,
+          accessTokenExpiresAt DATE,
+          refreshTokenExpiresAt DATE,
+          scope TEXT,
+          password TEXT,
+          createdAt DATE NOT NULL,
+          updatedAt DATE NOT NULL
+        );
+
+        CREATE UNIQUE INDEX auth_accounts_issuer_accountId_uidx
+          ON auth_accounts(issuer, accountId);
+        CREATE INDEX auth_accounts_userId_idx ON auth_accounts(userId);
+
+        CREATE TABLE auth_verifications (
+          id TEXT PRIMARY KEY,
+          identifier TEXT NOT NULL,
+          value TEXT NOT NULL,
+          expiresAt DATE NOT NULL,
+          createdAt DATE NOT NULL,
+          updatedAt DATE NOT NULL
+        );
+
+        CREATE INDEX auth_verifications_identifier_idx
+          ON auth_verifications(identifier);
+
+        CREATE TABLE project_owner_claims (
+          guest_id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          project_count INTEGER NOT NULL CHECK (project_count >= 0),
+          claimed_at TEXT NOT NULL
+        );
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (9, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

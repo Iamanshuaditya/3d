@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, Download, Eye, FileCode2, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { ProjectSaveState } from "@/platform/projects/types";
 import type { ProductionArtifactKind } from "@/platform/production/types";
+import { AccountControl } from "@/components/auth/AccountControl";
 
 export type CatalogueEntry = { id: string; name: string };
 
@@ -107,6 +108,8 @@ export function StudioTopBar({
         <FolderOpen className="h-4 w-4" />
         My designs
       </button>
+
+      <AccountControl compact />
 
       <div className="hidden items-center gap-0.5 rounded-lg bg-[var(--st-raised)] p-0.5 sm:flex">
         <button
