@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 projects/assets, P1 versioned products, P2 editable templates/personalization, P3 page-aware presentation, and P4 immutable server PDF artifacts are implemented on `feat/vortex-platform-p0-projects`.
+Status: P0 projects/assets, P1 versioned products, P2 editable templates/personalization, P3 page-aware presentation, P4 immutable server production, and P5 parameterized packaging/manufacturing SVG are implemented on `feat/vortex-platform-p0-projects`.
 
 ## Invariants
 
@@ -23,6 +23,9 @@ Status: P0 projects/assets, P1 versioned products, P2 editable templates/persona
 ProductDefinition + immutable ProductVersion + OptionSelection
                     │
                     ▼
+ ProductConfigurationProvider / authoritative structure
+                    │
+                    ▼
        ResolvedProductConfiguration / ProductConfig
                     │
           ┌─────────┴─────────┐
@@ -42,7 +45,12 @@ DesignProject ── DesignDocument ── stable ProjectAsset references
       │
       ├── immutable project revisions
       ├── owner-scoped API
-      └── ProductionExporter → immutable ProductionArtifact
+      └── normalized physical job
+                  ├── PDF exporter
+                  └── manufacturing geometry → SVG exporter
+                              │
+                              ▼
+                   immutable ProductionArtifact
 ```
 
 The current platform stays inside the Next.js application. Domain contracts live in `src/platform`, server implementations in `src/server`, versioned HTTP adapters in `src/app/api/v1`, and Studio clients in `src/lib/projects`. React components do not call SQLite or object storage.
@@ -65,7 +73,9 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Template application | `TemplateService` | Exact-configuration, owner-scoped, idempotent project creation |
 | Studio presentation | `ResolvedStudioPresentation` | Page/print-area/web navigation + capability-driven layout |
 | Live Preview | Same `DesignDocument` and renderer contracts | Read-only 2D proof or existing live 3D/unfold view |
-| Production artifacts | `ProductionArtifactRepository`, `ProductionExporter` | SQLite metadata + object-store PDF bytes |
+| Parameterized packaging | `ProductConfigurationProvider`, embedded version-pinned `CartonSpec` | Mailer 0427 provider; one structure feeds editor, 3D, unfold, PDF, and SVG |
+| Manufacturing geometry | `ManufacturingGeometry` in millimetres | Authoritative carton cut/crease/bleed normalization |
+| Production artifacts | `ProductionArtifactRepository`, `ProductionExporter` | SQLite metadata + object-store PDF/SVG bytes |
 | Server print adapters | `ProductionArtworkRenderer`, `IccProfileLoader` | Sharp surface renderer + checked public/embedded ICC loader |
 
 SQLite and local filesystem storage are intentionally development/single-node adapters. The domain interfaces permit PostgreSQL and S3/R2 adapters without changing Studio or `DesignDocument`.
@@ -91,9 +101,10 @@ Set `VORTEX_DATA_DIR` to relocate all development data. Production requires `VOR
 - Revision compare-and-swap rejects stale writers with HTTP 409.
 - Production re-resolves project identity and verifies every referenced asset before export.
 - Artifact reads are owner scoped and recheck MIME metadata, byte length, and SHA-256.
+- Artifact downloads are attachment-only, `nosniff`, same-origin resources with a sandbox content-security policy; generated SVG cannot become active application content.
 
 The in-memory rate limiter is a boundary, not a multi-instance production solution. A shared limiter should replace it when horizontally scaling.
 
 ## Next boundaries
 
-P5 extends authoritative structural geometry into parameterized packaging and manufacturing SVG, then adds CFF2 only if interoperability fixtures satisfy the existing research gate. P6 exposes public product resolution/admin publishing foundations. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
+P6 exposes public product catalogue/resolution APIs and operator publishing foundations over the existing domain. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.

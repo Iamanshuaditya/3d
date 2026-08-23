@@ -1,6 +1,6 @@
 # Production lifecycle
 
-Status: P4 immutable server PDF artifacts are implemented. PDF normalization, physical preflight, PDF/X-oriented metadata, ICC output intent, and vector cut/crease layers remain the existing Vortex Print Engine; server adapters now provide stable artwork and ICC bytes.
+Status: P4 immutable server production artifacts and P5 authoritative manufacturing SVG are implemented. PDF normalization, physical preflight, PDF/X-oriented metadata, ICC output intent, and vector cut/crease layers remain the existing Vortex Print Engine; server adapters provide stable artwork and ICC bytes.
 
 ## Authoritative workflow
 
@@ -17,10 +17,13 @@ asset ownership / MIME / length / SHA-256 verification
 normalizePrintJob() → preflightPrintJob()
                          │
                          ▼
-ProductionExporter (PDF)
-  ├── Sharp artwork renderer at profile PPI
-  ├── integrity-checked ICC loader
-  └── existing PDF/X + technical-layer generator
+ProductionExporter
+  ├── PDF
+  │   ├── Sharp artwork renderer at profile PPI
+  │   ├── integrity-checked ICC loader
+  │   └── existing PDF/X + technical-layer generator
+  └── SVG
+      └── normalized structural cut/crease/bleed paths in mm
                          │
                          ▼
 object store bytes + SHA-256 + immutable SQLite metadata
@@ -45,6 +48,8 @@ The server ignores browser `src` values and resolves every image through its sta
 
 Public DTOs omit `storageKey` and expose an owner-authorized `downloadUrl`. Artifact metadata has a unique `(projectId, projectRevision, kind)` constraint. Repeating or racing generation for the same revision returns the one existing artifact; losing concurrent object writes are removed.
 
+PDF and SVG are distinct immutable artifacts for the same revision. Schema v6 permits one of each and enforces the matching kind/MIME pair in SQLite. Artifact downloads use attachment disposition, no-store caching, `nosniff`, same-origin resource policy, and a sandbox CSP.
+
 ## Immutability and status
 
 Generating artifact A from revision 10 does not lock the project. A later edit creates revision 11 and resets `ready_for_preflight` or `production_ready` to `draft`. Artifact A remains byte-for-byte unchanged and downloadable. Generating revision 11 creates artifact B.
@@ -63,6 +68,20 @@ The server verifies stored artifact MIME type, length, and SHA-256 again before 
 - JPEG/WebP artwork is decoded, oriented, and normalized before server composition.
 - Relative public ICC assets are read from the constrained public root and verified by configured length/SHA-256; remote profiles require HTTPS and reject redirects.
 
+## Manufacturing SVG
+
+`normalizeManufacturingGeometry()` is the shared physical intermediate for manufacturing formats. It reads the exact version-resolved `CartonSpec`, preserves semantic `cut`, `crease`, and `bleed` operations, keeps open/closed paths explicit, validates finite in-bounds millimetre coordinates, and refuses any mismatch between the structural blank and resolved print surface.
+
+The SVG exporter emits deterministic, unit-explicit geometry:
+
+- `width`/`height` in `mm` with a matching millimetre `viewBox`;
+- separate semantic groups for cut, crease, and bleed;
+- product, version, configuration, surface, unit, and sheet-size metadata;
+- profile-defined technical line widths;
+- no customer artwork, JavaScript, external resources, or provider paths.
+
+The exporter currently supports exact one-sheet carton structures. It is deliberately hidden/rejected for non-structural products and for historical configs whose surface size does not match their structural spec.
+
 ## Safety boundaries
 
 - Product ID/version/configuration, dimensions, PPI, profile, and status are resolved server-side.
@@ -74,6 +93,6 @@ The server verifies stored artifact MIME type, length, and SHA-256 again before 
 
 ## Export boundary and remaining limits
 
-`ProductionExporter` is format-neutral. P4 registers PDF only. P5 manufacturing SVG must derive cut/crease/bleed paths from the same authoritative geometry. CFF2 remains gated by the documented interoperability requirements in `docs/research/CF2.md`.
+`ProductionExporter` is format-neutral and now registers PDF and SVG. CFF2 remains gated by the documented interoperability requirements in `docs/research/CF2.md`; without real receiving-CAD fixtures and partner line-type profiles it is neither implemented nor presented to customers.
 
 Generation is synchronous in the initial modular monolith. It is bounded and rate limited, but large production work will eventually need a durable job adapter with retries/timeouts; no distributed queue is introduced prematurely. SQLite and the filesystem object store remain single-node development adapters.

@@ -1,6 +1,6 @@
 # Product domain
 
-Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. P3 now uses the resolved version's presentation mode and explicit surface navigation semantics. No registered customer product currently exposes dynamic options; that remains intentional until a provider can truthfully update every affected physical and production contract.
+Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. P3 uses the resolved version's presentation mode and explicit surface navigation semantics. P5 publishes the first real dynamic provider: Mailer Box v3 resolves customer dimensions into one version-pinned structural contract.
 
 ## Domain separation
 
@@ -45,6 +45,20 @@ A `ProductVersion` resolves either through:
 
 The provider must return a `ProductConfig` for the same product. The central resolver stamps it with `productVersionId`, `configurationId`, and the validated selection. UI components do not independently derive dimensions, surfaces, material, or production configuration.
 
+### Parameterized Mailer v3
+
+`mailer-box-001@3` exposes bounded millimetre options for length, width, depth, and board thickness. The server validates both scalar bounds/steps and construction rules (`length >= width`, `depth <= width / 2`). `mailer-box-0427-v1` then creates one embedded `CartonSpec` containing:
+
+- the physical blank dimensions;
+- panel rectangles and hinge ownership;
+- the authored unfold sequence;
+- cut, crease, and bleed paths;
+- board thickness.
+
+The provider derives the editable surface size/rulers, editor pixel scale, section mapping, camera, and procedural model offset from that same result. The embedded spec is preferred over the legacy registry by `resolveCartonSpec()`, so Studio, Three.js, unfolding, PDF, and manufacturing SVG cannot independently select another carton definition.
+
+Provider algorithms are published behavior. `mailer-box-0427-v1` must never be changed in a way that alters its output for an existing selection. A structural-algorithm change requires a new provider ID and a new `ProductVersion`.
+
 ## Publishing and persistence
 
 SQLite schema v3 stores `product_definitions` and `product_versions` in the same platform database used by projects. A published version stores its full JSON snapshot and SHA-256 checksum.
@@ -76,7 +90,9 @@ There is no registered flat/front-back print product yet, so none is falsely des
 
 The Burger Box capability correction is version 2. Its geometry did not change; v1 had briefly recorded progressive unfolding even though the product only opens/closes. The correction was published as a new immutable snapshot instead of rewriting v1.
 
-T-shirt, Mailer Box, and Bottle current versions are also version 2. Their geometry is unchanged; v2 publishes the first truthful editable-template capability and exact template-compatibility contract. Existing v1 projects remain pinned to v1, while the P2 fixture templates target only the new exact version/configuration identities.
+T-shirt and Bottle current versions are version 2. Their geometry is unchanged; v2 publishes the first truthful editable-template capability and exact template-compatibility contract. Mailer Box v2 remains the immutable historical fixed configuration; v3 introduces the parameterized provider. Existing v1/v2 projects remain pinned, while the Mailer fixture template v2 targets only the default v3 configuration.
+
+The P5 audit found a historical 2 mm drift: the fixed Mailer v2 editable surface is 376×554 mm while its structural spec is 376×552 mm. V2 is not silently rewritten. It remains reproducible and continues to open, but the manufacturing SVG capability refuses that mismatched configuration. New v3 default projects use the exact 376×552 mm authoritative structure. An explicit migration would be required to move old designs.
 
 ## Project binding
 
@@ -95,10 +111,10 @@ Create, save validation, duplicate, and preview resolve the exact stored version
 
 Legacy configs remain source-compatible. Section-bearing packaging surfaces are inferred as continuous webs and other surfaces as print areas. Pages are never guessed. Adding authored page roles, page order, or new surfaces to a published product requires a new immutable product version. See `PRESENTATION.md` for the full contract.
 
-## Remaining P1 limits
+## Remaining product limits
 
-- Existing registered products are static definitions; no customer option selector is shown yet.
+- Mailer Box is the first parameterized registered product; all other registered products continue through immutable static adapters until an authoritative provider can update their full 2D/3D/production contract.
 - No current registered product supplies explicit front/back page metadata; the P3 contract has synthetic coverage until a real flat SKU is onboarded.
-- Parameterized packaging providers are P5 work and must derive 2D, 3D, unfolding, and production geometry from one structure.
 - Product catalogue/resolve HTTP endpoints and admin publishing UI are P6 work. Template catalogue endpoints are already exposed by P2.
 - Published version storage is implemented, but migrations between versions are deliberately absent; existing projects stay pinned unless a future explicit migration workflow is approved.
+- The web option form is a customer configuration surface, not an operator authoring UI. Draft validation and publish controls remain P6.

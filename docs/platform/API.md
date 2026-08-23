@@ -1,6 +1,6 @@
 # Platform API
 
-Status: version 1 exposes projects, artwork, editable templates, server preflight, and immutable production PDFs. Project/artifact DTOs are bound to immutable product versions and resolved configurations. Public product option resolution remains a later boundary.
+Status: version 1 exposes projects, artwork, editable templates, server preflight, and immutable PDF/manufacturing-SVG artifacts. Project/artifact DTOs are bound to immutable product versions and resolved configurations. Public product catalogue/option resolution remains a later boundary.
 
 ## Conventions
 
@@ -21,6 +21,14 @@ Errors use:
   }
 }
 ```
+
+## Owner session endpoint
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/session` | Establish/refresh the signed owner context without exposing its opaque ID |
+
+The project client completes this read before its first create mutation. This prevents React remounts from racing two initial mutations before a fresh browser has received its signed guest cookie. Blank/template actions still carry an idempotency UUID; the cookie defines ownership and the UUID only deduplicates a mutation within that owner.
 
 ## Project endpoints
 
@@ -101,13 +109,13 @@ The server independently resolves product identity/configuration, validates comp
 | --- | --- | --- |
 | `POST` | `/api/v1/projects/:projectId/production/preflight` | Preflight an exact/current revision without generating bytes |
 | `GET` | `/api/v1/projects/:projectId/production/artifacts` | List this owner's immutable project artifacts |
-| `POST` | `/api/v1/projects/:projectId/production/artifacts` | Idempotently generate/store an exact revision PDF |
+| `POST` | `/api/v1/projects/:projectId/production/artifacts` | Idempotently generate/store an exact revision PDF or supported manufacturing SVG |
 | `GET` | `/api/v1/production-artifacts/:artifactId` | Read owner-authorized immutable metadata/report |
 | `GET` | `/api/v1/production-artifacts/:artifactId/content` | Download checksum-verified immutable bytes |
 
-Preflight/generation bodies accept only an optional positive `revision`; generation also accepts the currently supported `kind: "pdf"`. The server ignores client claims for product version, configuration, dimensions, PPI, profile, readiness, price, assets, checksum, and artifact identity.
+Preflight/generation bodies accept only an optional positive `revision`; generation accepts `kind: "pdf" | "svg"` and defaults to PDF. SVG is rejected unless the resolved product contains an exact one-sheet structural contract whose physical bounds match its print surface. The server ignores client claims for product version, configuration, dimensions, PPI, profile, readiness, price, assets, checksum, and artifact identity.
 
-Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the structured report in `error.details.report`. Successful DTOs expose project revision, product version/configuration, kind, MIME type, filename, size, SHA-256, full report, timestamp, and authorized download URL—never the storage key.
+Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the structured report in `error.details.report`; unsupported format/product pairs return `PRODUCTION_FORMAT_UNSUPPORTED`. Successful DTOs expose project revision, product version/configuration, kind, MIME type, filename, size, SHA-256, full report, timestamp, and authorized download URL—never the storage key.
 
 ## Compatibility and evolution
 

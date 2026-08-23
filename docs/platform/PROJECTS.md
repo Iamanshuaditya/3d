@@ -8,7 +8,7 @@ The persisted document never stores runtime `blob:` or authorized read URLs. `Pr
 
 ## Create and reopen
 
-Opening Studio without a `project` query parameter creates a project and replaces the URL with:
+The customer start flow creates the project before navigating to Studio, so the first Studio URL already contains:
 
 ```text
 /studio?product=<productId>&project=<opaque-project-id>&version=<product-version>
@@ -16,7 +16,7 @@ Opening Studio without a `project` query parameter creates a project and replace
 
 When options exist, the URL also carries the validated selection so the server can render the exact engine configuration before the client editor mounts. The owner-authorized project record remains authoritative; an incomplete historical URL self-corrects to the saved version and selection.
 
-Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. The browser keeps the pending key stable per tab/configuration and recovers the replaced URL's project ID during Fast Refresh. Reusing that key for a different resolved configuration fails.
+Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. Before the first mutation, the browser completes one shared `/api/v1/session` read so concurrent initial requests cannot each receive a different signed guest identity. Blank creation is also shared in memory across remounts and navigates only after it has the real project ID. Direct legacy Studio URLs without a project remain supported and recover through the same pending-key mechanism. Reusing a key for a different resolved configuration fails.
 
 Template instantiation uses the same creation path after server-side exact-version compatibility, placeholder, and surface validation. The resulting project is independent customer state: later template publication cannot mutate it. Its source version is retained only for audit/provenance and survives duplication.
 
