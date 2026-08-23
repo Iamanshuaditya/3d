@@ -185,6 +185,7 @@ export class ProjectService {
       productVersionId: project.productVersionId,
       configurationId: project.configurationId,
       optionSelection: { ...project.optionSelection },
+      sourceTemplateVersionId: project.sourceTemplateVersionId,
       status: project.status,
       revision: project.revision,
       previewUrl: previewReadUrl(project.id, project.previewAssetId),
@@ -224,6 +225,92 @@ export class ProjectService {
     };
   }
 
+  private validateCreationKey(creationKey: unknown): string | undefined {
+    if (creationKey === undefined) return undefined;
+    if (
+      typeof creationKey !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        creationKey,
+      )
+    ) {
+      throw new ValidationError(
+        "INVALID_CREATION_KEY",
+        "clientRequestId must be a UUID when supplied.",
+      );
+    }
+    return creationKey;
+  }
+
+  private async createResolvedProject(input: {
+    owner: ProjectOwner;
+    resolved: ResolvedProductConfiguration;
+    title?: unknown;
+    creationKey?: unknown;
+    design?: unknown;
+    sourceTemplateVersionId?: string | null;
+  }): Promise<DesignProjectDto> {
+    const { resolved } = input;
+    const product = resolved.productConfig;
+    const creationKey = this.validateCreationKey(input.creationKey);
+    const design = input.design === undefined
+      ? createEmptyDocument(product)
+      : parseDesignDocument(input.design);
+    if (design.productId !== product.id) {
+      throw new ValidationError("PRODUCT_MISMATCH", "The design belongs to a different product.");
+    }
+    validateSurfaceContract(design, product);
+    if (
+      input.sourceTemplateVersionId &&
+      !/^[a-z0-9][a-z0-9_-]{0,127}@[1-9][0-9]*$/i.test(input.sourceTemplateVersionId)
+    ) {
+      throw new ValidationError("INVALID_TEMPLATE_VERSION", "Template version id is invalid.");
+    }
+    if (
+      input.sourceTemplateVersionId &&
+      Object.values(design.surfaces).some((surface) =>
+        surface.elements.some((element) => element.type === "image"),
+      )
+    ) {
+      throw new ValidationError(
+        "TEMPLATE_ASSET_CLONING_REQUIRED",
+        "This template contains artwork assets that cannot yet be cloned into a project.",
+      );
+    }
+
+    const now = this.clock();
+    const project = await this.repository.create({
+      id: this.generateId(),
+      title: normalizeProjectTitle(input.title, product.name),
+      productId: product.id,
+      productVersionId: resolved.productVersionId,
+      configurationId: resolved.configurationId,
+      optionSelection: resolved.selection,
+      sourceTemplateVersionId: input.sourceTemplateVersionId ?? null,
+      owner: input.owner,
+      design: stripRuntimeImageSources(design),
+      creationKey,
+      now,
+    });
+    if (
+      project.productId !== product.id ||
+      project.configurationId !== resolved.configurationId ||
+      project.sourceTemplateVersionId !== (input.sourceTemplateVersionId ?? null)
+    ) {
+      throw new ValidationError(
+        "CREATION_KEY_REUSED",
+        "That clientRequestId was already used for another product or template.",
+      );
+    }
+    logEvent(input.sourceTemplateVersionId ? "project.template-instantiated" : "project.create-resolved", {
+      projectId: project.id,
+      productId: product.id,
+      ...(input.sourceTemplateVersionId
+        ? { templateVersionId: input.sourceTemplateVersionId }
+        : {}),
+    });
+    return this.projectDto(project);
+  }
+
   async create(
     owner: ProjectOwner,
     productId: string,
@@ -232,43 +319,44 @@ export class ProjectService {
     optionSelection?: unknown,
   ): Promise<DesignProjectDto> {
     const resolved = await this.resolveConfiguration(productId, null, optionSelection);
-    const product = resolved.productConfig;
-    if (
-      creationKey !== undefined &&
-      (typeof creationKey !== "string" ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          creationKey,
-        ))
-    ) {
-      throw new ValidationError(
-        "INVALID_CREATION_KEY",
-        "clientRequestId must be a UUID when supplied.",
-      );
-    }
-    const now = this.clock();
-    const project = await this.repository.create({
-      id: this.generateId(),
-      title: normalizeProjectTitle(title, product.name),
-      productId: product.id,
-      productVersionId: resolved.productVersionId,
-      configurationId: resolved.configurationId,
-      optionSelection: resolved.selection,
+    return this.createResolvedProject({
       owner,
-      design: createEmptyDocument(product),
-      creationKey: creationKey as string | undefined,
-      now,
+      resolved,
+      title,
+      creationKey,
     });
-    if (
-      project.productId !== product.id ||
-      project.configurationId !== resolved.configurationId
-    ) {
+  }
+
+  async createFromTemplate(input: {
+    owner: ProjectOwner;
+    productId: string;
+    productVersionId: string;
+    configurationId: string;
+    optionSelection: unknown;
+    templateVersionId: string;
+    design: unknown;
+    title?: unknown;
+    creationKey?: unknown;
+  }): Promise<DesignProjectDto> {
+    const resolved = await this.resolveConfiguration(
+      input.productId,
+      input.productVersionId,
+      input.optionSelection,
+    );
+    if (resolved.configurationId !== input.configurationId) {
       throw new ValidationError(
-        "CREATION_KEY_REUSED",
-        "That clientRequestId was already used for another product.",
+        "TEMPLATE_CONFIGURATION_MISMATCH",
+        "The template was instantiated against a different product configuration.",
       );
     }
-    logEvent("project.create-resolved", { projectId: project.id, productId: product.id });
-    return this.projectDto(project);
+    return this.createResolvedProject({
+      owner: input.owner,
+      resolved,
+      title: input.title,
+      creationKey: input.creationKey,
+      design: input.design,
+      sourceTemplateVersionId: input.templateVersionId,
+    });
   }
 
   async open(owner: ProjectOwner, id: string): Promise<DesignProjectDto> {
@@ -423,6 +511,7 @@ export class ProjectService {
         productVersionId: source.productVersionId,
         configurationId: source.configurationId,
         optionSelection: source.optionSelection,
+        sourceTemplateVersionId: source.sourceTemplateVersionId,
         owner,
         design,
         now: this.clock(),

@@ -11,6 +11,8 @@ import {
   PROJECT_TITLE_MAX_LENGTH,
 } from "./types";
 import { ValidationError } from "./errors";
+import { parsePersonalizationData } from "@/platform/templates/personalization";
+import { TemplateDomainError } from "@/platform/templates/errors";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -102,6 +104,22 @@ function transform(record: JsonRecord) {
   };
 }
 
+function parseBinding(value: unknown): TextElement["binding"] {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || value.type !== "field") {
+    throw new ValidationError("INVALID_DESIGN", "Text binding is invalid.");
+  }
+  const key = requiredString(value, "key", 128);
+  if (!/^[a-z][a-z0-9_-]*(?:\.[a-z][a-z0-9_-]*)*$/i.test(key)) {
+    throw new ValidationError("INVALID_DESIGN", `Text binding ${key} is invalid.`);
+  }
+  return {
+    type: "field",
+    key,
+    fallback: optionalString(value, "fallback", 2_000),
+  };
+}
+
 function parseElement(value: unknown): DesignElement {
   if (!isRecord(value)) {
     throw new ValidationError("INVALID_DESIGN", "A design element is invalid.");
@@ -144,6 +162,7 @@ function parseElement(value: unknown): DesignElement {
       fontSize: boundedNumber(value, "fontSize", { min: 0.1, max: 10_000 }),
       fill: requiredString(value, "fill", 128),
       ...transform(value),
+      binding: parseBinding(value.binding),
     };
     return parsed;
   }
@@ -193,7 +212,18 @@ export function parseDesignDocument(value: unknown): DesignDocument {
     }
     surfaces[surfaceId] = parsed;
   }
-  return { productId, surfaces };
+  let personalization;
+  try {
+    personalization = value.personalization === undefined
+      ? undefined
+      : parsePersonalizationData(value.personalization);
+  } catch (error) {
+    if (error instanceof TemplateDomainError) {
+      throw new ValidationError("INVALID_DESIGN", error.message);
+    }
+    throw error;
+  }
+  return { productId, surfaces, ...(personalization ? { personalization } : {}) };
 }
 
 export function normalizeProjectTitle(value: unknown, fallback: string): string {

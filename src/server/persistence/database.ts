@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export type VortexDatabase = Database.Database;
 
@@ -127,6 +127,40 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 4) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE design_projects ADD COLUMN source_template_version_id TEXT;
+
+        CREATE TABLE design_template_definitions (
+          id TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('draft', 'published')),
+          definition_json TEXT NOT NULL,
+          current_version_id TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE design_template_versions (
+          id TEXT PRIMARY KEY,
+          template_id TEXT NOT NULL
+            REFERENCES design_template_definitions(id) ON DELETE RESTRICT,
+          version_number INTEGER NOT NULL CHECK (version_number >= 1),
+          version_json TEXT NOT NULL,
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          published_at TEXT NOT NULL,
+          UNIQUE(template_id, version_number)
+        );
+
+        CREATE INDEX design_template_versions_template_idx
+          ON design_template_versions(template_id, version_number DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (4, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

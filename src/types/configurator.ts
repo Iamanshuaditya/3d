@@ -58,6 +58,16 @@ export type TextElement = {
   scaleX: number;
   scaleY: number;
   opacity: number;
+  /**
+   * Optional semantic personalization source. Renderers still consume `text`;
+   * this metadata lets the template/personalization layer update it without
+   * parsing magic {{tokens}}. Manual Studio edits intentionally detach it.
+   */
+  binding?: {
+    type: "field";
+    key: string;
+    fallback?: string;
+  };
 };
 
 export type DesignElement = ImageElement | TextElement;
@@ -72,6 +82,13 @@ export type SurfaceDesign = {
 export type DesignDocument = {
   productId: string;
   surfaces: Record<string, SurfaceDesign>;
+  /** Structured values used to materialize bound elements, when applicable. */
+  personalization?: PersonalizationData;
+};
+
+export type PersonalizationScalar = string | number | boolean | null;
+export type PersonalizationData = {
+  [key: string]: PersonalizationScalar | PersonalizationData;
 };
 
 /** Optional print-production guides. Purely visual — never exported into artwork. */

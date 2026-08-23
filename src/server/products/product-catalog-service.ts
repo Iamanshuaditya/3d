@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { getProduct } from "@/lib/configurator/product-config";
 import {
   CODE_PRODUCT_DEFINITIONS,
@@ -21,25 +20,14 @@ import type {
   ProductVersion,
   ResolvedProductConfiguration,
 } from "@/platform/products/types";
-
-function canonicalValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(canonicalValue);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, nested]) => [key, canonicalValue(nested)]),
-    );
-  }
-  return value;
-}
+import { canonicalJson, canonicalJsonSha256 } from "@/server/persistence/canonical-json";
 
 export function canonicalProductJson(value: unknown) {
-  return JSON.stringify(canonicalValue(value));
+  return canonicalJson(value);
 }
 
 export function productVersionChecksum(version: ProductVersion) {
-  return createHash("sha256").update(canonicalProductJson(version)).digest("hex");
+  return canonicalJsonSha256(version);
 }
 
 function definitionSnapshot(definition: ProductDefinition): ProductDefinitionSnapshot {

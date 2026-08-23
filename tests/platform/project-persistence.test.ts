@@ -357,5 +357,5 @@ test("schema v2 projects migrate and reopen against their legacy product version
   assert.equal(saved.revision, 2);
 
   const current = await service.create(guest, "tshirt", "Current shirt");
-  assert.equal(current.productVersionId, "tshirt@1");
+  assert.equal(current.productVersionId, "tshirt@2");
 });

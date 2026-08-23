@@ -21,6 +21,7 @@ type ProjectRow = {
   product_version_id: string;
   configuration_id: string | null;
   option_selection_json: string;
+  source_template_version_id: string | null;
   owner_type: ProjectOwner["type"];
   owner_id: string;
   status: ProjectStatus;
@@ -53,6 +54,7 @@ function decodeProject(row: ProjectRow): DesignProject {
     productVersionId: row.product_version_id,
     configurationId: row.configuration_id ?? `${row.product_version_id}|`,
     optionSelection: parseOptionSelection(JSON.parse(row.option_selection_json)),
+    sourceTemplateVersionId: row.source_template_version_id,
     owner: { type: row.owner_type, id: row.owner_id } as ProjectOwner,
     status: row.status,
     design: JSON.parse(row.design_json) as DesignDocument,
@@ -90,9 +92,9 @@ export class SqliteProjectRepository implements ProjectRepository {
       const inserted = this.database.prepare(`
         INSERT INTO design_projects (
           id, title, product_id, product_version_id, configuration_id,
-          option_selection_json, owner_type, owner_id, status, design_json,
-          revision, preview_asset_id, creation_key, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, 1, NULL, ?, ?, ?)
+          option_selection_json, source_template_version_id, owner_type, owner_id,
+          status, design_json, revision, preview_asset_id, creation_key, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, 1, NULL, ?, ?, ?)
         ON CONFLICT(owner_type, owner_id, creation_key) DO NOTHING
       `).run(
         input.id,
@@ -101,6 +103,7 @@ export class SqliteProjectRepository implements ProjectRepository {
         input.productVersionId,
         input.configurationId,
         JSON.stringify(input.optionSelection),
+        input.sourceTemplateVersionId ?? null,
         input.owner.type,
         input.owner.id,
         designJson,

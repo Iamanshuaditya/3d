@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import type { ProductConfig } from "@/types/configurator";
+import type { DesignDocument, ProductConfig } from "@/types/configurator";
 import type { DesignProject, ProjectAsset } from "@/platform/projects/types";
 import type { ObjectStore } from "@/platform/storage/object-store";
 
@@ -26,33 +26,36 @@ export type RenderedProjectPreview = {
   height: number;
 };
 
-export async function renderProjectPreview(
-  project: DesignProject,
+export type PreviewImage = { bytes: Uint8Array; mimeType: string };
+
+export async function renderDesignPreview(
+  document: DesignDocument,
   config: ProductConfig,
-  assets: ProjectAsset[],
-  objectStore: ObjectStore,
+  resolveImage?: (assetId: string) => Promise<PreviewImage | null>,
 ): Promise<RenderedProjectPreview> {
   const surface = config.editableSurfaces[0];
-  const design = project.design.surfaces[surface.id] ?? { elements: [], background: null };
+  const design = document.surfaces[surface.id] ?? { elements: [], background: null };
   const scale = Math.min(1, MAX_PREVIEW_EDGE / Math.max(surface.editorWidth, surface.editorHeight));
   const width = Math.max(1, Math.round(surface.editorWidth * scale));
   const height = Math.max(1, Math.round(surface.editorHeight * scale));
-  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
   const embedded = new Map<string, string>();
 
-  await Promise.all(
-    design.elements.map(async (element) => {
-      if (element.type !== "image" || !element.assetId || embedded.has(element.assetId)) return;
-      const asset = assetsById.get(element.assetId);
-      if (!asset || asset.kind !== "artwork") return;
-      const object = await objectStore.get(asset.storageKey);
-      if (!object) return;
-      embedded.set(
-        element.assetId,
-        `data:${asset.mimeType};base64,${Buffer.from(object.bytes).toString("base64")}`,
-      );
-    }),
-  );
+  if (resolveImage) {
+    await Promise.all(
+      [...new Set(
+        design.elements.flatMap((element) =>
+          element.type === "image" && element.assetId ? [element.assetId] : [],
+        ),
+      )].map(async (assetId) => {
+        const image = await resolveImage(assetId);
+        if (!image) return;
+        embedded.set(
+          assetId,
+          `data:${image.mimeType};base64,${Buffer.from(image.bytes).toString("base64")}`,
+        );
+      }),
+    );
+  }
 
   const content = design.elements.map((element) => {
     const common = `transform="translate(${element.x} ${element.y}) rotate(${element.rotation}) scale(${element.scaleX} ${element.scaleY})" opacity="${Math.max(0, Math.min(1, element.opacity))}"`;
@@ -88,3 +91,17 @@ export async function renderProjectPreview(
   return { bytes, width, height };
 }
 
+export async function renderProjectPreview(
+  project: DesignProject,
+  config: ProductConfig,
+  assets: ProjectAsset[],
+  objectStore: ObjectStore,
+): Promise<RenderedProjectPreview> {
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  return renderDesignPreview(project.design, config, async (assetId) => {
+    const asset = assetsById.get(assetId);
+    if (!asset || asset.kind !== "artwork") return null;
+    const object = await objectStore.get(asset.storageKey);
+    return object ? { bytes: object.bytes, mimeType: asset.mimeType } : null;
+  });
+}

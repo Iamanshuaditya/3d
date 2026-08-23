@@ -16,11 +16,22 @@ const LEGACY_PUBLISHED_AT = "2026-08-23T00:00:00.000Z";
  * existing number, making accidental published-version mutation fail loudly.
  */
 export const PRODUCT_VERSION_NUMBERS: Readonly<Record<string, number>> = {
+  // v2 publishes the first compatible editable-template catalogue. Engine
+  // geometry is unchanged; the immutable capability snapshot is not.
+  "bottle-001": 2,
+  "mailer-box-001": 2,
+  tshirt: 2,
   // v1 was briefly published in the development catalogue with an inaccurate
   // progressive-unfold capability. The clamshell itself is unchanged; v2
   // corrects the immutable capability snapshot rather than mutating v1.
   "burger-box-001": 2,
 };
+
+const TEMPLATE_ENABLED_PRODUCT_IDS = new Set([
+  "bottle-001",
+  "mailer-box-001",
+  "tshirt",
+]);
 
 function presentationMode(config: ProductConfig): ProductPresentationMode {
   if (config.editableSurfaces.some((surface) => surface.renderModes?.includes("embroidery"))) {
@@ -46,7 +57,7 @@ export function legacyDefinitionSnapshot(config: ProductConfig): ProductDefiniti
       embroideryPreview: renderModes.has("embroidery"),
       unfolding: structuralPresentation.mode === "progressive-unfold",
       parameterizedDimensions: false,
-      templates: false,
+      templates: TEMPLATE_ENABLED_PRODUCT_IDS.has(config.id),
     },
     templateCompatibility: [config.id],
   };

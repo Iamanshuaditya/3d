@@ -26,6 +26,7 @@ export type DesignProject = {
   productVersionId: string;
   configurationId: string;
   optionSelection: OptionSelection;
+  sourceTemplateVersionId: string | null;
   owner: ProjectOwner;
   status: ProjectStatus;
   design: DesignDocument;
@@ -64,6 +65,7 @@ export type ProjectSummaryDto = {
   productVersionId: string;
   configurationId: string;
   optionSelection: OptionSelection;
+  sourceTemplateVersionId: string | null;
   status: ProjectStatus;
   revision: number;
   previewUrl: string | null;
@@ -88,6 +90,7 @@ export type CreateProjectInput = {
   productVersionId: string;
   configurationId: string;
   optionSelection: OptionSelection;
+  sourceTemplateVersionId?: string | null;
   owner: ProjectOwner;
   design: DesignDocument;
   /** Owner-scoped key that makes create retries safe. */
