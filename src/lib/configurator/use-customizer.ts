@@ -9,6 +9,10 @@ import type {
   ValidationResult,
 } from "@/types/configurator";
 import type { SceneDebugInfo } from "@/lib/configurator/model-validator";
+import type { ArtworkRenderMode } from "@/types/embroidery";
+import { DEFAULT_EMBROIDERY, type EmbroiderySettings } from "@/types/embroidery";
+import { useArtworkImages } from "@/lib/configurator/use-artwork-images";
+import { useEmbroidery } from "@/lib/embroidery/use-embroidery";
 import { configureDesignTexture } from "@/lib/configurator/texture-manager";
 import {
   commit,
@@ -121,6 +125,59 @@ export function useCustomizer(config: ProductConfig) {
       Object.values(textures).forEach((t) => t?.dispose());
     };
   }, [textures]);
+
+  // ---- Derived artwork treatments (embroidery) ------------------------------
+  const images = useArtworkImages(design);
+  const embroidery = useEmbroidery(config, design, images);
+
+  /**
+   * Material maps for the 3D preview. Only surfaces that actually carry
+   * stitching get textures, so printed products stay on the exact material
+   * they have today.
+   */
+  const materialTextures = useMemo(() => {
+    const next: Record<
+      string,
+      { normal: THREE.CanvasTexture; roughness: THREE.CanvasTexture } | null
+    > = {};
+    for (const surface of config.editableSurfaces) {
+      const maps = embroidery.surfaceMaps[surface.id];
+      if (!maps || !embroidery.surfacesWithEmbroidery[surface.id]) {
+        next[surface.id] = null;
+        continue;
+      }
+      const normal = new THREE.CanvasTexture(maps.normal);
+      const roughness = new THREE.CanvasTexture(maps.roughness);
+      for (const texture of [normal, roughness]) {
+        texture.flipY = true;
+        texture.colorSpace = THREE.NoColorSpace;
+        texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.anisotropy = 8;
+      }
+      next[surface.id] = { normal, roughness };
+    }
+    return next;
+    // Surfaces gaining or losing stitching is what changes the binding; the
+    // canvases themselves are persistent and re-uploaded via needsUpdate.
+  }, [config.editableSurfaces, embroidery.surfaceMaps, embroidery.surfacesWithEmbroidery]);
+
+  useEffect(() => {
+    return () => {
+      for (const pair of Object.values(materialTextures)) {
+        pair?.normal.dispose();
+        pair?.roughness.dispose();
+      }
+    };
+  }, [materialTextures]);
+
+  useEffect(() => {
+    for (const pair of Object.values(materialTextures)) {
+      if (!pair) continue;
+      // Three.js's required re-upload signal for an externally-owned canvas.
+      pair.normal.needsUpdate = true;
+      pair.roughness.needsUpdate = true;
+    }
+  }, [materialTextures, embroidery.mapsVersion]);
 
   const markDirty = useCallback((surfaceId: string) => {
     dirtyRef.current[surfaceId] = true;
@@ -430,6 +487,58 @@ export function useCustomizer(config: ProductConfig) {
     scheduleDirty,
   ]);
 
+  /**
+   * Switches how a placed image is reproduced. Non-destructive by
+   * construction: only the treatment block changes, so returning to "print"
+   * gives back the customer's original asset untouched.
+   */
+  const setElementRenderMode = useCallback(
+    (id: string, mode: ArtworkRenderMode) => {
+      const element = design.surfaces[activeSurfaceId]?.elements.find((el) => el.id === id);
+      if (!element || element.type !== "image") return;
+      const previous =
+        element.treatment?.mode === "embroidery" ? element.treatment.settings : DEFAULT_EMBROIDERY;
+      dispatch({
+        kind: "apply",
+        action: {
+          type: "update",
+          surfaceId: activeSurfaceId,
+          id,
+          patch: {
+            treatment:
+              mode === "embroidery" ? { mode: "embroidery", settings: previous } : { mode: "print" },
+          } as never,
+        },
+      });
+      scheduleDirty(activeSurfaceId);
+    },
+    [activeSurfaceId, design.surfaces, scheduleDirty],
+  );
+
+  const updateEmbroiderySettings = useCallback(
+    (id: string, patch: Partial<EmbroiderySettings>, transient = false) => {
+      const element = design.surfaces[activeSurfaceId]?.elements.find((el) => el.id === id);
+      if (!element || element.type !== "image" || element.treatment?.mode !== "embroidery") return;
+      dispatch({
+        kind: "apply",
+        action: {
+          type: "update",
+          surfaceId: activeSurfaceId,
+          id,
+          patch: {
+            treatment: {
+              mode: "embroidery",
+              settings: { ...element.treatment.settings, ...patch },
+            },
+          } as never,
+        },
+        transient,
+      });
+      scheduleDirty(activeSurfaceId);
+    },
+    [activeSurfaceId, design.surfaces, scheduleDirty],
+  );
+
   const resetSurface = useCallback(() => {
     dispatch({ kind: "apply", action: { type: "resetSurface", surfaceId: activeSurfaceId } });
     setSelectedId(null);
@@ -571,6 +680,11 @@ export function useCustomizer(config: ProductConfig) {
     showGuides,
     setShowGuides,
     textures,
+    materialTextures,
+    images,
+    embroidery,
+    setElementRenderMode,
+    updateEmbroiderySettings,
     registerCanvas,
     markDirty,
     consumeDirty,

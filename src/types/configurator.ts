@@ -1,3 +1,6 @@
+import type { GlbArticulationSpec } from "./unfold";
+import type { ArtworkRenderMode, ArtworkTreatment } from "./embroidery";
+
 /**
  * Core contracts for the product customization engine.
  *
@@ -23,6 +26,12 @@ export type ImageElement = {
   scaleX: number;
   scaleY: number;
   opacity: number;
+  /**
+   * How this artwork is reproduced on the product. Purely additive: the asset
+   * above is never rewritten, so switching back to "print" restores the
+   * original pixels exactly. Absent means print.
+   */
+  treatment?: ArtworkTreatment;
 };
 
 export type TextElement = {
@@ -126,6 +135,12 @@ export type EditableSurface = {
   displayUnit?: "cm" | "in";
   guides?: SurfaceGuides;
   /**
+   * Reproduction methods this surface offers. Packaging is printed; a garment
+   * panel can also be embroidered. Absent means print only, so no existing
+   * product gains a control it cannot honour.
+   */
+  renderModes?: ArtworkRenderMode[];
+  /**
    * Colour of the unprinted substrate. Pouch film and board are white, not
    * transparent — without this the empty canvas' zero alpha renders as black.
    */
@@ -158,8 +173,23 @@ export type ProductConfig = {
   cartonSpecId?: string;
   /** Required for family "pouch" — key into the pouch registry. */
   pouchSpecId?: string;
-  /** Whether this product supports the open/close control. */
+  /**
+   * @deprecated Presentation is derived from the product's construction by
+   * `resolveProductPresentation`. Kept so existing configs keep type-checking.
+   */
   canOpen?: boolean;
+  /**
+   * Force a product to render with no structural control even though its
+   * construction supports one. Omit for the derived capability.
+   */
+  presentation?: "static";
+  /**
+   * Optional authored articulation for a prepared GLB (hinged cases, folding
+   * displays). Declared as a contract; see `GlbArticulationSpec`. A product
+   * that sets this reports `unsupported` until a GLB articulation driver
+   * exists — it is never silently ignored.
+   */
+  articulation?: GlbArticulationSpec;
   editableSurfaces: EditableSurface[];
   /** Camera framing for this product. */
   camera: {
@@ -184,7 +214,8 @@ export type ProductConfig = {
     | "standard"
     | "glossy-laminate"
     | "clear-barrier-gloss"
-    | "kraft-corrugated";
+    | "kraft-corrugated"
+    | "cotton-fabric";
 };
 
 /** Result of checking a loaded GLB against its ProductConfig. */

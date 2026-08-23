@@ -116,8 +116,6 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
               config={config}
               textures={NO_TEXTURES}
               consumeDirty={neverDirty}
-              fold={1}
-              lidOpen={0}
             />
           ) : config.modelUrl ? (
             <ProductModel

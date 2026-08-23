@@ -1,10 +1,18 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
-import type { ProductConfig } from "@/types/configurator";
+import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import { useCustomizer } from "@/lib/configurator/use-customizer";
+import { useUnfold } from "@/lib/configurator/use-unfold";
+import {
+  defaultCameraPreset,
+  dielineCameraPreset,
+  resolveProductPresentation,
+} from "@/lib/configurator/presentation";
+import { CARTONS } from "@/lib/configurator/carton-spec";
+import { UnfoldControl } from "@/components/configurator/UnfoldControl";
 import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
 import { StudioPanel } from "./StudioPanel";
@@ -57,7 +65,6 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
   // Passive camera motion is opt-in in an editing tool. Manual orbit remains
   // available at all times and is the predictable default.
   const [animated, setAnimated] = useState(false);
-  const [lidOpen, setLidOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"design" | "preview">("design");
   const [exporting, setExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<{
@@ -72,6 +79,31 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
     startY: number;
     origin: PanPoint;
   } | null>(null);
+
+  // ---- Structural presentation (capability-driven, not product-specific) ----
+  const presentation = useMemo(() => resolveProductPresentation(config), [config]);
+  const unfoldPlan =
+    presentation.mode === "open-close" || presentation.mode === "progressive-unfold"
+      ? presentation.plan
+      : null;
+  const unfold = useUnfold(unfoldPlan);
+  const [pendingPreset, setPendingPreset] = useState<CameraPreset | null>(null);
+  const wasFlatRef = useRef(false);
+
+  // Reaching the flat pose is the moment the 3D view and the 2D dieline show
+  // the same thing, so the camera moves overhead to say so. Leaving it
+  // restores the product's own framing.
+  useEffect(() => {
+    const isFlat = Boolean(unfold.status?.isFlat);
+    if (isFlat === wasFlatRef.current) return;
+    wasFlatRef.current = isFlat;
+    if (isFlat) {
+      const spec = CARTONS[config.cartonSpecId ?? ""];
+      if (spec) setPendingPreset(dielineCameraPreset(config, spec.width, spec.height));
+      return;
+    }
+    setPendingPreset(defaultCameraPreset(config));
+  }, [config, unfold.status?.isFlat]);
 
   const surface = c.activeSurface;
   const formatPhysical = (centimetres: number) =>
@@ -362,6 +394,8 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
                             <DesignEditor
                               surface={s}
                               design={c.design.surfaces[s.id]}
+                              images={c.images}
+                              embroidery={c.embroidery.results}
                               selectedId={isActive ? c.selectedId : null}
                               showGuides={c.showGuides && isActive}
                               onSelect={c.setSelectedId}
@@ -476,16 +510,13 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
             </span>
 
             <div className="flex items-center gap-2">
-              {config.canOpen && (
-                <button
-                  type="button"
-                  onClick={() => setLidOpen((v) => !v)}
-                  aria-pressed={lidOpen}
-                  className="rounded-lg bg-[var(--st-raised)] px-3 py-1.5 text-[13px] font-medium text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
-                >
-                  {lidOpen ? "Close lid" : "Open lid"}
-                </button>
-              )}
+              <UnfoldControl
+                presentation={presentation}
+                status={unfold.status}
+                onNext={unfold.next}
+                onPrevious={unfold.previous}
+                onReset={unfold.reset}
+              />
               <button
                 type="button"
                 role="switch"
@@ -515,17 +546,18 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
               <Product3DViewer
                 config={config}
                 textures={c.textures}
+                materialTextures={c.materialTextures}
                 consumeDirty={c.consumeDirty}
-                pendingPreset={null}
-                onPresetApplied={() => {}}
+                pendingPreset={pendingPreset}
+                onPresetApplied={() => setPendingPreset(null)}
                 onValidated={c.handleValidated}
                 onSurfaceClick={c.selectSurface}
                 highlightedMeshName={c.hoveredMeshName}
                 onMeshHover={c.setHoveredMeshName}
                 onMeshClick={c.selectMesh}
                 hoverParallax={animated}
-                fold={1}
-                lidOpen={lidOpen ? 1 : 0}
+                hingeAngles={unfold.angles}
+                dielineView={Boolean(unfold.status?.isFlat)}
               />
             </div>
           </div>

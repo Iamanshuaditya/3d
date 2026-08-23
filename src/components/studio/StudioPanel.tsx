@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Plus, Trash2, Upload } from "lucide-react";
 import type { StudioTool } from "./StudioToolRail";
 import { LayersPanel } from "@/components/configurator/LayersPanel";
+import { ArtworkTreatmentControls } from "@/components/configurator/ArtworkTreatmentControls";
 import type { useCustomizer } from "@/lib/configurator/use-customizer";
 
 type StudioPanelProps = {
@@ -90,6 +91,7 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
   const elements = c.activeDesign?.elements ?? [];
   const selected = c.selectedElement;
   const selectedText = selected?.type === "text" ? selected : null;
+  const selectedImage = selected?.type === "image" ? selected : null;
 
   return (
     <aside
@@ -122,6 +124,21 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
             <p className="text-center text-[12px] text-[var(--st-faint)]">
               PNG, JPG or WebP · or drop onto the canvas
             </p>
+
+            {selectedImage && (
+              <ArtworkTreatmentControls
+                surface={c.activeSurface}
+                element={selectedImage}
+                stitchCount={c.embroidery.stitchCount}
+                notices={c.embroidery.notices}
+                busy={c.embroidery.busy}
+                onModeChange={(mode) => c.setElementRenderMode(selectedImage.id, mode)}
+                onSettingsChange={(patch, transient) =>
+                  c.updateEmbroiderySettings(selectedImage.id, patch, transient)
+                }
+                onCommit={c.commitHistory}
+              />
+            )}
           </>
         )}
 

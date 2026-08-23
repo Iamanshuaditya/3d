@@ -106,11 +106,11 @@ def region_closeups(glb: Path, regions: dict, manifest: dict) -> list[dict]:
     return presets
 
 
-def camera_presets(glb: Path) -> dict:
+def camera_presets(glb: Path, distance_scale: float = 1.0) -> dict:
     scene = trimesh.load(str(glb), process=False)
     center = scene.bounds.mean(axis=0)
     radius = float(np.linalg.norm(scene.bounds[1] - scene.bounds[0]))
-    d = radius * 1.9
+    d = radius * 1.9 * distance_scale
     t = [round(float(v), 3) for v in center]
     def pos(x, y, z):
         return [round(center[0] + x * d, 3), round(center[1] + y * d, 3), round(center[2] + z * d, 3)]
@@ -126,6 +126,26 @@ def camera_presets(glb: Path) -> dict:
             {"id": "side", "label": "Side", "position": pos(1.15, 0.05, 0), "target": t},
             {"id": "bottom", "label": "Bottom", "position": pos(0, -1.1, 0.25), "target": t},
         ],
+    }
+
+
+def shift_camera(camera: dict, dy: float) -> dict:
+    """Move a camera block into world space.
+
+    Presets are derived from the GLB's own bounds, but the runtime renders the
+    model inside a group translated by `modelYOffset`. Without this the camera
+    aims at where the product would have been, which only stayed invisible
+    while every onboarded product happened to have a zero offset."""
+    if not dy:
+        return camera
+    def s(v):
+        return [v[0], round(v[1] + dy, 3), v[2]]
+    return {
+        **camera,
+        "initial": s(camera["initial"]),
+        "target": s(camera["target"]),
+        "presets": [{**p, "position": s(p["position"]), "target": s(p["target"])}
+                    for p in camera["presets"]],
     }
 
 
@@ -393,6 +413,9 @@ def gen_shared_assets(product_dir, regions, customizable, built_scene):
 
 def gen_assets(product_dir: Path) -> dict:
     manifest = json.loads((product_dir / "manifest.json").read_text())
+    # Reproduction methods are a property of the product, not of the engine:
+    # a garment panel can be printed OR embroidered, packaging only printed.
+    render_modes = {r["id"]: r.get("renderModes") for r in manifest["regions"]}
     regions = json.loads((product_dir / "regions.json").read_text())
     customizable = [r for r in regions["regions"] if r.get("customizable")]
     built_scene = trimesh.load(str(product_dir / "product-customizable.glb"), process=False)
@@ -413,6 +436,7 @@ def gen_assets(product_dir: Path) -> dict:
             "id": r["id"],
             "label": r["label"],
             "meshName": r["meshName"],
+            **({"renderModes": render_modes[r["id"]]} if render_modes.get(r["id"]) else {}),
             "dieline": surface_dieline(built_scene, [r],
                                        r["canvasPx"]["width"], r["canvasPx"]["height"]),
             "editorWidth": r["canvasPx"]["width"],
@@ -433,9 +457,13 @@ def gen_assets(product_dir: Path) -> dict:
         "shadowY": round(float(built_scene.bounds[0][1]) - 0.002 + manifest.get("modelYOffset", 0), 4),
         "materialProfile": manifest.get("materialProfile", "glossy-laminate"),
         "editableSurfaces": surfaces,
-        "camera": (lambda c: {**c, "presets": c["presets"] + region_closeups(
-            product_dir / "product-customizable.glb", regions, manifest)})(
-            camera_presets(product_dir / "product-customizable.glb")),
+        "camera": shift_camera(
+            (lambda c: {**c, "presets": c["presets"] + region_closeups(
+                product_dir / "product-customizable.glb", regions, manifest)})(
+                camera_presets(product_dir / "product-customizable.glb",
+                               manifest.get("cameraDistanceScale", 1.0))),
+            manifest.get("modelYOffset", 0),
+        ),
         "metadata": {
             "generatedBy": "product-onboarding",
             "uvContract": regions["uvContract"],
