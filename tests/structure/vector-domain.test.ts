@@ -241,6 +241,29 @@ test("closed window contours must enclose real non-self-intersecting area", () =
   assert.ok(codes.includes("zero-area-window-cut"));
 });
 
+test("large affine translations cannot disguise a zero-area structural window", () => {
+  const valid = canonicalSquare();
+  const entity = valid.entities[0];
+  const translatedDegenerate: CanonicalDieline = {
+    ...valid,
+    entities: [{
+      ...entity,
+      operation: "window-cut",
+      path: {
+        ...entity.path,
+        transform: { a: 1.7, b: 0.4, c: -0.3, d: 2.1, e: 1e12, f: -1e12 },
+        segments: [
+          { kind: "line", start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+          { kind: "line", start: { x: 1, y: 1 }, end: { x: 2, y: 2 } },
+          { kind: "line", start: { x: 2, y: 2 }, end: { x: 0, y: 0 } },
+        ],
+      },
+    }],
+  };
+  const codes = validateCanonicalDieline(translatedDegenerate).map((issue) => issue.code);
+  assert.ok(codes.includes("zero-area-window-cut"));
+});
+
 test("canonical validation distinguishes repairable residual gaps from exact continuity", () => {
   const valid = canonicalSquare();
   const entity = valid.entities[0];

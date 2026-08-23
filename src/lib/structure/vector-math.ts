@@ -781,18 +781,25 @@ function polynomialSegmentArea(
 
 /**
  * Exact Green-integral signed area for lines, Béziers, and affine-transformed
- * circular/elliptical arcs. Translation anchoring and compensated summation
- * limit cancellation for production coordinates far from the origin.
+ * circular/elliptical arcs.
+ *
+ * The integral is evaluated in the path's local coordinate system after
+ * subtracting a local anchor, then multiplied by the determinant of the
+ * affine transform's linear part. This is not merely an optimization:
+ * applying a very large affine translation before subtracting the anchor can
+ * quantize small structural coordinates and make a zero-area contour appear
+ * to have area. Closed-curve area is translation invariant and scales by
+ * det(A), so the local-first formulation is the numerically faithful one.
  */
 export function vectorPathSignedAreaExact(path: VectorPath): number {
   if (!path.closed) throw new RangeError("signed area is only defined for a closed path");
   if (path.segments.length === 0) throw new RangeError("cannot measure an empty vector path");
-  const anchor = applyAffine(path.transform, segmentStart(path.segments[0]));
+  const anchor = segmentStart(path.segments[0]);
   const contributions: number[] = [];
   for (const segment of path.segments) {
     if (segment.kind === "line") {
-      const start = subtractAnchor(applyAffine(path.transform, segment.start), anchor);
-      const end = subtractAnchor(applyAffine(path.transform, segment.end), anchor);
+      const start = subtractAnchor(segment.start, anchor);
+      const end = subtractAnchor(segment.end, anchor);
       contributions.push(crossVec2(start, end) / 2);
       continue;
     }
@@ -800,7 +807,7 @@ export function vectorPathSignedAreaExact(path: VectorPath): number {
       const points = (segment.kind === "quadratic"
         ? [segment.p0, segment.p1, segment.p2]
         : [segment.p0, segment.p1, segment.p2, segment.p3]
-      ).map((point) => subtractAnchor(applyAffine(path.transform, point), anchor));
+      ).map((point) => subtractAnchor(point, anchor));
       const coefficients = segment.kind === "quadratic"
         ? [
             points[0],
@@ -820,11 +827,11 @@ export function vectorPathSignedAreaExact(path: VectorPath): number {
       continue;
     }
     const basis = arcBasis(segment);
-    const center = subtractAnchor(applyAffine(path.transform, basis.center), anchor);
-    const cosineBasis = applyAffineVector(path.transform, basis.cosineBasis);
-    const sineBasis = applyAffineVector(path.transform, basis.sineBasis);
-    const start = subtractAnchor(applyAffine(path.transform, segmentStart(segment)), anchor);
-    const end = subtractAnchor(applyAffine(path.transform, segmentEnd(segment)), anchor);
+    const center = subtractAnchor(basis.center, anchor);
+    const cosineBasis = basis.cosineBasis;
+    const sineBasis = basis.sineBasis;
+    const start = subtractAnchor(segmentStart(segment), anchor);
+    const end = subtractAnchor(segmentEnd(segment), anchor);
     contributions.push(
       (crossVec2(center, subtractVec2(end, start)) +
         crossVec2(cosineBasis, sineBasis) * segment.sweepAngleRad) /
@@ -839,7 +846,7 @@ export function vectorPathSignedAreaExact(path: VectorPath): number {
     compensation = next - area - corrected;
     area = next;
   }
-  return area;
+  return area * affineDeterminant(path.transform);
 }
 
 /** In canonical y-down sheet coordinates, positive area is visually clockwise. */

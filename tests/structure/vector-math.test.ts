@@ -320,3 +320,33 @@ test("exact vector area is translation-stable for lines and affine arcs", () => 
   };
   approximately(vectorPathSignedAreaExact(circle), Math.PI * 100 * 6, 1e-8);
 });
+
+test("exact vector area removes affine translation before applying the linear transform", () => {
+  const transform = { a: 1.7, b: 0.4, c: -0.3, d: 2.1, e: 1e12, f: -1e12 };
+  const collinear: VectorPath = {
+    id: "translated-collinear",
+    closed: true,
+    transform,
+    provenance,
+    segments: [
+      { kind: "line", start: { x: 0, y: 0 }, end: { x: 1, y: 1 } },
+      { kind: "line", start: { x: 1, y: 1 }, end: { x: 2, y: 2 } },
+      { kind: "line", start: { x: 2, y: 2 }, end: { x: 0, y: 0 } },
+    ],
+  };
+  assert.equal(vectorPathSignedAreaExact(collinear), 0);
+
+  const rectangle: VectorPath = {
+    id: "translated-rectangle",
+    closed: true,
+    transform,
+    provenance,
+    segments: [
+      { kind: "line", start: { x: 0, y: 0 }, end: { x: 3, y: 0 } },
+      { kind: "line", start: { x: 3, y: 0 }, end: { x: 3, y: 7 } },
+      { kind: "line", start: { x: 3, y: 7 }, end: { x: 0, y: 7 } },
+      { kind: "line", start: { x: 0, y: 7 }, end: { x: 0, y: 0 } },
+    ],
+  };
+  approximately(vectorPathSignedAreaExact(rectangle), 77.49, 1e-12);
+});
