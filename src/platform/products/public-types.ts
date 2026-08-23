@@ -89,6 +89,7 @@ export type ProductSummaryDto = {
   links: {
     self: string;
     resolve: string;
+    quotes: string;
     templates: string;
   };
 };
@@ -157,6 +158,7 @@ export type ResolvedProductConfigurationDto = {
   templateCompatibility: string[];
   links: {
     product: string;
+    quotes: string;
     studio: string;
     templates: string;
   };

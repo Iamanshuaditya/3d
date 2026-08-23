@@ -152,6 +152,7 @@ function summary(
     links: {
       self: `/api/v1/products/${encodeURIComponent(version.productId)}`,
       resolve: `/api/v1/products/${encodeURIComponent(version.productId)}/configurations/resolve`,
+      quotes: `/api/v1/products/${encodeURIComponent(version.productId)}/quotes`,
       templates: `/templates?product=${encodeURIComponent(version.productId)}`,
     },
   };
@@ -228,6 +229,7 @@ function configurationDto(
     templateCompatibility: [...resolved.templateCompatibility],
     links: {
       product: `/api/v1/products/${encodeURIComponent(resolved.productId)}?version=${encodeURIComponent(resolved.productVersionId)}`,
+      quotes: `/api/v1/products/${encodeURIComponent(resolved.productId)}/quotes`,
       studio: configurationStudioHref({
         productId: resolved.productId,
         productVersionId: resolved.productVersionId,

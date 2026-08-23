@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 export type VortexDatabase = Database.Database;
 
@@ -284,6 +284,46 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (7, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 8) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE price_quotes (
+          id TEXT PRIMARY KEY,
+          owner_type TEXT NOT NULL CHECK (owner_type IN ('guest', 'user')),
+          owner_id TEXT NOT NULL,
+          request_key TEXT NOT NULL,
+          request_fingerprint TEXT NOT NULL CHECK (length(request_fingerprint) = 64),
+          product_id TEXT NOT NULL,
+          product_version_id TEXT NOT NULL
+            REFERENCES product_versions(id) ON DELETE RESTRICT,
+          configuration_id TEXT NOT NULL,
+          option_selection_json TEXT NOT NULL,
+          quantity INTEGER NOT NULL CHECK (quantity >= 1 AND quantity <= 1000000),
+          quote_kind TEXT NOT NULL CHECK (quote_kind IN ('estimate', 'contract')),
+          currency TEXT NOT NULL CHECK (length(currency) = 3),
+          line_items_json TEXT NOT NULL,
+          total_amount_minor INTEGER NOT NULL CHECK (total_amount_minor >= 0),
+          tax_included INTEGER NOT NULL CHECK (tax_included IN (0, 1)),
+          shipping_included INTEGER NOT NULL CHECK (shipping_included IN (0, 1)),
+          pricing_version TEXT NOT NULL,
+          provider_id TEXT NOT NULL,
+          provider_reference TEXT,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          UNIQUE(owner_type, owner_id, request_key)
+        );
+
+        CREATE INDEX price_quotes_owner_created_idx
+          ON price_quotes(owner_type, owner_id, created_at DESC);
+        CREATE INDEX price_quotes_product_version_idx
+          ON price_quotes(product_id, product_version_id, created_at DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (8, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }
