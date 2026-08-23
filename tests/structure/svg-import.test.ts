@@ -151,7 +151,8 @@ test("SVG shape elements preserve closed curves and physical length attributes",
   const byId = new Map(dieline.entities.map((entity) => [entity.id, entity]));
 
   assert.equal(byId.get("line")?.path.closed, false);
-  assert.deepEqual(segmentStart(byId.get("line")!.path.segments[0]), { x: 10, y: 2 });
+  near(segmentStart(byId.get("line")!.path.segments[0]).x, (10 * 96) / 25.4);
+  near(segmentStart(byId.get("line")!.path.segments[0]).y, (2 * 96) / 25.4);
   assert.equal(byId.get("polyline")?.path.segments.length, 2);
   assert.equal(byId.get("polygon")?.path.closed, true);
   assert.equal(byId.get("sharp")?.path.segments.length, 4);
@@ -161,6 +162,27 @@ test("SVG shape elements preserve closed curves and physical length attributes",
   );
   assert.equal(byId.get("circle")?.path.segments[0].kind, "arc");
   assert.equal(byId.get("ellipse")?.path.segments[0].kind, "elliptical-arc");
+});
+
+test("SVG absolute geometry units resolve to CSS user units before a non-uniform viewBox CTM", () => {
+  const { dieline } = importStructuralSvg(
+    `<svg xmlns="${SVG_NS}" width="200mm" height="100mm"
+      viewBox="0 0 100 100" preserveAspectRatio="none">
+      <line id="absolute" data-operation="crease" x2="10mm" y2="10mm" />
+      <circle id="radius" data-operation="window-cut" cx="50" cy="50" r="10mm" />
+    </svg>`,
+    { id: "absolute-units-viewbox" },
+  );
+  const line = dieline.entities[0].path;
+  const expectedUserUnits = (10 * 96) / 25.4;
+  near(segmentEnd(line.segments[0]).x, expectedUserUnits);
+  near(segmentEnd(line.segments[0]).y, expectedUserUnits);
+  const canonicalEnd = applyAffine(line.transform, segmentEnd(line.segments[0]));
+  near(canonicalEnd.x, expectedUserUnits * 2);
+  near(canonicalEnd.y, expectedUserUnits);
+  const circle = dieline.entities[1].path.segments[0];
+  assert.equal(circle.kind, "arc");
+  near(circle.radius, expectedUserUnits);
 });
 
 test("semantic classification is normalized and inline style wins over presentation attributes", () => {
@@ -311,5 +333,172 @@ test("invalid or unsupported production geometry fails instead of being silently
       { id: "unknown-physical-scale" },
     ),
     /viewBox alone has no authoritative physical scale/,
+  );
+});
+
+test("SVG CSS that can hide, transform, or conditionally select authority fails closed", () => {
+  const importantHidden = `
+    <svg xmlns="${SVG_NS}" width="20mm" height="10mm" viewBox="0 0 20 10">
+      <line id="hidden" data-operation="cut" style="display:none !important" x2="10" />
+      <line id="visible" data-operation="crease" y1="2" x2="10" y2="2" />
+    </svg>`;
+  assert.deepEqual(
+    importStructuralSvg(importantHidden, { id: "important-hidden" }).dieline.entities.map(({ id }) => id),
+    ["visible"],
+  );
+
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <style>.hidden { display: none }</style>
+        <line class="hidden" data-operation="cut" x2="10" />
+      </svg>`,
+      { id: "embedded-css" },
+    ),
+    /Embedded CSS stylesheets are not supported/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" style="transform:translate(2px, 3px)" x2="10" />
+      </svg>`,
+      { id: "css-transform" },
+    ),
+    /CSS property "transform"/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<?xml-stylesheet type="text/css" href="structural.css"?>
+       <svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+         <line class="cut" data-operation="cut" x2="10" />
+       </svg>`,
+      { id: "external-css" },
+    ),
+    /External XML stylesheets are not supported/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <switch><line data-operation="cut" x2="10" /></switch>
+      </svg>`,
+      { id: "conditional" },
+    ),
+    /active or conditional/,
+  );
+});
+
+test("visibility inheritance and explicit viewport clipping cannot silently change structural geometry", () => {
+  const inheritedHidden = `
+    <svg xmlns="${SVG_NS}" width="20mm" height="10mm" viewBox="0 0 20 10">
+      <g visibility="hidden">
+        <line id="hidden" visibility="inherit" data-operation="cut" x2="10" />
+      </g>
+      <line id="visible" data-operation="crease" y1="2" x2="10" y2="2" />
+    </svg>`;
+  assert.deepEqual(
+    importStructuralSvg(inheritedHidden, { id: "visibility-inherit" }).dieline.entities.map(({ id }) => id),
+    ["visible"],
+  );
+
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="100mm" height="100mm" viewBox="0 0 50 100"
+        preserveAspectRatio="xMidYMid slice" overflow="hidden">
+        <rect data-operation="cut" x="-50" y="0" width="150" height="100" />
+      </svg>`,
+      { id: "viewport-clip" },
+    ),
+    /exact structural viewport clipping is not implemented/,
+  );
+});
+
+test("invalid or ambiguous SVG semantic intent is rejected before default classification", () => {
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="totally-unknown" x2="10" />
+      </svg>`,
+      { id: "bad-explicit", operationMapping: { defaultOperation: "crease" } },
+    ),
+    /Unsupported explicit structural operation/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <g data-layer="cut"><line x2="10" /></g>
+      </svg>`,
+      {
+        id: "ambiguous-layer-map",
+        operationMapping: { layers: { CUT: "cut", cut: "crease" } },
+      },
+    ),
+    /Ambiguous SVG layer mapping keys/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line id="dup" data-operation="cut" x2="10" />
+        <path id="dup" data-operation="cut" d="M0 1 H10 M0 2 H10" />
+      </svg>`,
+      { id: "duplicate-source-id" },
+    ),
+    /Duplicate explicit SVG element id/,
+  );
+});
+
+test("source-space epsilon never erases physically material SVG geometry", () => {
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="1e18mm" height="1e18mm" viewBox="0 0 1 1">
+        <path id="tiny-source-arc" data-operation="cut"
+          d="M0 0 A1 1 0 0 1 1e-17 0 L1 1" />
+      </svg>`,
+      { id: "physical-arc" },
+    ),
+    /numerically ill-conditioned/,
+  );
+});
+
+test("classified unsupported SVG content and active mutation cannot certify partial authority", () => {
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <text data-operation="cut">not a production path</text>
+        <line data-operation="crease" x2="10" />
+      </svg>`,
+      { id: "classified-text" },
+    ),
+    /Classified SVG text geometry is unsupported/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <defs><path id="template" d="M0 0 H10" /></defs>
+        <use data-operation="cut" href="#template" />
+        <line data-operation="crease" y1="2" x2="10" y2="2" />
+      </svg>`,
+      { id: "classified-use" },
+    ),
+    /SVG use elements are not expanded/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" x2="10">
+          <animateTransform attributeName="transform" type="translate" to="10 0" />
+        </line>
+      </svg>`,
+      { id: "animated-geometry" },
+    ),
+    /active or conditional/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm" onload="mutate()">
+        <line data-operation="cut" x2="10" />
+      </svg>`,
+      { id: "event-mutation" },
+    ),
+    /event handler/,
   );
 });

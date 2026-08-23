@@ -21,7 +21,6 @@ import {
 import {
   affineScale,
   affineTranslation,
-  distanceBetweenPoints,
   multiplyAffine,
 } from "./vector-math";
 import {
@@ -80,6 +79,7 @@ type SvgStyle = Readonly<{
   operation?: string;
   clipPath?: string;
   mask?: string;
+  overflow?: string;
 }>;
 
 type ElementFrame = Readonly<{
@@ -89,15 +89,13 @@ type ElementFrame = Readonly<{
   layerName?: string;
   ignored: boolean;
   displayNone: boolean;
-  unsupportedClip: boolean;
+  authorityBlock?: string;
 }>;
 
 type RootGeometry = Readonly<{
   widthMm: number;
   heightMm: number;
   userToMillimetres: AffineMatrix;
-  millimetresPerUserX: number;
-  millimetresPerUserY: number;
   sourceUnits: SourceUnit;
 }>;
 
@@ -115,10 +113,14 @@ type ParsedSubpath = Readonly<{
 
 type PathToken = Readonly<{ kind: "command"; value: string } | { kind: "number"; value: number }>;
 
-function normalizedLookup<T>(record: Readonly<Record<string, T>> | undefined, key: string) {
+function normalizedLookup<T>(
+  record: Readonly<Record<string, T>> | undefined,
+  key: string,
+  normalizeKey: (value: string) => string = (value) => value.trim().toLowerCase(),
+) {
   if (!record) return undefined;
-  const normalized = key.trim().toLowerCase();
-  return Object.entries(record).find(([candidate]) => candidate.trim().toLowerCase() === normalized)?.[1];
+  const normalized = normalizeKey(key);
+  return Object.entries(record).find(([candidate]) => normalizeKey(candidate) === normalized)?.[1];
 }
 
 function finite(value: number, label: string): number {
@@ -184,8 +186,6 @@ function rootGeometry(attributes: Record<string, string>, dpi: number): RootGeom
       widthMm,
       heightMm,
       userToMillimetres: affineScale(userMm),
-      millimetresPerUserX: userMm,
-      millimetresPerUserY: userMm,
       sourceUnits: "px",
     };
   }
@@ -234,8 +234,6 @@ function rootGeometry(attributes: Record<string, string>, dpi: number): RootGeom
       e: offsetX - minX * sx,
       f: offsetY - minY * sy,
     },
-    millimetresPerUserX: Math.abs(sx),
-    millimetresPerUserY: Math.abs(sy),
     sourceUnits: "unitless",
   };
 }
@@ -306,20 +304,110 @@ function parseTransform(raw: string | undefined): AffineMatrix {
 
 function parseInlineStyle(raw: string | undefined): Record<string, string> {
   if (!raw) return {};
+  if (raw.includes("/*") || raw.includes("*/")) {
+    throw new Error("CSS comments are not supported in structural SVG inline styles");
+  }
+  const declarations = new Map<string, { value: string; important: boolean }>();
+  for (const rawEntry of raw.split(";")) {
+    const entry = rawEntry.trim();
+    if (!entry) continue;
+    const colon = entry.indexOf(":");
+    if (colon <= 0) throw new Error(`Malformed SVG inline style declaration "${entry}"`);
+    const name = entry.slice(0, colon).trim().toLowerCase();
+    if (!name || name.includes("\\")) {
+      throw new Error(`Unsupported SVG inline style property "${name}"`);
+    }
+    let value = entry.slice(colon + 1).trim();
+    const importantMatch = value.match(/\s*!important\s*$/i);
+    const important = Boolean(importantMatch);
+    if (importantMatch) value = value.slice(0, importantMatch.index).trim();
+    if (/!\s*important/i.test(value)) {
+      throw new Error(`Malformed !important priority for SVG inline style property "${name}"`);
+    }
+    const previous = declarations.get(name);
+    if (!previous || important || !previous.important) {
+      declarations.set(name, { value, important });
+    }
+  }
   return Object.fromEntries(
-    raw
-      .split(";")
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((entry) => {
-        const colon = entry.indexOf(":");
-        return colon < 0 ? [entry, ""] : [entry.slice(0, colon).trim(), entry.slice(colon + 1).trim()];
-      }),
+    Array.from(declarations, ([name, declaration]) => [name, declaration.value]),
   );
+}
+
+const CSS_GEOMETRY_OR_ACTIVE_PROPERTIES = new Set([
+  "animation",
+  "animation-name",
+  "clip",
+  "cx",
+  "cy",
+  "d",
+  "height",
+  "offset-path",
+  "path",
+  "points",
+  "r",
+  "rx",
+  "ry",
+  "transform",
+  "transform-box",
+  "transform-origin",
+  "transition",
+  "width",
+  "x",
+  "x1",
+  "x2",
+  "y",
+  "y1",
+  "y2",
+]);
+
+function unsupportedInlineCssReason(inline: Readonly<Record<string, string>>): string | undefined {
+  const property = Object.keys(inline).find(
+    (name) =>
+      CSS_GEOMETRY_OR_ACTIVE_PROPERTIES.has(name) ||
+      name.startsWith("animation-") ||
+      name.startsWith("transition-") ||
+      name === "overflow-x" ||
+      name === "overflow-y",
+  );
+  return property
+    ? `CSS property "${property}" can alter structural geometry and is not supported`
+    : undefined;
+}
+
+function resolveVisibility(value: string | undefined, inherited: string | undefined): string | undefined {
+  if (value === undefined) return inherited;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "inherit" || normalized === "unset") return inherited;
+  if (normalized === "initial") return "visible";
+  if (["visible", "hidden", "collapse"].includes(normalized)) return normalized;
+  throw new Error(`Unsupported SVG visibility value "${value}"`);
+}
+
+function resolveDisplay(value: string | undefined, inherited: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "inherit") return inherited;
+  if (normalized === "unset" || normalized === "initial") return undefined;
+  if (normalized === "revert" || normalized === "revert-layer") {
+    throw new Error(`Unsupported SVG display cascade value "${value}"`);
+  }
+  return normalized;
+}
+
+function resolveOverflow(value: string | undefined, inherited: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "inherit") return inherited;
+  if (normalized === "unset" || normalized === "initial") return "visible";
+  if (["visible", "hidden", "scroll", "auto", "clip"].includes(normalized)) return normalized;
+  throw new Error(`Unsupported SVG overflow value "${value}"`);
 }
 
 function mergedStyle(parent: SvgStyle, attributes: Record<string, string>): SvgStyle {
   const inline = parseInlineStyle(attributes.style);
+  const unsupportedCss = unsupportedInlineCssReason(inline);
+  if (unsupportedCss) throw new Error(unsupportedCss);
   // Inline declarations outrank presentation attributes in the SVG cascade.
   const property = (name: string) => inline[name] ?? attributes[name];
   return {
@@ -327,8 +415,8 @@ function mergedStyle(parent: SvgStyle, attributes: Record<string, string>): SvgS
     fill: property("fill") ?? parent.fill,
     // `display` is not inherited. Ancestor display:none is tracked by the
     // element frame because descendants cannot override a hidden subtree.
-    display: property("display"),
-    visibility: property("visibility") ?? parent.visibility,
+    display: resolveDisplay(property("display"), parent.display),
+    visibility: resolveVisibility(property("visibility"), parent.visibility),
     operation:
       attributes["data-operation"] ??
       attributes.operation ??
@@ -336,6 +424,7 @@ function mergedStyle(parent: SvgStyle, attributes: Record<string, string>): SvgS
       parent.operation,
     clipPath: property("clip-path"),
     mask: property("mask"),
+    overflow: resolveOverflow(property("overflow"), parent.overflow),
   };
 }
 
@@ -365,6 +454,9 @@ function classifyOperation(
 ): { operation: StructuralOperation; classification: OperationClassification } | null {
   const explicitSource = attributes["data-operation"] ?? attributes.operation ?? style.operation;
   const explicit = normalizeExplicitOperation(explicitSource);
+  if (explicitSource !== undefined && !explicit) {
+    throw new Error(`Unsupported explicit structural operation "${explicitSource}"`);
+  }
   if (explicit) {
     return {
       operation: explicit,
@@ -382,7 +474,7 @@ function classifyOperation(
   }
   if (style.stroke) {
     const normalized = normalizePaint(style.stroke);
-    const operation = normalizedLookup(mapping?.strokes, normalized);
+    const operation = normalizedLookup(mapping?.strokes, normalized, normalizePaint);
     if (operation) return { operation, classification: { method: "style-map", sourceValue: normalized, confidence: 1 } };
   }
   if (mapping?.defaultOperation) {
@@ -392,6 +484,41 @@ function classifyOperation(
     };
   }
   return null;
+}
+
+function validateOperationMapping(mapping: SvgOperationMapping | undefined): void {
+  if (!mapping) return;
+  const validateRecord = (
+    label: string,
+    record: Readonly<Record<string, StructuralOperation>> | undefined,
+    normalizeKey: (value: string) => string,
+  ) => {
+    if (!record) return;
+    const seen = new Map<string, string>();
+    for (const [key, operation] of Object.entries(record)) {
+      const normalizedKey = normalizeKey(key);
+      if (!normalizedKey) throw new Error(`SVG ${label} mapping contains an empty key`);
+      const prior = seen.get(normalizedKey);
+      if (prior !== undefined) {
+        throw new Error(
+          `Ambiguous SVG ${label} mapping keys "${prior}" and "${key}" normalize identically`,
+        );
+      }
+      seen.set(normalizedKey, key);
+      if (typeof operation !== "string" || !isStructuralOperation(operation)) {
+        throw new Error(`SVG ${label} mapping "${key}" has invalid operation "${String(operation)}"`);
+      }
+    }
+  };
+  validateRecord("layer", mapping.layers, (value) => value.trim().toLowerCase());
+  validateRecord("id", mapping.ids, (value) => value.trim().toLowerCase());
+  validateRecord("stroke", mapping.strokes, normalizePaint);
+  if (
+    mapping.defaultOperation !== undefined &&
+    (typeof mapping.defaultOperation !== "string" || !isStructuralOperation(mapping.defaultOperation))
+  ) {
+    throw new Error(`SVG default operation "${String(mapping.defaultOperation)}" is invalid`);
+  }
 }
 
 function tokenizePathData(data: string): PathToken[] {
@@ -422,7 +549,7 @@ function svgArcToCenter(
 ): EllipticalArcSegment | null {
   let radiusX = Math.abs(rxInput);
   let radiusY = Math.abs(ryInput);
-  if (radiusX === 0 || radiusY === 0 || distanceBetweenPoints(start, end) <= Number.EPSILON) return null;
+  if (radiusX === 0 || radiusY === 0 || (start.x === end.x && start.y === end.y)) return null;
   const rotationRad = ((rotationDegrees % 360) * Math.PI) / 180;
   const cosine = Math.cos(rotationRad);
   const sine = Math.sin(rotationRad);
@@ -462,6 +589,18 @@ function svgArcToCenter(
   let sweepAngleRad = angleBetween(ux, uy, vx, vy);
   if (!sweep && sweepAngleRad > 0) sweepAngleRad -= TAU;
   if (sweep && sweepAngleRad < 0) sweepAngleRad += TAU;
+  // A non-zero endpoint span must never disappear merely because its angular
+  // sweep is below floating-point resolution at this source scale. Replacing
+  // it with a line would discard source vector semantics, so fail explicitly
+  // and require a better-conditioned source coordinate system.
+  if (
+    Math.abs(sweepAngleRad) <= Number.EPSILON ||
+    startAngleRad + sweepAngleRad === startAngleRad
+  ) {
+    throw new Error(
+      "SVG arc is numerically ill-conditioned at the supplied source scale",
+    );
+  }
   return {
     kind: "elliptical-arc",
     center,
@@ -521,7 +660,7 @@ function parseSvgPathData(data: string): ParsedSubpath[] {
     if (upper === "Z") {
       const activeSubpath = state.subpath;
       if (!activeSubpath) throw new Error("SVG close command has no open subpath");
-      if (distanceBetweenPoints(current, activeSubpath.start) > Number.EPSILON) {
+      if (current.x !== activeSubpath.start.x || current.y !== activeSubpath.start.y) {
         append({ kind: "line", start: current, end: activeSubpath.start }, activeSubpath.start);
       }
       activeSubpath.closed = true;
@@ -621,7 +760,7 @@ function parseSvgPathData(data: string): ParsedSubpath[] {
           throw new Error("SVG arc flags must be 0 or 1");
         }
         const endpoint = takePoint(relative);
-        if (distanceBetweenPoints(current, endpoint) <= Number.EPSILON) {
+        if (current.x === endpoint.x && current.y === endpoint.y) {
           current = endpoint;
           resetControls();
           previousCommand = command;
@@ -673,7 +812,10 @@ function linesFromPoints(points: readonly Vec2[], closed: boolean): VectorSegmen
   for (let index = 1; index < points.length; index += 1) {
     segments.push({ kind: "line", start: points[index - 1], end: points[index] });
   }
-  if (closed && distanceBetweenPoints(points[points.length - 1], points[0]) > Number.EPSILON) {
+  if (
+    closed &&
+    (points[points.length - 1].x !== points[0].x || points[points.length - 1].y !== points[0].y)
+  ) {
     segments.push({ kind: "line", start: points[points.length - 1], end: points[0] });
   }
   return segments;
@@ -682,26 +824,26 @@ function linesFromPoints(points: readonly Vec2[], closed: boolean): VectorSegmen
 function geometryLength(
   raw: string | undefined,
   fallback: number,
-  axis: "x" | "y",
-  root: RootGeometry,
   dpi: number,
 ): number {
   if (raw === undefined || raw.trim() === "") return fallback;
   if (/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(raw.trim())) {
     return finite(Number(raw), "SVG geometry length");
   }
+  // SVG absolute geometry lengths are first resolved to CSS px/current user
+  // units. The viewBox CTM is applied afterward. Dividing by the viewBox's
+  // canonical mm/user scale would incorrectly cancel or distort that CTM.
   const mm = lengthToMillimetres(raw, dpi);
-  return mm / (axis === "x" ? root.millimetresPerUserX : root.millimetresPerUserY);
+  return mm / (25.4 / dpi);
 }
 
 function shapeSubpaths(
   localName: string,
   attributes: Record<string, string>,
-  root: RootGeometry,
   dpi: number,
 ): ParsedSubpath[] {
-  const x = (name: string, fallback = 0) => geometryLength(attributes[name], fallback, "x", root, dpi);
-  const y = (name: string, fallback = 0) => geometryLength(attributes[name], fallback, "y", root, dpi);
+  const x = (name: string, fallback = 0) => geometryLength(attributes[name], fallback, dpi);
+  const y = (name: string, fallback = 0) => geometryLength(attributes[name], fallback, dpi);
   switch (localName) {
     case "path":
       if (!attributes.d?.trim()) throw new Error("SVG path is missing d");
@@ -834,10 +976,12 @@ export function importStructuralSvg(
   if (!options.id.trim()) throw new Error("Structural SVG import id must not be empty");
   const dpi = options.dpi ?? DEFAULT_DPI;
   if (!Number.isFinite(dpi) || dpi <= 0) throw new Error("SVG DPI must be finite and positive");
+  validateOperationMapping(options.operationMapping);
 
   const issues: SvgImportIssue[] = [];
   const entities: StructuralEntity[] = [];
   const frames: ElementFrame[] = [];
+  const sourceElementIds = new Set<string>();
   const rootState: { value: RootGeometry | null } = { value: null };
   let elementIndex = 0;
   let source: CanonicalDielineSource = {
@@ -853,11 +997,50 @@ export function importStructuralSvg(
   parser.on("error", (error) => {
     throw error;
   });
+  parser.on("processinginstruction", ({ target }) => {
+    if (target.trim().toLowerCase() === "xml-stylesheet") {
+      throw new Error(
+        "External XML stylesheets are not supported as structural SVG authority",
+      );
+    }
+  });
+  parser.on("doctype", () => {
+    throw new Error("SVG doctypes are not supported as deterministic structural authority");
+  });
   parser.on("opentag", (tag) => {
     const localName = tag.local.toLowerCase();
     const attributes = Object.fromEntries(
       Object.values(tag.attributes).map((attribute) => [attribute.name, attribute.value]),
     );
+    const explicitId = attributes.id;
+    if (explicitId !== undefined) {
+      if (!explicitId.trim()) throw new Error("SVG element id must not be empty");
+      if (sourceElementIds.has(explicitId)) {
+        throw new Error(`Duplicate explicit SVG element id "${explicitId}"`);
+      }
+      sourceElementIds.add(explicitId);
+    }
+    const eventHandler = Object.keys(attributes).find((name) => /^on[a-z]/i.test(name));
+    if (eventHandler) {
+      throw new Error(
+        `SVG event handler "${eventHandler}" is not supported as deterministic structural authority`,
+      );
+    }
+    if (
+      [
+        "animate",
+        "animatemotion",
+        "animatetransform",
+        "discard",
+        "script",
+        "set",
+        "switch",
+      ].includes(localName)
+    ) {
+      throw new Error(
+        `SVG ${localName} content is active or conditional and cannot be structural authority`,
+      );
+    }
     if (localName === "svg" && tag.uri !== SVG_NAMESPACE && tag.uri !== "") {
       throw new Error(`Unsupported SVG namespace ${tag.uri}`);
     }
@@ -887,11 +1070,16 @@ export function importStructuralSvg(
     const displayNone = Boolean(parent?.displayNone || style.display?.trim().toLowerCase() === "none");
     const clipPath = style.clipPath?.trim().toLowerCase();
     const mask = style.mask?.trim().toLowerCase();
-    const unsupportedClip = Boolean(
-      parent?.unsupportedClip ||
-      (clipPath && clipPath !== "none") ||
-      (mask && mask !== "none"),
-    );
+    const overflow = style.overflow?.trim().toLowerCase();
+    const authorityBlock =
+      parent?.authorityBlock ??
+      (clipPath && clipPath !== "none"
+        ? "uses clip-path; exact structural clipping is not implemented"
+        : mask && mask !== "none"
+          ? "uses a mask; exact structural clipping is not implemented"
+          : overflow && overflow !== "visible"
+            ? `uses overflow=${overflow}; exact structural viewport clipping is not implemented`
+            : undefined);
     frames.push({
       transform,
       sourceTransform,
@@ -899,32 +1087,51 @@ export function importStructuralSvg(
       layerName,
       ignored,
       displayNone,
-      unsupportedClip,
+      ...(authorityBlock ? { authorityBlock } : {}),
     });
 
     if (localName === "style") {
-      issues.push({
-        severity: "warning",
-        code: "stylesheet-unsupported",
-        message: "Embedded CSS stylesheets are not structural authority; use attributes or inline styles",
-        ...(attributes.id ? { elementId: attributes.id } : {}),
-      });
-      return;
+      throw new Error(
+        "Embedded CSS stylesheets are not supported as structural SVG authority",
+      );
     }
     if (localName === "use" || localName === "image") {
+      const classification = classifyOperation(attributes, style, layerName, options.operationMapping);
+      const unsupportedStructuralUse = Boolean(classification || (options.strict && localName === "use"));
+      const message = localName === "image"
+        ? "Raster images are visual references and cannot be classified as production geometry"
+        : "SVG use elements are not expanded; provide explicit structural paths";
       issues.push({
-        severity: "warning",
+        severity: unsupportedStructuralUse ? "error" : "warning",
         code: localName === "image" ? "raster-image-ignored" : "use-element-unsupported",
-        message: localName === "image"
-          ? "Raster images are visual references and are not imported as production geometry"
-          : "SVG use elements are not expanded; provide explicit structural paths",
+        message,
         ...(attributes.id ? { elementId: attributes.id } : {}),
       });
       return;
     }
     if (ignored) return;
     const supported = ["path", "line", "polyline", "polygon", "rect", "circle", "ellipse"];
-    if (!supported.includes(localName)) return;
+    if (!supported.includes(localName)) {
+      const potentiallyRenderedUnsupported = [
+        "foreignobject",
+        "mesh",
+        "text",
+        "textpath",
+        "tspan",
+      ].includes(localName);
+      if (
+        potentiallyRenderedUnsupported &&
+        classifyOperation(attributes, style, layerName, options.operationMapping)
+      ) {
+        issues.push({
+          severity: "error",
+          code: "classified-geometry-unsupported",
+          message: `Classified SVG ${localName} geometry is unsupported and cannot be silently omitted`,
+          ...(attributes.id ? { elementId: attributes.id } : {}),
+        });
+      }
+      return;
+    }
     if (tag.uri !== SVG_NAMESPACE && tag.uri !== "") {
       issues.push({
         severity: "warning",
@@ -941,9 +1148,9 @@ export function importStructuralSvg(
     elementIndex += 1;
     const elementId = attributes.id || `${localName}-${elementIndex}`;
     try {
-      if (unsupportedClip) {
+      if (authorityBlock) {
         throw new Error(
-          `SVG geometry "${elementId}" uses clip-path or mask; exact structural clipping is not implemented`,
+          `SVG geometry "${elementId}" ${authorityBlock}`,
         );
       }
       const classification = classifyOperation(attributes, style, layerName, options.operationMapping);
@@ -958,7 +1165,7 @@ export function importStructuralSvg(
         if (options.strict) throw new Error(issue.message);
         return;
       }
-      const paths = shapeSubpaths(localName, attributes, root, dpi);
+      const paths = shapeSubpaths(localName, attributes, dpi);
       paths.forEach((parsed, subpathIndex) => {
         const suffix = paths.length > 1 ? `-${subpathIndex + 1}` : "";
         const id = `${elementId}${suffix}`;
