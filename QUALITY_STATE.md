@@ -17,6 +17,9 @@ fully flattened 3D structural geometry == canonical production dieline
 ## Current benchmark
 
 - Baseline commit: `7b26deeb82f7fcee534b9c785e3adc9cc2bdddb5`
+- Current verified vector-domain commit: `9a9cec4`
+- Current verified SVG-import commit: `b98436c`
+- Current verified DXF-import commit: `eb704de`
 - Baseline branch: `feat/structural-engine-v2`
 - Benchmark audit date: 2026-08-24
 - Golden source status: true vector PDF, available only as an authorized local
@@ -57,7 +60,8 @@ not an assertion that every gate is presently violated.
 
 1. The current carton panel contract is rectangle-oriented and has not been
    proven to reproduce this 70-edge blank or its window.
-2. No canonical vector import artifact exists for the local golden PDF.
+2. No independently accepted canonical vector import artifact exists yet for
+   the local golden PDF; a corrected exact importer is under isolated review.
 3. The PDF contains no fold direction, target angles, hierarchy, glue/tuck
    destinations, board thickness, or sequence. These require explicit,
    validated authoring; they must not be inferred silently.
@@ -88,15 +92,33 @@ not an assertion that every gate is presently violated.
 
 ## Last attempt
 
-`RUN 000` established the baseline and audited the references without adding
-or tracing proprietary geometry. See `quality-run-log.md`.
+`RUN 003` adversarially verified the SVG importer after repeated checker-led
+fail-closed and browser-contract repairs. The independent SVG gate passed
+30/30. See
+`quality-run-log.md`.
 
 ## Changes made
 
-- Recorded exact-versus-observed benchmark evidence.
-- Added the fixed 100-point quality contract and hard gates.
-- Added a hash-only local fixture manifest and narrow private-asset ignores.
-- Did not add production code, source assets, screenshots, or fold metadata.
+- Added canonical line, circular/elliptical arc, quadratic, and cubic vector
+  primitives with retained affine transforms and source/segment provenance.
+- Added semantic manufacturing operations, physical millimetre tolerances,
+  adaptive curve flattening, exact analytic bounds and area, validation, and
+  certified path-comparison metrics.
+- Added an SVG importer that preserves vector semantics, CSS-pixel/physical
+  unit ordering, nested transforms, and configurable operation classification
+  while failing closed on unsupported clipping/masks, CSS geometry, active or
+  conditional content, duplicate IDs, and ambiguous semantics.
+- Repaired exact area to integrate in untranslated local coordinates and then
+  apply the affine determinant, preventing large translations from disguising
+  degenerate windows.
+- Added exact planar DXF import for supported lines, polylines, bulge arcs,
+  circles, ellipses, and single-span non-rational splines, with configurable
+  semantic layers and retained source provenance.
+- Added raw-DXF preflight so parser-discarded extrusion/elevation/width/count
+  metadata and malformed legacy POLYLINE sequences fail before they can be
+  simplified or hang the dependency.
+- Did not commit proprietary source assets, screenshots, or guessed fold
+  metadata.
 
 ## Metrics before
 
@@ -109,8 +131,10 @@ or tracing proprietary geometry. See `quality-run-log.md`.
 
 ## Metrics after
 
-Unchanged. This run records the measurement contract; it does not implement or
-score the engine.
+Golden-carton metrics remain unmeasured because its canonical PDF artifact and
+panel topology are not yet committed. The scoped canonical-vector gate is
+independently **PASS 30/30**; this is not substituted for the product-level
+100-point score.
 
 ## Screenshots generated
 
@@ -119,7 +143,8 @@ but proprietary source-derived raster evidence remains outside the repository.
 
 ## Tests
 
-Fresh verification at the baseline SHA used Node `24.19.0`:
+The baseline evidence below remains applicable. Additional current vector
+verification used Node `24.19.0`:
 
 | Check | Result |
 |---|---|
@@ -130,31 +155,56 @@ Fresh verification at the baseline SHA used Node `24.19.0`:
 | `npm run build` | ENVIRONMENT BLOCKED - Turbopack/PostCSS worker could not bind a local port (`EPERM`) after font-network access was granted |
 | `npm run build -- --webpack` | PARTIAL ENVIRONMENT EVIDENCE - compilation and TypeScript passed and a `BUILD_ID` was written; the runner did not report completion after page-data collection |
 
+Current scoped evidence:
+
+| Check | Result |
+|---|---|
+| canonical vector tests | PASS - 36/36 |
+| independent adversarial vector gate | PASS - 30/30 |
+| independent adversarial SVG gate | PASS - 30/30 |
+| independent adversarial DXF gate | PASS - 30/30 |
+| current structure suite | PASS - 62/62 |
+| `npm run typecheck` | PASS |
+| scoped ESLint | PASS |
+| `git diff --check` | PASS |
+
 The committed platform report at this same baseline records a prior complete
 production build PASS. This run does not replace that evidence or misreport its
 environment-blocked fresh build as a pass.
 
 ## What improved
 
-- The benchmark can now be referenced by stable hashes and exact physical
-  measurements without committing private evidence.
-- Exact PDF content is separated from screenshot observations and authored
-  construction metadata.
-- The quality loop has an explicit FAIL state, fixed thresholds, and a
-  checker-report contract.
+- Structural geometry now has a tested vector-semantic domain rather than a
+  rectangle/sampled-point-only authority.
+- Sparse Hausdorff comparisons cannot falsely certify an unsampled deviation;
+  ambiguous evidence reports `indeterminate`.
+- Degenerate, open, self-crossing, ill-conditioned, overflowing,
+  provenance-conflicting, or topology-mismatched source geometry fails
+  explicitly.
+- Large affine translations no longer create false structural area.
+- Supported DXF vector entities now normalize into the same canonical domain;
+  unsupported/malformed geometry fails instead of being sampled, flattened,
+  projected, or assigned contradictory physical units.
+- SVG absolute geometry units now follow the browser/spec contract: physical
+  units resolve to CSS user units before the retained `viewBox` CTM. CSS,
+  active content, conditional rendering, clipping, masking, and unsupported
+  structural elements can no longer silently change certified geometry.
 
 ## What regressed
 
-None. This is documentation-only baseline work.
+None observed in the scoped suite. Product-level regression and build evidence
+must be rerun after the import/topology integration is committed.
 
 ## Next highest-impact fix
 
-Implement the canonical millimetre vector domain and source-provenance model,
-then import the authorized local vector source without converting its
-authoritative lines into sampled or hand-traced geometry. The first checker
-artifact should prove lossless preservation of the two cut cycles, 24 crease
-segments, named spot separations, transforms, and deliberate 0.3 mm details.
+Complete and independently verify the exact local vector-PDF importer, then
+build normalized planar topology from that canonical artifact. The checker
+must prove lossless preservation of the two cut cycles, 24 crease segments,
+named spot separations, transforms, deliberate 0.3 mm details, and the real
+window loop before panel meshes begin.
 
 ## Attempts on current blocker
 
-0 implementation attempts. `RUN 000` is benchmark establishment only.
+3 scoped implementation runs have independent 30/30 passes: the vector domain,
+SVG import, and DXF import. PDF import and golden topology are active isolated
+attempts, not yet accepted or merged.
