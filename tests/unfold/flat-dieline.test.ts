@@ -79,12 +79,18 @@ for (const spec of flattenable) {
     tree.dispose();
   });
 
-  test(`${spec.id}: artwork is unmirrored and correctly oriented on every flat panel`, () => {
-    // Per-vertex chirality check. Reconstruct each vertex's dieline coordinate
+  test(`${spec.id}: every flat panel carries the UV its dieline position demands`, () => {
+    // Per-vertex mapping check. Reconstruct each vertex's dieline coordinate
     // from its flattened world position and assert the UV it carries is the UV
-    // that coordinate should have. This catches mirroring, quarter-turns and
-    // per-panel UV drift in one assertion — the failures that survive every
-    // monotonic "is v increasing" test.
+    // that coordinate should have. This catches quarter-turns and per-panel UV
+    // drift in one assertion — the failures that survive every monotonic "is v
+    // increasing" test.
+    //
+    // u is inverted because the blank is flipped before folding, so the panel
+    // drawn on the left of the printed sheet becomes the right-hand wall (see
+    // `toUv`). The flip is global and coherent, which is what keeps artwork
+    // continuous across every crease; `carton-chirality.test.ts` asserts the
+    // consequence — that artwork reads correctly on the assembled box.
     const { tree } = poseAt(spec, cartonUnfoldPlan(spec)!.steps.length);
     const world = new THREE.Vector3();
 
@@ -99,7 +105,7 @@ for (const spec of flattenable) {
         mesh.localToWorld(world);
         const dielineX = world.x / MM_TO_UNITS + rootCentre.x;
         const dielineY = world.z / MM_TO_UNITS + rootCentre.y;
-        const expectedU = dielineX / spec.width;
+        const expectedU = 1 - dielineX / spec.width;
         const expectedV = 1 - dielineY / spec.height;
         assert.ok(
           Math.abs(uv.getX(index) - expectedU) < 1e-4 &&
