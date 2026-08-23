@@ -402,6 +402,7 @@ export function Product3DViewer({
               textures={textures}
               materialTextures={materialTextures}
               consumeDirty={consumeDirty}
+              hingeAngles={hingeAngles}
               onValidated={onValidated}
               onSurfaceClick={onSurfaceClick}
               highlightedMeshName={highlightedMeshName}

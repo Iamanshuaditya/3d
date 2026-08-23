@@ -11,6 +11,7 @@ import {
   buildCartonTree,
   setDielineView,
 } from "@/lib/configurator/carton-geometry";
+import { stepPose } from "@/lib/configurator/hinge-animation";
 
 type CartonModelProps = {
   spec: CartonSpec;
@@ -31,12 +32,6 @@ type CartonModelProps = {
   onSurfaceClick?: (surfaceId: string) => void;
 };
 
-/**
- * Time constant for the exponential approach to the target pose, in seconds.
- * Frame-rate independent: at 30fps and at 144fps the panel reaches the same
- * angle at the same wall-clock moment.
- */
-const HINGE_TAU = 0.16;
 const EMPTY_POSE: HingeAngles = {};
 
 function seededNoise(index: number): number {
@@ -205,19 +200,13 @@ export function CartonModel({
 
   useFrame((_, delta) => {
     const pose = poseRef.current;
-    let maxDeviation = 0;
-    // Frame-rate independent easing; readers who prefer reduced motion get the
-    // structural change without the travel.
-    const alpha = reducedMotion ? 1 : 1 - Math.exp(-delta / HINGE_TAU);
-    for (const hinge of tree.hinges) {
-      const target = hingeAngles[hinge.id] ?? hinge.angleDeg;
-      // First frame for a joint snaps: the product must appear assembled, not
-      // animate itself together on load.
-      const currentAngle = pose[hinge.id] ?? target;
-      const stepped = currentAngle + (target - currentAngle) * alpha;
-      pose[hinge.id] = Math.abs(target - stepped) < 1e-4 ? target : stepped;
-      maxDeviation = Math.max(maxDeviation, Math.abs(target - pose[hinge.id]));
-    }
+    const maxDeviation = stepPose(
+      pose,
+      tree.hinges.map((hinge) => ({ id: hinge.id, restAngleDeg: hinge.angleDeg })),
+      hingeAngles,
+      delta,
+      reducedMotion,
+    );
     applyHingeAngles(tree, pose);
     // Swap to the printed sheet only once the last fold is essentially done,
     // so the board does not pop away at the start of the closing move.
