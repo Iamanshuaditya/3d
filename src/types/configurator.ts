@@ -11,8 +11,19 @@ import type { ArtworkRenderMode, ArtworkTreatment } from "./embroidery";
 export type ImageElement = {
   id: string;
   type: "image";
-  /** Object URL or data URL. Not uploaded anywhere for preview purposes. */
-  src: string;
+  /**
+   * Durable artwork identity. New project-backed documents always set this.
+   * The server verifies that the asset belongs to the same project before a
+   * revision is accepted.
+   */
+  assetId?: string;
+  /**
+   * Runtime locator used by browser image decoders. It may be an object URL
+   * for a legacy/transient design or an authorized project-asset endpoint.
+   * It is deliberately not the durable identity and may be omitted from a
+   * stored DesignDocument.
+   */
+  src?: string;
   /** Original asset dimensions, retained for effective-PPI preflight. */
   sourcePixelWidth?: number;
   sourcePixelHeight?: number;

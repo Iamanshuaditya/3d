@@ -64,6 +64,7 @@ export function useEmbroidery(
       for (const element of surfaceDesign.elements) {
         if (element.type !== "image") continue;
         if (element.treatment?.mode !== "embroidery") continue;
+        if (!element.src) continue;
         const { widthMm, heightMm } = elementPhysicalSizeMm(surface, element);
         if (widthMm < 1 || heightMm < 1) continue;
         out.push({

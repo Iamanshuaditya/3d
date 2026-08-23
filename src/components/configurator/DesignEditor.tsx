@@ -319,7 +319,7 @@ export function DesignEditor({
                   // generated the original asset keeps the canvas populated so
                   // the artwork never blinks out from under the customer.
                   const stitched = embroidery?.[el.id];
-                  const source = stitched?.colour ?? images[el.src];
+                  const source = stitched?.colour ?? (el.src ? images[el.src] : undefined);
                   if (!source) return null;
                   return (
                     <KonvaImage

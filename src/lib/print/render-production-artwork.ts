@@ -151,6 +151,9 @@ export async function renderProductionArtwork(
   const loadedImages = new Map<string, HTMLImageElement>();
   await Promise.all(
     imageElements.map(async (element) => {
+      if (!element.src) {
+        throw new Error(`Print asset ${element.sourceName ?? element.id} has no runtime source.`);
+      }
       if (!loadedImages.has(element.src)) loadedImages.set(element.src, await loadImage(element.src));
     }),
   );
@@ -167,7 +170,7 @@ export async function renderProductionArtwork(
     context.rotate((element.rotation * Math.PI) / 180);
     context.scale(element.scaleX, element.scaleY);
     if (element.type === "image") {
-      const image = loadedImages.get(element.src);
+      const image = element.src ? loadedImages.get(element.src) : undefined;
       if (!image) throw new Error(`Print asset ${element.sourceName ?? element.id} is unavailable.`);
       context.drawImage(image, 0, 0, element.width, element.height);
     } else {

@@ -48,6 +48,9 @@ next-env.d.ts
 # Local temp files
 temp/
 
+# Local Vortex platform database and object storage
+.data/
+
 # Local research checkouts and generated Python caches
 experiments/uv-onboarding/repos/
 **/__pycache__/

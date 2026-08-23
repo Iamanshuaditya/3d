@@ -16,9 +16,9 @@ export function useArtworkImages(design: DesignDocument): Record<string, HTMLIma
 
   useEffect(() => {
     const sources = Object.values(design.surfaces).flatMap((surface) =>
-      surface.elements
-        .filter((element) => element.type === "image")
-        .map((element) => (element as { src: string }).src),
+      surface.elements.flatMap((element) =>
+        element.type === "image" && element.src ? [element.src] : [],
+      ),
     );
     const pending = sources.filter((src) => !requested.current.has(src));
     if (!pending.length) return;
