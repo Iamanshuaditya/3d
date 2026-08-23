@@ -1,6 +1,6 @@
 # Platform API
 
-Status: version 1 currently exposes the P0 project and artwork surface. Product resolution, templates, and production endpoints will be added behind the same `/api/v1` boundary.
+Status: version 1 exposes the project and artwork surface. Project DTOs are now bound to immutable product versions/resolved configurations. Public product resolution, templates, and production endpoints will be added behind the same `/api/v1` boundary.
 
 ## Conventions
 
@@ -40,7 +40,8 @@ Create body:
 {
   "productId": "tshirt",
   "title": "Launch team shirts",
-  "clientRequestId": "e7bc0298-6d21-41fb-bf31-992034579133"
+  "clientRequestId": "e7bc0298-6d21-41fb-bf31-992034579133",
+  "optionSelection": {}
 }
 ```
 
@@ -68,6 +69,6 @@ The upload endpoint supports decoded PNG, JPEG, and WebP, one frame/page only. L
 
 ## Compatibility and evolution
 
-API DTOs are defined in `src/platform/projects/types.ts`, separate from repository rows and `ProductConfig`. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
+API DTOs are defined in `src/platform/projects/types.ts`, separate from repository rows and `ProductConfig`. Project and summary DTOs expose `productVersionId`, `configurationId`, and validated `optionSelection`; they do not expose the internal version snapshot or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
 
-Not yet exposed: guest claim, project revision history, permanent deletion, production artifacts, templates, option resolution, signed object-store URLs, and admin publishing.
+Not yet exposed: guest claim, project revision history, permanent deletion, production artifacts, templates, public product option resolution, signed object-store URLs, and admin publishing.

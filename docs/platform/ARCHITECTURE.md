@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 project persistence is implemented on `feat/vortex-platform-p0-projects`. Product, template, and server-production domains are documented target boundaries and are not all implemented yet.
+Status: P0 project persistence and P1 versioned product configuration are implemented on `feat/vortex-platform-p0-projects`. Template and server-production domains remain target boundaries.
 
 ## Invariants
 
@@ -9,16 +9,16 @@ Status: P0 project persistence is implemented on `feat/vortex-platform-p0-projec
 3. Uploaded artwork is identified by stable `assetId`, never by a browser object URL.
 4. Physical product dimensions govern 2D scale and production output. Screen pixels do not.
 5. A successful project update creates a new immutable revision.
-6. Published product versions and approved production artifacts will be immutable.
+6. Published product versions are immutable; approved production artifacts will be immutable.
 7. Public DTOs never contain filesystem paths, storage keys, or secrets.
 
 ## Modular-monolith boundaries
 
 ```text
-Product registry / future ProductDefinition
+ProductDefinition + immutable ProductVersion + OptionSelection
                     │
                     ▼
-            resolved ProductConfig
+       ResolvedProductConfiguration / ProductConfig
                     │
                     ▼
 DesignProject ── DesignDocument ── stable ProjectAsset references
@@ -45,6 +45,9 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Application logic | `ProjectService` | Create/open/save/list/duplicate/archive/claim/preview |
 | Public API | `/api/v1/projects/*` | Next.js Node route handlers |
 | Studio persistence | `useProjectSession` | Debounced, ordered, revision-CAS autosave |
+| Product catalogue | `ProductCatalogRepository` | SQLite definitions and immutable version snapshots |
+| Option resolution | `ProductOption`, `ProductConfigurationProvider` | Deterministic central resolver + legacy static adapter |
+| Version binding | `productVersionId`, `configurationId` | Exact-version project create/save/duplicate/preview |
 
 SQLite and local filesystem storage are intentionally development/single-node adapters. The domain interfaces permit PostgreSQL and S3/R2 adapters without changing Studio or `DesignDocument`.
 
@@ -52,7 +55,7 @@ SQLite and local filesystem storage are intentionally development/single-node ad
 
 Development data defaults to `.data/`:
 
-- `.data/vortex.sqlite`: project metadata and immutable revisions.
+- `.data/vortex.sqlite`: projects/revisions plus product definitions and immutable product versions.
 - `.data/objects/`: artwork and preview bytes plus content-type metadata.
 - `.data/guest-cookie-secret`: a generated local signing secret.
 
@@ -72,4 +75,4 @@ The in-memory rate limiter is a boundary, not a multi-instance production soluti
 
 ## Next boundaries
 
-P1 introduces `ProductDefinition`, immutable `ProductVersion`, generic option schemas, and one deterministic resolver that adapts into the existing `ProductConfig`. P2 adds editable templates and explicit semantic bindings. P4 moves production artifact generation behind immutable server snapshots. These extend the graph above; they do not create parallel design engines.
+P2 adds editable templates and explicit semantic bindings to the same `DesignDocument`. P3 adds page/presentation modes without equating pages to meshes. P4 moves production artifact generation behind immutable server snapshots. These extend the graph above; they do not create parallel design engines.

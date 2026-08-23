@@ -2,7 +2,7 @@
 
 ## Domain
 
-`DesignProject` binds a design to a product version and an owner. It carries a monotonic revision, lifecycle status, preview reference, and timestamps. Artwork metadata is stored separately as `ProjectAsset`; image elements carry `assetId` plus an optional runtime `src`.
+`DesignProject` binds a design to an immutable product version, deterministic resolved configuration, and owner. It records `productVersionId`, `configurationId`, and the validated `optionSelection`, plus a monotonic revision, lifecycle status, preview reference, and timestamps. Artwork metadata is stored separately as `ProjectAsset`; image elements carry `assetId` plus an optional runtime `src`.
 
 The persisted document never stores runtime `blob:` or authorized read URLs. `ProjectService.open()` hydrates a read URL for the current owner, and renderers continue consuming `src` without owning persistence concerns.
 
@@ -11,10 +11,12 @@ The persisted document never stores runtime `blob:` or authorized read URLs. `Pr
 Opening Studio without a `project` query parameter creates a project and replaces the URL with:
 
 ```text
-/studio?product=<productId>&project=<opaque-project-id>
+/studio?product=<productId>&project=<opaque-project-id>&version=<product-version>
 ```
 
-Creation accepts an owner-scoped `clientRequestId`. Repeating a request— including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan.
+When options exist, the URL also carries the validated selection so the server can render the exact engine configuration before the client editor mounts. The owner-authorized project record remains authoritative; an incomplete historical URL self-corrects to the saved version and selection.
+
+Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. Reusing that key for a different resolved configuration fails.
 
 Opening an existing project requires both the project ID and matching owner identity. A different guest receives the same not-found response as an unknown project.
 
@@ -56,7 +58,9 @@ Claiming is not exposed as an unauthenticated public endpoint.
 
 ## Library, duplicate, archive, and previews
 
-`/designs` lists only the active owner's non-archived projects. Continue links include product and project IDs. Duplicate copies artwork bytes, allocates new asset IDs, rewrites all references, and starts an independent revision history. Archive is a soft lifecycle transition and hides the project from normal lists.
+`/designs` lists only the active owner's non-archived projects. Continue links include product, version, option selection, and project IDs. Duplicate preserves the exact product configuration, copies artwork bytes, allocates new asset IDs, rewrites all references, and starts an independent revision history. Archive is a soft lifecycle transition and hides the project from normal lists.
+
+Save validation and preview generation resolve the project's stored version, never the current catalogue version. Publishing v2 therefore cannot alter a v1 project's surfaces or preview.
 
 Previews are regenerable server-side PNG caches. They do not change project revision. Studio schedules preview generation after saves; the library repairs missing previews in the background.
 
@@ -75,3 +79,5 @@ Automated tests create a T-shirt project, upload decoded artwork, place/scale/ro
 - no runtime URL in the immutable revision;
 - a newly hydrated URL in the reopened DTO;
 - guest isolation.
+
+Versioning tests additionally prove that a v1 project remains editable after a structurally different v2 is published, while new projects receive v2. A schema migration test proves P0/v2-database projects reopen through the explicit `@legacy-v1` adapter.
