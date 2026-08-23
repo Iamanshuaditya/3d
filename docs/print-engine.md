@@ -22,7 +22,8 @@ The shipped `pdfx4-srgb-packaging-v1` profile is a generic color-managed PDF/X-4
 2. `preflightPrintJob` blocks mismatched products, invalid dimensions, missing cut paths, unknown source-image dimensions, images under the minimum effective PPI, and oversized render jobs.
 3. `renderProductionArtwork` redraws original objects at the profile PPI using the real physical dimensions. It applies the same printer-authored panel rotations used by the product adapter.
 4. `generateProductionPdf` creates exact PDF page boxes, embeds artwork, adds ICC output intent and PDF/X metadata, then writes vector optional-content layers for cutting and creasing as overprinting Separation spot colors.
-5. The studio downloads the result only after preflight passes.
+5. The server stores bytes, checksum, report, and exact revision/version/configuration provenance as an immutable artifact.
+6. Studio downloads only through the owner-authorized artifact endpoint after pending autosave has flushed.
 
 The 2D document is the source of truth. Both the 3D viewer and PDF exporter are deterministic consumers, so adding another product does not require copying export logic.
 
@@ -45,6 +46,10 @@ The 2D document is the source of truth. Both the 3D viewer and PDF exporter are 
 - `CutContour` and `Crease` Separation spot colors with overprint;
 - deterministic filename and one page per editable surface;
 - structural validation script for CI or operator QA.
+- immutable revision-bound artifact metadata and SHA-256-verified storage;
+- server-side stable asset resolution rather than browser object URLs.
+
+Editable text currently carries a server-font approval warning because exact licensed font bytes are not bundled yet. Visual embroidery treatment fails production preflight because the embroidery engine is a preview simulation, not machine digitization.
 
 ## Factory sign-off boundary
 

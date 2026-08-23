@@ -1,6 +1,6 @@
 # Platform API
 
-Status: version 1 exposes projects, artwork, and the public editable-template catalogue. Project DTOs are bound to immutable product versions/resolved configurations and carry optional template provenance. Public product resolution and production endpoints remain later boundaries.
+Status: version 1 exposes projects, artwork, editable templates, server preflight, and immutable production PDFs. Project/artifact DTOs are bound to immutable product versions and resolved configurations. Public product option resolution remains a later boundary.
 
 ## Conventions
 
@@ -95,8 +95,22 @@ Instantiation body:
 
 The server independently resolves product identity/configuration, validates compatibility and placeholders, and creates a normal project. The mutation is owner scoped, same-origin checked, rate limited, and idempotent. Image-backed template instantiation currently fails explicitly until the platform-owned template asset adapter exists.
 
+## Production endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/projects/:projectId/production/preflight` | Preflight an exact/current revision without generating bytes |
+| `GET` | `/api/v1/projects/:projectId/production/artifacts` | List this owner's immutable project artifacts |
+| `POST` | `/api/v1/projects/:projectId/production/artifacts` | Idempotently generate/store an exact revision PDF |
+| `GET` | `/api/v1/production-artifacts/:artifactId` | Read owner-authorized immutable metadata/report |
+| `GET` | `/api/v1/production-artifacts/:artifactId/content` | Download checksum-verified immutable bytes |
+
+Preflight/generation bodies accept only an optional positive `revision`; generation also accepts the currently supported `kind: "pdf"`. The server ignores client claims for product version, configuration, dimensions, PPI, profile, readiness, price, assets, checksum, and artifact identity.
+
+Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the structured report in `error.details.report`. Successful DTOs expose project revision, product version/configuration, kind, MIME type, filename, size, SHA-256, full report, timestamp, and authorized download URL—never the storage key.
+
 ## Compatibility and evolution
 
-API DTOs are defined in `src/platform/projects/types.ts` and `src/platform/templates/types.ts`, separate from repository rows and `ProductConfig`. Project and summary DTOs expose `productVersionId`, `configurationId`, validated `optionSelection`, and provenance; they do not expose internal version snapshots or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
+API DTOs are defined in `src/platform/projects/types.ts`, `src/platform/templates/types.ts`, and `src/platform/production/types.ts`, separate from repository rows and `ProductConfig`. Project and artifact DTOs expose immutable provenance but not internal version snapshots or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
 
-Not yet exposed: guest claim, project revision history, permanent deletion, production artifacts, public product option resolution, signed object-store URLs, template/product admin publishing, and bulk personalization jobs.
+Not yet exposed: guest claim, project revision history, permanent deletion, public product option resolution, signed object-store URLs, template/product admin publishing, artifact approval/order linkage, and bulk personalization jobs.

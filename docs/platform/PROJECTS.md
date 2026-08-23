@@ -16,7 +16,7 @@ Opening Studio without a `project` query parameter creates a project and replace
 
 When options exist, the URL also carries the validated selection so the server can render the exact engine configuration before the client editor mounts. The owner-authorized project record remains authoritative; an incomplete historical URL self-corrects to the saved version and selection.
 
-Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. Reusing that key for a different resolved configuration fails.
+Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. The browser keeps the pending key stable per tab/configuration and recovers the replaced URL's project ID during Fast Refresh. Reusing that key for a different resolved configuration fails.
 
 Template instantiation uses the same creation path after server-side exact-version compatibility, placeholder, and surface validation. The resulting project is independent customer state: later template publication cannot mutate it. Its source version is retained only for audit/provenance and survives duplication.
 
@@ -52,6 +52,8 @@ Studio behavior:
 
 Visible states are `Opening project…`, `Saved`, `Saving…`, `Unsaved changes`, `Save failed`, and `Offline`.
 
+Every design edit after `ready_for_preflight` or `production_ready` creates a new revision and resets the current project to `draft`. Previously generated production artifacts remain bound to their older immutable revisions.
+
 ## Guest ownership and claim
 
 The default adapter issues a random signed guest identity. `AuthenticationProvider` is the seam for a future real auth system. After a successful login, that adapter can call `ProjectService.claimGuestProjects(guest, user)`; ownership changes without rewriting designs or assets.
@@ -85,3 +87,5 @@ Automated tests create a T-shirt project, upload decoded artwork, place/scale/ro
 Versioning tests additionally prove that a v1 project remains editable after a structurally different v2 is published, while new projects receive v2. A schema migration test proves P0/v2-database projects reopen through the explicit `@legacy-v1` adapter.
 
 Template tests prove idempotent personalized creation, immutable template versions, provenance-preserving duplication, intentional binding detach, and text persistence after reopen. The Chrome workflow additionally verified template selection → normal project → autosave revision 2 → full reload on `tshirt@2`.
+
+Production tests freeze/read exact revisions, prove artifact A survives revision B, validate owner isolation and concurrent idempotency, and verify artwork/object checksums before server rendering. See `PRODUCTION.md`.
