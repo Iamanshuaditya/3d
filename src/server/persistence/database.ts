@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 export type VortexDatabase = Database.Database;
 
@@ -88,6 +88,45 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (2, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 3) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE design_projects ADD COLUMN configuration_id TEXT;
+        ALTER TABLE design_projects
+          ADD COLUMN option_selection_json TEXT NOT NULL DEFAULT '{}';
+
+        UPDATE design_projects
+          SET configuration_id = product_version_id || '|'
+          WHERE configuration_id IS NULL;
+
+        CREATE TABLE product_definitions (
+          id TEXT PRIMARY KEY,
+          status TEXT NOT NULL CHECK (status IN ('draft', 'published')),
+          definition_json TEXT NOT NULL,
+          current_version_id TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE product_versions (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES product_definitions(id) ON DELETE RESTRICT,
+          version_number INTEGER NOT NULL CHECK (version_number >= 1),
+          version_json TEXT NOT NULL,
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          published_at TEXT NOT NULL,
+          UNIQUE(product_id, version_number)
+        );
+
+        CREATE INDEX product_versions_product_idx
+          ON product_versions(product_id, version_number DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

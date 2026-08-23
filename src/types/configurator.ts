@@ -176,6 +176,12 @@ export type ProductFamily = "glb" | "folded-carton" | "pouch";
 
 export type ProductConfig = {
   id: string;
+  /** Immutable version that produced this resolved engine configuration. */
+  productVersionId?: string;
+  /** Deterministic identity for the validated option selection. */
+  configurationId?: string;
+  /** Validated customer-facing values used to resolve this configuration. */
+  optionSelection?: Record<string, string | number | boolean>;
   name: string;
   family: ProductFamily;
   /** Required for family "glb". */
