@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PRODUCTS } from "@/lib/configurator/product-config";
 import { modelFilePath, summarize } from "@/lib/configurator/product-summary";
 import { ProductGallery, type GalleryItem } from "@/components/gallery/ProductGallery";
+import { getProductCatalogService } from "@/server/products/container";
 
 export const metadata: Metadata = {
   title: "Product library",
@@ -22,8 +23,18 @@ function modelBytes(modelUrl: string): number | null {
   }
 }
 
-export default function LibraryPage() {
-  const items: GalleryItem[] = Object.values(PRODUCTS).filter((config) => !config.hidden).map((config) => ({
+export default async function LibraryPage() {
+  const visible = Object.values(PRODUCTS).filter((config) => !config.hidden);
+  const resolvedConfigs = await Promise.all(
+    visible.map(async (fallback) => {
+      try {
+        return (await getProductCatalogService().resolve(fallback.id, null, {})).productConfig;
+      } catch {
+        return fallback;
+      }
+    }),
+  );
+  const items: GalleryItem[] = resolvedConfigs.map((config) => ({
     config,
     summary: summarize(config, modelBytes(config.modelUrl)),
   }));

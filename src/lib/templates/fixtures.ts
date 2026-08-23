@@ -1,6 +1,10 @@
 import { createEmptyDocument } from "@/lib/configurator/design-state";
 import { PRODUCTS } from "@/lib/configurator/product-config";
-import { legacyProductVersion } from "@/lib/configurator/product-definitions";
+import {
+  CODE_PRODUCT_VERSIONS,
+  legacyProductVersion,
+} from "@/lib/configurator/product-definitions";
+import { PRODUCT_CONFIGURATION_PROVIDERS } from "@/lib/configurator/product-configuration-providers";
 import { resolveProductConfiguration } from "@/platform/products/configuration-resolver";
 import { applyPersonalization } from "@/platform/templates/personalization";
 import type {
@@ -23,6 +27,7 @@ type FixtureInput = {
   personalization: PersonalizationData;
   background: string;
   elements: TextElement[];
+  version?: number;
 };
 
 function fixture(input: FixtureInput): {
@@ -30,18 +35,26 @@ function fixture(input: FixtureInput): {
   version: DesignTemplateVersion;
 } {
   const product = PRODUCTS[input.productId];
-  const resolved = resolveProductConfiguration(legacyProductVersion(product));
+  const currentVersion = Object.values(CODE_PRODUCT_VERSIONS).find(
+    (candidate) => candidate.productId === input.productId,
+  );
+  const productVersion = input.productId === "mailer-box-001"
+    ? currentVersion
+    : legacyProductVersion(product);
+  if (!productVersion) throw new Error(`Template product ${input.productId} has no version.`);
+  const resolved = resolveProductConfiguration(productVersion, {}, PRODUCT_CONFIGURATION_PROVIDERS);
   const document = createEmptyDocument(resolved.productConfig);
   const surfaceId = resolved.productConfig.editableSurfaces[0].id;
   document.surfaces[surfaceId] = {
     background: input.background,
     elements: input.elements,
   };
-  const versionId = `${input.id}@1`;
+  const versionNumber = input.version ?? 1;
+  const versionId = `${input.id}@${versionNumber}`;
   const version: DesignTemplateVersion = {
     id: versionId,
     templateId: input.id,
-    version: 1,
+    version: versionNumber,
     status: "published",
     name: input.name,
     description: input.description,
@@ -148,6 +161,9 @@ const minimalMailer = fixture({
   name: "Minimal Mailer",
   description: "A restrained identity treatment positioned on the box base panel.",
   productId: "mailer-box-001",
+  // v2 targets parameterized Mailer product v3. Template v1 remains stored
+  // for historical v2 projects and is never mutated in place.
+  version: 2,
   taxonomy: {
     category: "Packaging",
     subcategory: "Shipping boxes",

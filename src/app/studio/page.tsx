@@ -46,7 +46,10 @@ export default async function StudioPage({
   // The switcher is driven by the registry, so adding a product to
   // product-config.ts is enough to make it selectable here.
   const visible = Object.values(PRODUCTS).filter((p) => !p.hidden);
-  const catalogue = visible.map((p) => ({ id: p.id, name: p.name }));
+  const catalogue = visible.map((p) => ({
+    id: p.id,
+    name: config?.id === p.id ? config.name : p.name,
+  }));
   if (config && !catalogue.some((entry) => entry.id === config.id)) {
     catalogue.unshift({ id: config.id, name: config.name });
   }
