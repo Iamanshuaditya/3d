@@ -1,0 +1,99 @@
+{
+  "version": 3,
+  "productId": "counter-display",
+  "source": "source.glb",
+  "physical": {
+    "cmPerUnit": 1.00002,
+    "reference": {
+      "extent": "y",
+      "cm": 42.18
+    },
+    "note": "modelled in centimetres; reference equals measured extent (cmPerUnit=1)"
+  },
+  "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+  "layout": {
+    "mode": "separate"
+  },
+  "regions": [
+    {
+      "id": "back-panel",
+      "label": "Back panel",
+      "customizable": true,
+      "nodes": [
+        "BACK_FACE"
+      ],
+      "meshName": "BACK_PRINT",
+      "mapping": {
+        "physicalWidthCm": 25.0,
+        "physicalHeightCm": 29.0,
+        "strategy": "planar",
+        "axis": "z"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 25.0,
+        "height": 29.0
+      },
+      "canvasPx": {
+        "width": 600,
+        "height": 696
+      },
+      "verticesRewritten": 4
+    },
+    {
+      "id": "header-card",
+      "label": "Header card",
+      "customizable": true,
+      "nodes": [
+        "HEADER_FACE"
+      ],
+      "meshName": "HEADER_PRINT",
+      "mapping": {
+        "physicalWidthCm": 29.0,
+        "physicalHeightCm": 10.76,
+        "strategy": "planar",
+        "axis": "z"
+      },
+      "uv": {
+        "customizationChannel": 0,
+        "originalChannel": 1,
+        "rect": {
+          "u0": 0,
+          "v0": 0,
+          "u1": 1,
+          "v1": 1
+        }
+      },
+      "physicalCm": {
+        "width": 29.0,
+        "height": 10.76
+      },
+      "canvasPx": {
+        "width": 696,
+        "height": 258
+      },
+      "verticesRewritten": 4
+    },
+    {
+      "id": "structure",
+      "label": "Structure",
+      "customizable": false,
+      "nodes": [
+        "BASE",
+        "BACK_BOARD",
+        "WING_RIGHT_BOARD",
+        "WING_LEFT_BOARD",
+        "HEADER_BOARD"
+      ]
+    }
+  ]
+}

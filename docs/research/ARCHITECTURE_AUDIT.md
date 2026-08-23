@@ -282,5 +282,8 @@ visually in `docs/research/diagnostics/unfold-mailer/stage-06.png`.
 | A logo's physical size is independent of canvas resolution | `pipeline-contracts.test.ts` |
 | Moving/rotating a logo does not invalidate its stitching | `pipeline-contracts.test.ts` |
 | Only surfaces that declare it offer embroidery | `pipeline-contracts.test.ts` |
+| Rigging an authored GLB leaves its rest pose byte-identical | `glb-articulation.test.ts` |
+| Un-rigging restores parenting, so a StrictMode remount still articulates | `glb-articulation.test.ts` |
+| A declared hinge parent that is not an ancestor fails loudly | `glb-articulation.test.ts` |
 | Print -> embroidery -> print restores the asset exactly | `scripts/verify-embroidery-shots.py` |
 | Every product family still renders | `harness/regression_products.mjs` |

@@ -456,6 +456,9 @@ def gen_assets(product_dir: Path) -> dict:
         "modelYOffset": manifest.get("modelYOffset", 0),
         "shadowY": round(float(built_scene.bounds[0][1]) - 0.002 + manifest.get("modelYOffset", 0), 4),
         "materialProfile": manifest.get("materialProfile", "glossy-laminate"),
+        # Authored hinge graph, passed straight through. A GLB carries no
+        # structural information, so a product that folds has to declare how.
+        **({"articulation": manifest["articulation"]} if manifest.get("articulation") else {}),
         "editableSurfaces": surfaces,
         "camera": shift_camera(
             (lambda c: {**c, "presets": c["presets"] + region_closeups(

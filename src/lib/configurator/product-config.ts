@@ -1,5 +1,6 @@
 import type { CameraPreset, ProductConfig, SurfaceDieline } from "@/types/configurator";
 import type { ArtworkRenderMode } from "@/types/embroidery";
+import type { GlbArticulationSpec } from "@/types/unfold";
 import cameraProductJson from "./generated/camera-001.product.json";
 import pouch002ProductJson from "./generated/pouch-002.product.json";
 import sodaCanJson from "./generated/soda-can.product.json";
@@ -16,6 +17,7 @@ import candleJarJson from "./generated/candle-jar.product.json";
 import spiceJarJson from "./generated/spice-jar.product.json";
 import waterBottleJson from "./generated/water-bottle.product.json";
 import tshirtJson from "./generated/tshirt.product.json";
+import counterDisplayJson from "./generated/counter-display.product.json";
 
 
 type Vec3 = [number, number, number];
@@ -36,6 +38,9 @@ function onboardedProduct(json: typeof cameraProductJson): ProductConfig {
     modelYOffset: json.modelYOffset,
     shadowY: json.shadowY,
     materialProfile: json.materialProfile as ProductConfig["materialProfile"],
+    // Authored hinge graph, when the product declares one. Absent for every
+    // product whose parts do not move.
+    articulation: (json as { articulation?: GlbArticulationSpec }).articulation,
     editableSurfaces: json.editableSurfaces.map((s) => ({
       ...s,
       displayUnit: s.displayUnit as "cm" | "in",
@@ -105,6 +110,14 @@ waterBottleProduct.hidden = HIDDEN_PRODUCT_IDS.has(waterBottleProduct.id);
  * it is genuinely part of the cloth rather than a decal floating above it.
  */
 export const tshirtProduct = onboardedProduct(tshirtJson as unknown as typeof cameraProductJson);
+/**
+ * Articulated GLB reference product. Its parts are real 3D shapes rather than
+ * a flat dieline, so it cannot be a procedural carton — but it still folds
+ * flat, driven by the hinge graph authored alongside the model.
+ */
+export const counterDisplayProduct = onboardedProduct(
+  counterDisplayJson as unknown as typeof cameraProductJson,
+);
 
 
 /**
@@ -547,6 +560,7 @@ export const PRODUCTS: Record<string, ProductConfig> = {
   [spiceJarProduct.id]: spiceJarProduct,
   [waterBottleProduct.id]: waterBottleProduct,
   [tshirtProduct.id]: tshirtProduct,
+  [counterDisplayProduct.id]: counterDisplayProduct,
 };
 
 export function getProduct(id: string): ProductConfig | undefined {
