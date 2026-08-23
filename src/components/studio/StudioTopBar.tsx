@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Download, Eye, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { ProjectSaveState } from "@/platform/projects/types";
@@ -15,6 +16,7 @@ type StudioTopBarProps = {
   onRedo: () => void;
   onExport: () => void;
   onPreview: () => void;
+  previewButtonRef: Ref<HTMLButtonElement>;
   saveState: ProjectSaveState;
   beforeNavigate: () => Promise<boolean>;
   exporting?: boolean;
@@ -38,6 +40,7 @@ export function StudioTopBar({
   onRedo,
   onExport,
   onPreview,
+  previewButtonRef,
   saveState,
   beforeNavigate,
   exporting = false,
@@ -136,6 +139,7 @@ export function StudioTopBar({
       </p>
 
       <button
+        ref={previewButtonRef}
         type="button"
         onClick={onPreview}
         disabled={saveState === "loading"}
@@ -143,7 +147,7 @@ export function StudioTopBar({
       >
         <Eye className="h-4 w-4" />
         <span className="hidden sm:inline">Preview</span>
-        <span className="sr-only sm:hidden">Open production preview</span>
+        <span className="sr-only sm:hidden">Open design preview</span>
       </button>
 
       <button

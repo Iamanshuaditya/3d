@@ -56,7 +56,6 @@ export function StudioPreview({
 }: StudioPreviewProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
   const orderedSurfaces = useMemo(
     () => studioPresentation.targets.map((target) =>
       config.editableSurfaces.find((surface) => surface.id === target.surfaceId),
@@ -65,9 +64,6 @@ export function StudioPreview({
   );
 
   useEffect(() => {
-    returnFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
     closeRef.current?.focus();
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -98,8 +94,6 @@ export function StudioPreview({
     window.addEventListener("keydown", handleKey);
     return () => {
       window.removeEventListener("keydown", handleKey);
-      const returnTarget = returnFocusRef.current;
-      window.requestAnimationFrame(() => returnTarget?.focus());
     };
   }, [onClose]);
 

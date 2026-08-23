@@ -83,6 +83,7 @@ export function StudioShell({
     message: string;
   } | null>(null);
   const workspaceViewportRef = useRef<HTMLDivElement>(null);
+  const previewButtonRef = useRef<HTMLButtonElement>(null);
   const fitModeRef = useRef(true);
   const panGestureRef = useRef<{
     pointerId: number;
@@ -278,6 +279,11 @@ export function StudioShell({
     return resolveSurfaceDieline(config, surface);
   }, [config, surface]);
 
+  const closePreview = useCallback(() => {
+    setPreviewing(false);
+    window.requestAnimationFrame(() => previewButtonRef.current?.focus());
+  }, []);
+
   return (
     <>
       <div
@@ -296,6 +302,7 @@ export function StudioShell({
           c.setSelectedId(null);
           setPreviewing(true);
         }}
+        previewButtonRef={previewButtonRef}
         onExport={exportProductionPdf}
         saveState={c.saveState}
         beforeNavigate={c.saveNow}
@@ -654,7 +661,7 @@ export function StudioShell({
           onAnimatedChange={setAnimated}
           pendingPreset={pendingPreset}
           onPresetApplied={() => setPendingPreset(null)}
-          onClose={() => setPreviewing(false)}
+          onClose={closePreview}
         />
       )}
     </>
