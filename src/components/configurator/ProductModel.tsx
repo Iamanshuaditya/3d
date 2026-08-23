@@ -6,12 +6,23 @@ import { useCubeTexture, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { ProductConfig, ValidationResult } from "@/types/configurator";
 import { validateProductModel, inspectScene, type SceneDebugInfo } from "@/lib/configurator/model-validator";
+import { createFabricMaterial, createWeaveBumpTexture } from "@/lib/configurator/fabric-material";
 
 type SurfaceTextures = Record<string, THREE.CanvasTexture | null>;
+
+type SurfaceMaterialTextures = Record<
+  string,
+  { normal: THREE.CanvasTexture; roughness: THREE.CanvasTexture } | null
+>;
 
 type ProductModelProps = {
   config: ProductConfig;
   textures: SurfaceTextures;
+  /**
+   * Per-surface embroidery relief. Only fabric products supply these; every
+   * other product renders exactly as it did before.
+   */
+  materialTextures?: SurfaceMaterialTextures;
   /** Returns true once per changed frame; drives needsUpdate. */
   consumeDirty: (surfaceId: string) => boolean;
   onValidated: (result: ValidationResult, debug: SceneDebugInfo[]) => void;
@@ -32,6 +43,7 @@ function meshNamesFor(surface: ProductConfig["editableSurfaces"][number]) {
 export function ProductModel({
   config,
   textures,
+  materialTextures,
   consumeDirty,
   onValidated,
   onSurfaceClick,
@@ -55,6 +67,11 @@ export function ProductModel({
     Record<string, THREE.MeshPhongMaterial | THREE.MeshStandardMaterial>
   >({});
 
+  const isFabric = config.materialProfile === "cotton-fabric";
+  // One weave tile for the whole garment; every panel samples the same cloth.
+  const weave = useMemo(() => (isFabric ? createWeaveBumpTexture() : null), [isFabric]);
+  useEffect(() => () => weave?.dispose(), [weave]);
+
   useEffect(() => {
     const result = validateProductModel(model, config);
     onValidated(result, inspectScene(model));
@@ -71,6 +88,49 @@ export function ProductModel({
    */
   useEffect(() => {
     const created: THREE.Material[] = [];
+
+    // Fabric products get one cloth response across the WHOLE garment,
+    // including the parts nobody prints on — otherwise the print panel reads
+    // as a patch stuck onto a different material.
+    if (isFabric && weave) {
+      const printMeshNames = new Set(
+        config.editableSurfaces.flatMap((surface) => meshNamesFor(surface)),
+      );
+      const plain = createFabricMaterial({ name: "CottonFabric:body", weave });
+      created.push(plain);
+      model.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (!mesh.isMesh || printMeshNames.has(mesh.name)) return;
+        mesh.material = plain;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+      });
+
+      for (const surface of config.editableSurfaces) {
+        const maps = materialTextures?.[surface.id] ?? null;
+        for (const meshName of meshNamesFor(surface)) {
+          const mesh = model.getObjectByName(meshName) as THREE.Mesh | undefined;
+          if (!mesh) continue;
+          const material = createFabricMaterial({
+            name: `CottonFabric:${meshName}`,
+            weave,
+            map: textures[surface.id] ?? null,
+            normalMap: maps?.normal ?? null,
+            roughnessMap: maps?.roughness ?? null,
+          });
+          created.push(material);
+          mesh.material = material;
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          meshMaterials.current[meshName] = material;
+        }
+      }
+
+      return () => {
+        created.forEach((m) => m.dispose());
+        meshMaterials.current = {};
+      };
+    }
 
     for (const surface of config.editableSurfaces) {
       const isPouch = config.materialProfile === "clear-barrier-gloss";
@@ -147,7 +207,7 @@ export function ProductModel({
       created.forEach((m) => m.dispose());
       meshMaterials.current = {};
     };
-  }, [model, config, textures, pouchReflectionMap]);
+  }, [model, config, textures, materialTextures, pouchReflectionMap, isFabric, weave]);
 
   // Exact Vortex fallback highlight colour: new Color(1, 1, .3).
   useEffect(() => {

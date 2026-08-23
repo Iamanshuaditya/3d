@@ -6,6 +6,7 @@ import { OrbitControls, Environment, Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { CameraPreset, ProductConfig, ValidationResult } from "@/types/configurator";
+import type { HingeAngles } from "@/types/unfold";
 import type { SceneDebugInfo } from "@/lib/configurator/model-validator";
 import { ProductModel } from "./ProductModel";
 import { CartonModel } from "./CartonModel";
@@ -16,6 +17,11 @@ import { CARTONS } from "@/lib/configurator/carton-spec";
 type Product3DViewerProps = {
   config: ProductConfig;
   textures: Record<string, THREE.CanvasTexture | null>;
+  /** Per-surface embroidery relief maps, for fabric products. */
+  materialTextures?: Record<
+    string,
+    { normal: THREE.CanvasTexture; roughness: THREE.CanvasTexture } | null
+  >;
   consumeDirty: (surfaceId: string) => boolean;
   pendingPreset: CameraPreset | null;
   onPresetApplied: () => void;
@@ -28,10 +34,13 @@ type Product3DViewerProps = {
   hoverParallax?: boolean;
   /** Receives a function that renders the current frame to a PNG data URL. */
   onCaptureReady?: (capture: () => string | null) => void;
-  /** folded-carton only: 0 = flat dieline, 1 = assembled. */
-  fold?: number;
-  /** folded-carton only: 0 = lid closed, 1 = lid open. */
-  lidOpen?: number;
+  /**
+   * Structural pose for articulated products: absolute hinge angles in
+   * degrees, produced by the unfolding plan. Omitted hinges stay assembled.
+   */
+  hingeAngles?: HingeAngles;
+  /** True when an articulated product has reached its flat, dieline pose. */
+  dielineView?: boolean;
 };
 
 function LoadingOverlay() {
@@ -245,6 +254,7 @@ function CaptureBridge({ onReady }: { onReady?: (fn: () => string | null) => voi
 export function Product3DViewer({
   config,
   textures,
+  materialTextures,
   consumeDirty,
   pendingPreset,
   onPresetApplied,
@@ -255,12 +265,13 @@ export function Product3DViewer({
   onMeshClick,
   hoverParallax = false,
   onCaptureReady,
-  fold = 1,
-  lidOpen = 0,
+  hingeAngles,
+  dielineView = false,
 }: Product3DViewerProps) {
   const cartonSpec = config.family === "folded-carton" ? CARTONS[config.cartonSpecId ?? ""] : null;
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
   const useClearBarrierResponse = config.materialProfile === "clear-barrier-gloss";
+  const useFabricResponse = config.materialProfile === "cotton-fabric";
   const controlsRef = useRef<OrbitControlsImpl>(null);
 
   // Detect WebGL up front so we can show a real message (§40). Computed in a
@@ -304,7 +315,10 @@ export function Product3DViewer({
           toneMapping: useClearBarrierResponse
             ? THREE.NoToneMapping
             : THREE.ACESFilmicToneMapping,
-          toneMappingExposure: 1,
+          // White cotton under a studio rig sits right at the top of the ACES
+          // curve, where highlights desaturate — a red logo turns pink. Pulling
+          // the exposure back keeps thread colour where the customer put it.
+          toneMappingExposure: useFabricResponse ? 0.72 : 1,
         }}
         camera={{ position: config.camera.initial, fov: 32 }}
       >
@@ -326,6 +340,22 @@ export function Product3DViewer({
             <pointLight position={[-2.47, 0, 0]} intensity={0.3885} distance={4.12} decay={1} />
             <pointLight position={[0, -2.47, 0]} intensity={0.4515} distance={4.12} decay={1} />
             <pointLight position={[0, 2.47, 0]} intensity={0.42} distance={4.12} decay={1} />
+          </>
+        ) : useFabricResponse ? (
+          <>
+            {/* Cloth is lit by the studio environment, not by a lamp rig.
+                Measured: pushing the directional key above ~0.1 drives white
+                cotton into the top of the ACES curve, where saturated thread
+                desaturates toward white and a crimson logo renders pink. The
+                one remaining light exists to cast the contact shadow. */}
+            <ambientLight intensity={0.03} />
+            <directionalLight
+              position={[2.5, 5, 4]}
+              intensity={0.07}
+              castShadow
+              shadow-mapSize-width={1024}
+              shadow-mapSize-height={1024}
+            />
           </>
         ) : (
           <>
@@ -356,14 +386,15 @@ export function Product3DViewer({
               config={config}
               textures={textures}
               consumeDirty={consumeDirty}
-              fold={fold}
-              lidOpen={lidOpen}
+              hingeAngles={hingeAngles}
+              dielineView={dielineView}
               onSurfaceClick={onSurfaceClick}
             />
           ) : (
             <ProductModel
               config={config}
               textures={textures}
+              materialTextures={materialTextures}
               consumeDirty={consumeDirty}
               onValidated={onValidated}
               onSurfaceClick={onSurfaceClick}

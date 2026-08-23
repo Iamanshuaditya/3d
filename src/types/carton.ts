@@ -11,6 +11,8 @@
  * Adding a box product = writing one of these. No modelling.
  */
 
+import type { UnfoldSpec } from "./unfold";
+
 /** Rect in dieline space, millimetres, y increasing downward (like a canvas). */
 export type PanelRect = {
   x: number;
@@ -55,6 +57,13 @@ export type CartonSpec = {
   /** Lid hinge angles in degrees: assembled-closed vs fully open. */
   lidClosedAngle: number;
   lidOpenAngle: number;
+  /**
+   * Optional authored unfolding sequence. Packaging construction order is a
+   * manufacturing fact, so it belongs in the spec rather than being inferred
+   * from tree shape. Omit it and `unfold-plan.ts` derives a topological
+   * fallback, so a new spec unfolds sensibly with no extra authoring.
+   */
+  unfold?: UnfoldSpec;
   /**
    * Optional production-style cut and crease paths. Rectangular panel bounds
    * remain the UV source of truth; these paths preserve the tabs, ears and

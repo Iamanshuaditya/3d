@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import type { CartonPanel, CartonSpec, PanelRect } from "@/types/carton";
+import type { HingeAngles } from "@/types/unfold";
+import { MM_TO_UNITS, cartonTopology, resolveHinge } from "./carton-topology";
 
-const MM_TO_UNITS = 0.01;
 const DEG = Math.PI / 180;
 
 type Axis = "x" | "z";
@@ -12,6 +13,7 @@ export type HingeEntry = {
   group: THREE.Group;
   axis: Axis;
   sign: 1 | -1;
+  /** The joint's ASSEMBLED angle. Used only as a fallback when a pose omits it. */
   angleDeg: number;
   isLid: boolean;
 };
@@ -19,8 +21,13 @@ export type HingeEntry = {
 export type CartonTree = {
   root: THREE.Group;
   hinges: HingeEntry[];
-  /** Panel meshes keyed by id, for raycasting / debug. */
+  /** Printed panel meshes keyed by id, for raycasting / debug. */
   meshes: Record<string, THREE.Mesh>;
+  /**
+   * The unprinted board: inner faces and cut edges. Separated so the flat
+   * pose can render the blank as a printed sheet — see `setDielineView`.
+   */
+  boardMeshes: THREE.Mesh[];
   dispose: () => void;
 };
 
@@ -87,6 +94,7 @@ type BuildContext = {
   innerMaterial: THREE.Material;
   edgeMaterial: THREE.Material;
   meshes: Record<string, THREE.Mesh>;
+  boardMeshes: THREE.Mesh[];
   geometries: THREE.BufferGeometry[];
 };
 
@@ -127,6 +135,7 @@ function addThickPanel(
 
   parent.add(outerMesh, innerMesh, edgeMesh);
   context.meshes[id] ??= outerMesh;
+  context.boardMeshes.push(innerMesh, edgeMesh);
 }
 
 function chamferedLoop(width: number, depth: number, chamfer: number, y: number) {
@@ -482,7 +491,7 @@ function buildTaperedClamshell(context: BuildContext): CartonTree {
       group: lid,
       axis: "x",
       sign: 1,
-      angleDeg: context.spec.lidOpenAngle,
+      angleDeg: context.spec.lidClosedAngle,
       isLid: true,
     },
   ];
@@ -491,6 +500,7 @@ function buildTaperedClamshell(context: BuildContext): CartonTree {
     root,
     hinges,
     meshes: context.meshes,
+    boardMeshes: context.boardMeshes,
     dispose: () => context.geometries.forEach((geometry) => geometry.dispose()),
   };
 }
@@ -511,43 +521,8 @@ function panelGeometry(panel: CartonPanel, spec: CartonSpec) {
   ).geometry;
 }
 
-function resolveHinge(parent: CartonPanel, child: CartonPanel) {
-  const p = parent.rect;
-  const c = child.rect;
-  const near = (a: number, b: number) => Math.abs(a - b) < 0.51;
-
-  if (near(c.y, p.y + p.h)) {
-    return { axis: "x" as const, sign: -1 as const, hx: c.x + c.w / 2, hy: c.y };
-  }
-  if (near(c.y + c.h, p.y)) {
-    return { axis: "x" as const, sign: 1 as const, hx: c.x + c.w / 2, hy: p.y };
-  }
-  if (near(c.x, p.x + p.w)) {
-    return { axis: "z" as const, sign: 1 as const, hx: c.x, hy: c.y + c.h / 2 };
-  }
-  if (near(c.x + c.w, p.x)) {
-    return { axis: "z" as const, sign: -1 as const, hx: p.x, hy: c.y + c.h / 2 };
-  }
-  throw new Error(
-    `Carton spec "${child.id}" does not share an edge with its parent "${parent.id}".`,
-  );
-}
-
 function buildGenericCarton(context: BuildContext): CartonTree {
-  const children = new Map<string, CartonPanel[]>();
-  let rootPanel: CartonPanel | null = null;
-
-  for (const panel of context.spec.panels) {
-    if (!panel.parent) {
-      rootPanel = panel;
-      continue;
-    }
-    const list = children.get(panel.parent) ?? [];
-    list.push(panel);
-    children.set(panel.parent, list);
-  }
-  if (!rootPanel) throw new Error(`Carton spec "${context.spec.id}" has no root panel.`);
-
+  const { root: rootPanel, childrenOf: children } = cartonTopology(context.spec);
   const hinges: HingeEntry[] = [];
 
   function build(panel: CartonPanel, parent: CartonPanel | null): THREE.Group {
@@ -564,13 +539,14 @@ function buildGenericCarton(context: BuildContext): CartonTree {
       const py = parent.rect.y + parent.rect.h / 2;
       hingeGroup.position.set(hx - px, 0, hy - py);
       holder.position.set(cx - hx, 0, cy - hy);
+      const isLid = panel.hinge === "lid";
       hinges.push({
         id: panel.id,
         group: hingeGroup,
         axis,
         sign,
-        angleDeg: panel.angle ?? 0,
-        isLid: panel.hinge === "lid",
+        angleDeg: isLid ? context.spec.lidClosedAngle : (panel.angle ?? 0),
+        isLid,
       });
     }
 
@@ -586,6 +562,7 @@ function buildGenericCarton(context: BuildContext): CartonTree {
     inner.castShadow = true;
     holder.add(outer, inner);
     context.meshes[panel.id] = outer;
+    context.boardMeshes.push(inner);
 
     for (const child of children.get(panel.id) ?? []) holder.add(build(child, panel));
     hingeGroup.add(holder);
@@ -600,6 +577,7 @@ function buildGenericCarton(context: BuildContext): CartonTree {
     root,
     hinges,
     meshes: context.meshes,
+    boardMeshes: context.boardMeshes,
     dispose: () => context.geometries.forEach((geometry) => geometry.dispose()),
   };
 }
@@ -616,26 +594,41 @@ export function buildCartonTree(
     innerMaterial,
     edgeMaterial,
     meshes: {},
+    boardMeshes: [],
     geometries: [],
   };
   return spec.clamshell ? buildTaperedClamshell(context) : buildGenericCarton(context);
 }
 
-/** Drives the lid hinge. `fold` remains for generic flat-to-assembled cartons. */
-export function applyFold(
-  tree: CartonTree,
-  spec: CartonSpec,
-  fold: number,
-  lid: number,
-) {
+/**
+ * Writes an absolute pose onto the hinge tree.
+ *
+ * This is the single structural entry point: open/close, progressive
+ * unfolding and the flat dieline are all just different angle maps, which is
+ * why there is no separate `fold` scalar any more. A hinge missing from the
+ * pose falls back to its assembled angle.
+ */
+export function applyHingeAngles(tree: CartonTree, angles: HingeAngles) {
   for (const hinge of tree.hinges) {
-    const target = hinge.isLid
-      ? spec.lidClosedAngle + (spec.lidOpenAngle - spec.lidClosedAngle) * lid
-      : hinge.angleDeg;
-    const value = hinge.sign * target * fold * DEG;
+    const degrees = angles[hinge.id] ?? hinge.angleDeg;
+    const value = hinge.sign * degrees * DEG;
     if (hinge.axis === "x") hinge.group.rotation.x = value;
     else hinge.group.rotation.z = value;
   }
+}
+
+/**
+ * Dieline view: render the flat blank as its printed sheet.
+ *
+ * A carton printed on the outside folds AWAY from its print, so on the
+ * flattened blank the printed face is the underside and the unprinted inner
+ * board is what faces the camera. That is physically correct but useless as a
+ * dieline preview, so at the flat pose we drop the board faces and show the
+ * printed sheet — which then reads exactly like the 2D editor canvas
+ * (see `tests/unfold/flat-dieline.test.ts`).
+ */
+export function setDielineView(tree: CartonTree, dielineView: boolean) {
+  for (const mesh of tree.boardMeshes) mesh.visible = !dielineView;
 }
 
 /** Cut and crease paths for the Konva editor, scaled into editor pixels. */
