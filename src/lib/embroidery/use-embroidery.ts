@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DesignDocument, ProductConfig } from "@/types/configurator";
 import type { EmbroideryResult } from "@/types/embroidery";
-import { generateEmbroidery, type EmbroideryQuality } from "./index";
+import type { EmbroideryQuality } from "./index";
+import { generateEmbroideryAsync } from "./worker-client";
 import { embroideryCacheKey, readEmbroideryCache, writeEmbroideryCache } from "./cache";
 import {
   composeSurfaceMaterialMaps,
@@ -25,7 +26,15 @@ import {
  *    been still for a moment.
  */
 
-const FULL_QUALITY_DELAY_MS = 280;
+/**
+ * How long the pointer has to be still before any stitching is recomputed.
+ *
+ * Nothing recomputes while a logo is dragged or rotated — position is not part
+ * of the cache key — so this only gates a genuine change of size or settings.
+ * Until it fires the previous stitching stays on screen, scaled, which reads as
+ * progressive refinement rather than as a stall.
+ */
+const RECOMPUTE_DELAY_MS = 180;
 
 type ElementJob = {
   surfaceId: string;
@@ -83,59 +92,88 @@ export function useEmbroidery(
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
 
-    const run = (quality: EmbroideryQuality) => {
-      const next: Record<string, EmbroideryResult> = {};
-      let generated = 0;
-      for (const job of jobs) {
-        const image = images[job.src];
-        if (!image) continue;
-        const key = embroideryCacheKey(job.src, job.widthMm, job.heightMm, job.settings, quality);
-        const cached = readEmbroideryCache(key);
-        if (cached) {
-          next[job.elementId] = cached;
-          continue;
-        }
-        const result = generateEmbroidery({
-          image,
-          widthMm: job.widthMm,
-          heightMm: job.heightMm,
-          settings: job.settings,
-          quality,
-        });
-        writeEmbroideryCache(key, result);
-        next[job.elementId] = result;
-        generated += 1;
-      }
-      setResults(next);
-      return generated;
-    };
-
     if (!jobs.length) {
       setResults({});
       setBusy(false);
       return;
     }
 
-    // Prefer an already-computed full pass; otherwise show the cheap one now.
-    const haveFull = jobs.every((job) =>
-      readEmbroideryCache(
-        embroideryCacheKey(job.src, job.widthMm, job.heightMm, job.settings, "full"),
-      ),
-    );
-    if (haveFull) {
-      run("full");
+    const keyFor = (job: ElementJob, quality: EmbroideryQuality) =>
+      embroideryCacheKey(job.src, job.widthMm, job.heightMm, job.settings, quality);
+
+    // Adopt anything already computed, best tier first.
+    const known: Record<string, EmbroideryResult> = {};
+    const missing: ElementJob[] = [];
+    for (const job of jobs) {
+      const full = readEmbroideryCache(keyFor(job, "full"));
+      if (full) {
+        known[job.elementId] = full;
+        continue;
+      }
+      const preview = readEmbroideryCache(keyFor(job, "preview"));
+      if (preview) known[job.elementId] = preview;
+      missing.push(job);
+    }
+    if (!missing.length) {
+      setResults(known);
       setBusy(false);
       return;
     }
-
-    run("preview");
+    if (Object.keys(known).length) setResults((current) => ({ ...current, ...known }));
     setBusy(true);
+
+    let cancelled = false;
+
+    /**
+     * Both tiers go through the worker client, which falls back to running
+     * inline where `OffscreenCanvas` is unavailable. The cheap tier is NOT
+     * special-cased onto the main thread: measured on a 21 cm placement it
+     * cost 546 ms there, a visible freeze. "Cheap" was only ever true relative
+     * to the full tier, not in absolute terms.
+     */
+    const runTier = async (quality: EmbroideryQuality) => {
+      const settled: Record<string, EmbroideryResult> = {};
+      await Promise.all(
+        missing.map(async (job) => {
+          const image = images[job.src];
+          if (!image) return;
+          const key = keyFor(job, quality);
+          const hit = readEmbroideryCache(key);
+          if (hit) {
+            settled[job.elementId] = hit;
+            return;
+          }
+          try {
+            const result = await generateEmbroideryAsync({
+              image,
+              widthMm: job.widthMm,
+              heightMm: job.heightMm,
+              settings: job.settings,
+              quality,
+            });
+            writeEmbroideryCache(key, result);
+            settled[job.elementId] = result;
+          } catch {
+            // Keep whatever is on screen rather than blanking the artwork.
+          }
+        }),
+      );
+      if (cancelled || !Object.keys(settled).length) return;
+      setResults((current) => ({ ...current, ...settled }));
+    };
+
     timer.current = setTimeout(() => {
-      run("full");
-      setBusy(false);
-    }, FULL_QUALITY_DELAY_MS);
+      void (async () => {
+        await runTier("preview");
+        if (cancelled) return;
+        await runTier("full");
+        if (cancelled) return;
+        setBusy(false);
+      })();
+    }, RECOMPUTE_DELAY_MS);
 
     return () => {
+      cancelled = true;
       if (timer.current) clearTimeout(timer.current);
     };
     // `signature` is the real dependency: it changes exactly when a stitch

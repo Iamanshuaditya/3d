@@ -127,28 +127,51 @@ or 4096 px wide. Tested both ways:
 
 ## 6. Performance
 
-The expensive work is deliberately kept off the interaction path:
+The expensive work is deliberately kept off the interaction path AND off the
+main thread.
 
 | Interaction | Cost |
 |---|---|
 | Drag a placed logo | **zero recompute** — the cache key omits position |
 | Rotate a placed logo | **zero recompute** — the key omits rotation |
-| Resize | preview tier immediately (3.2 px/mm), full tier (8 px/mm) 280 ms after the pointer settles |
+| Resize / change a setting | previous stitching stays on screen, scaled, until 180 ms after the pointer settles; then preview and full run in a Web Worker |
 | Nudge a resize handle | physical size is quantised to 0.25 mm, so small moves reuse the cache |
-| Change a setting | same preview-then-full ladder |
 
-Measured on this machine: a full-quality 10 cm two-colour logo plans 5 676
-stitches across 6 threads in **465 ms** (`pipeline-contracts.test.ts` prints it
-on every run). The planner also has a hard stitch ceiling and *thins the whole
-design uniformly* rather than silently truncating one colour — and says so in
-the UI when it does.
+### Measured
 
-A Web Worker was considered and not used yet. The full pass already runs behind
-a debounce and off the drag path, and moving it would mean transferring canvases
-across the boundary (`OffscreenCanvas` for the map rendering, which is the half
-that cannot move without it). It is the obvious next step if the ceiling rises.
+`product-onboarding/harness/embroidery_perf.mjs` records every long task
+(>50 ms) attributable to switching a 21 cm placement to embroidery:
 
----
+| | main-thread blocking | stitches |
+|---|---|---|
+| Everything inline (`--no-worker`) | **2033 ms** in one task | 22 121 |
+| Both tiers in the worker | **0 ms — no task over 50 ms** | 22 128 |
+
+The two stitch counts differ by 0.03%: the worker rasterises from a transferred
+`ImageBitmap` and the inline path from an `HTMLImageElement`, and the two
+resamplers disagree on a handful of edge pixels. Same pipeline, same settings —
+not byte-identical, and not claimed to be.
+
+### Two things that went wrong on the way
+
+**The "cheap" tier was not cheap.** The first version left the preview pass
+inline on the theory that it was a few milliseconds. Measured, it was 546 ms —
+because cost is linear in raster area and the preview tier had no ceiling, so a
+21 cm logo cost 45× what a 3 cm badge does. Both tiers now go through the
+worker, and `MAX_PIXELS` gives each one an explicit ceiling that
+`worker-pipeline.test.ts` asserts.
+
+**A silent fallback looks exactly like a regression.** The perf harness reports
+whether the worker was actually used, so a bundling failure that quietly drops
+everything back onto the main thread cannot be mistaken for slow code.
+
+### Fallback
+
+Where `Worker`, `OffscreenCanvas` or `createImageBitmap` are unavailable — or
+the worker fails to start — the identical pipeline runs inline. Only the
+canvas factory differs, so there is no second implementation to keep in sync.
+That path blocks, as the table above shows; it exists for correctness on older
+browsers, not for parity. `--no-worker` in the perf harness exercises it.
 
 ## 7. Privacy
 
