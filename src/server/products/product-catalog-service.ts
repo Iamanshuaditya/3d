@@ -211,4 +211,16 @@ export class ProductCatalogService implements ProductCatalogReader {
       throw error;
     }
   }
+
+  /** Resolves an unpublished candidate through the same provider registry. */
+  async resolveCandidate(
+    version: ProductVersion,
+    selection: OptionSelection = {},
+  ): Promise<ResolvedProductConfiguration> {
+    return resolveProductConfiguration(
+      version,
+      parseOptionSelection(selection),
+      this.providers,
+    );
+  }
 }

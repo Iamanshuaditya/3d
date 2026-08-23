@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 export type VortexDatabase = Database.Database;
 
@@ -232,6 +232,58 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (6, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 7) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE product_drafts (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          base_version_id TEXT,
+          status TEXT NOT NULL CHECK (
+            status IN ('draft', 'validated', 'published')
+          ),
+          revision INTEGER NOT NULL CHECK (revision >= 1),
+          document_json TEXT NOT NULL,
+          validation_json TEXT,
+          published_version_id TEXT,
+          created_by TEXT NOT NULL,
+          updated_by TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX product_drafts_product_updated_idx
+          ON product_drafts(product_id, updated_at DESC);
+        CREATE INDEX product_drafts_status_updated_idx
+          ON product_drafts(status, updated_at DESC);
+
+        CREATE TABLE product_audit_events (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          draft_id TEXT NOT NULL REFERENCES product_drafts(id) ON DELETE RESTRICT,
+          action TEXT NOT NULL CHECK (
+            action IN (
+              'draft_created', 'draft_updated', 'draft_validated',
+              'draft_validation_failed', 'version_published'
+            )
+          ),
+          actor_id TEXT NOT NULL,
+          draft_revision INTEGER NOT NULL CHECK (draft_revision >= 1),
+          product_version_id TEXT,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX product_audit_events_draft_idx
+          ON product_audit_events(draft_id, created_at, id);
+        CREATE INDEX product_audit_events_product_idx
+          ON product_audit_events(product_id, created_at, id);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (7, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

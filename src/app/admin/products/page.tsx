@@ -69,8 +69,9 @@ export default async function ProductOperationsPage() {
         </div>
         <p className="mt-3 max-w-[68ch] text-[15px] leading-6 text-[var(--st-dim)]">
           One inventory for immutable product versions, resolved Studio surfaces,
-          production formats, and validation. Publishing remains in the domain
-          service and onboarding CLI until operator authentication is connected.
+          production formats, and validation. The revisioned draft/validate/publish
+          service is ready server-side; mutation controls stay disabled until an
+          operator authentication adapter is connected.
         </p>
       </header>
 
