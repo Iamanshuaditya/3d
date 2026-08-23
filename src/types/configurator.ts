@@ -138,10 +138,26 @@ export type SurfaceDieline = {
   safety?: DielinePath[];
 };
 
+/**
+ * Customer-navigation meaning for a technical editable surface. A page is a
+ * view onto a surface, never a mesh and never a second copy of design state.
+ * Continuous webs remain one surface even when several 3D panels consume it.
+ */
+export type EditableSurfacePresentation =
+  | {
+      kind: "page";
+      pageNumber: number;
+      side?: "front" | "back" | "inside" | "outside";
+    }
+  | { kind: "print-area"; order?: number }
+  | { kind: "continuous-web"; order?: number };
+
 export type EditableSurface = {
   id: string;
   /** Human label used by the surface selector. */
   label: string;
+  /** Optional semantic navigation role; omitted legacy surfaces are inferred. */
+  presentation?: EditableSurfacePresentation;
   /** Optional generated dieline overlay (see SurfaceDieline). */
   dieline?: SurfaceDieline;
   /** Must match a mesh name inside the GLB. Never an index. */
