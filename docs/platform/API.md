@@ -149,4 +149,4 @@ Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the st
 
 API DTOs are defined in `src/platform/products/public-types.ts`, `src/platform/projects/types.ts`, `src/platform/templates/types.ts`, and `src/platform/production/types.ts`, separate from repository rows and `ProductConfig`. Project and artifact DTOs expose immutable provenance but not internal version snapshots or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
 
-Not yet exposed: guest claim, project revision history, permanent deletion, signed object-store URLs, authenticated template/product admin mutations, artifact approval/order linkage, pricing, and bulk personalization jobs.
+Not yet exposed: guest claim, project revision history, permanent deletion, signed object-store URLs, authenticated template/product admin mutations, artifact approval/order linkage, pricing, and bulk personalization jobs. The internal product draft/validate/publish service and audit transaction are implemented, but deliberately have no HTTP route until an operator identity provider is connected.

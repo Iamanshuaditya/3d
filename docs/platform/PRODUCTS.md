@@ -74,6 +74,14 @@ Publishing rules:
 
 `ProductCatalogService` synchronizes code-defined versions into SQLite and resolves historical records from SQLite, not from whichever config happens to be current in source code.
 
+### Operator drafts and audit
+
+P6.3 adds a separate `ProductDraftDocument` containing product visibility, the definition snapshot, and its static/provider resolution spec. Draft content uses revision compare-and-swap. Updating content increments the revision and clears validation. Validation resolves a candidate through the same provider registry, then applies the same surface/model/profile/structure validator as the operations catalogue.
+
+Publishing requires a trusted operator with `products:publish`, a passing report for the exact revision, an unchanged base product version, and a second identical validation result. SQLite atomically stores the new immutable version, advances the product definition's current pointer, marks the draft published, and appends its audit event. A failed or stale draft cannot partly publish.
+
+The old `saveDraft(ProductDefinition)` method remains only for source compatibility and is not the operator workflow; it lacks a resolution document and audit context. New operator integrations use `ProductPublishingService` and `product_drafts`.
+
 ## Compatibility adapter
 
 `src/lib/configurator/product-definitions.ts` creates a static definition/version for every current registry entry. It derives presentation and capabilities from existing contracts and exposes no fake customer options. Tests assert every adapted engine config equals the original after removing resolution provenance.
@@ -139,4 +147,4 @@ Legacy configs remain source-compatible. Section-bearing packaging surfaces are 
 - No current registered product supplies explicit front/back page metadata; the P3 contract has synthetic coverage until a real flat SKU is onboarded.
 - Public product catalogue/detail/resolve endpoints are implemented. Authenticated product authoring and publishing HTTP endpoints are not.
 - Published version storage is implemented, but migrations between versions are deliberately absent; existing projects stay pinned unless a future explicit migration workflow is approved.
-- The web option form is a customer configuration surface, not an operator authoring UI. The operator page is currently a local read-only validation inventory; authenticated draft/publish controls remain.
+- The web option form is a customer configuration surface, not an operator authoring UI. The operator page is currently a local read-only validation inventory. The server draft/validate/publish pipeline is implemented, but authenticated admin DTO/routes and controls remain deliberately disabled.
