@@ -13,29 +13,27 @@ import type { ArtworkRenderMode } from "@/types/embroidery";
 import { DEFAULT_EMBROIDERY, type EmbroiderySettings } from "@/types/embroidery";
 import { useArtworkImages } from "@/lib/configurator/use-artwork-images";
 import { useEmbroidery } from "@/lib/embroidery/use-embroidery";
+import { useProjectSession } from "@/lib/projects/use-project-session";
 import { configureDesignTexture } from "@/lib/configurator/texture-manager";
 import {
   commit,
   centeredOrigin,
   createEmptyDocument,
   createHistory,
-  deserializeDesign,
   fitElement,
   fitElementToSection,
   nextId,
   redo,
   reduceHistory,
-  serializeDesign,
   sectionBox,
   undo,
   type DesignAction,
   type History,
 } from "@/lib/configurator/design-state";
 
-const STORAGE_KEY = "configurator:design";
-
 type HistoryAction =
   | { kind: "apply"; action: DesignAction; transient?: boolean }
+  | { kind: "replace"; document: DesignDocument }
   | { kind: "commit" }
   | { kind: "undo" }
   | { kind: "redo" };
@@ -47,6 +45,10 @@ function historyReducer(
   switch (action.kind) {
     case "apply":
       return reduceHistory(state, action.action, { transient: action.transient });
+    case "replace":
+      // Opening a project is a history boundary. The previous empty/loading
+      // document must never become an undo target that can erase saved work.
+      return createHistory(action.document);
     case "commit":
       return commit(state);
     case "undo":
@@ -63,7 +65,7 @@ function historyReducer(
  * drive exactly the same engine — the 2D design remains the source of truth
  * and the 3D view is a live CanvasTexture preview.
  */
-export function useCustomizer(config: ProductConfig) {
+export function useCustomizer(config: ProductConfig, requestedProjectId: string | null = null) {
   const [history, dispatch] = useReducer(historyReducer, config, (c) =>
     createHistory(createEmptyDocument(c)),
   );
@@ -79,9 +81,27 @@ export function useCustomizer(config: ProductConfig) {
   const [canvases, setCanvases] = useState<Record<string, HTMLCanvasElement | null>>({});
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [debugInfo, setDebugInfo] = useState<SceneDebugInfo[]>([]);
+  const [commitSequence, setCommitSequence] = useState(0);
 
   const dirtyRef = useRef<Record<string, boolean>>({});
-  const objectUrlsRef = useRef<Set<string>>(new Set());
+
+  const handleProjectDocumentLoaded = useCallback((document: DesignDocument) => {
+    dispatch({ kind: "replace", document });
+    setSelectedId(null);
+  }, []);
+
+  const projectSession = useProjectSession(
+    config,
+    requestedProjectId,
+    design,
+    commitSequence,
+    handleProjectDocumentLoaded,
+  );
+  const uploadProjectAsset = projectSession.uploadAsset;
+
+  const markCommitted = useCallback(() => {
+    setCommitSequence((sequence) => sequence + 1);
+  }, []);
 
   // A held surface id can outlive the config it came from (switching products
   // keeps this hook mounted), so fall back to the first surface rather than
@@ -213,56 +233,25 @@ export function useCustomizer(config: ProductConfig) {
         action: { type: "update", surfaceId: activeSurfaceId, id, patch: patch as never },
         transient,
       });
+      if (!transient) markCommitted();
     },
-    [activeSurfaceId],
+    [activeSurfaceId, markCommitted],
   );
 
-  const commitHistory = useCallback(() => dispatch({ kind: "commit" }), []);
-
-  /** Normalizes EXIF-rotated photos, passing ordinary files through untouched. */
-  const loadImageSource = useCallback(async (file: File) => {
-    const objectUrl = URL.createObjectURL(file);
-    objectUrlsRef.current.add(objectUrl);
-
-    const raw = await new Promise<HTMLImageElement | null>((resolve) => {
-      const img = new window.Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = objectUrl;
-    });
-    if (!raw) throw new Error("unreadable");
-
-    if (typeof createImageBitmap !== "function") {
-      return { src: objectUrl, width: raw.naturalWidth, height: raw.naturalHeight };
-    }
-
-    try {
-      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-      const rotated = bitmap.width !== raw.naturalWidth || bitmap.height !== raw.naturalHeight;
-      if (!rotated) {
-        bitmap.close();
-        return { src: objectUrl, width: raw.naturalWidth, height: raw.naturalHeight };
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
-      const dataUrl = canvas.toDataURL("image/png");
-      bitmap.close();
-      URL.revokeObjectURL(objectUrl);
-      objectUrlsRef.current.delete(objectUrl);
-      return { src: dataUrl, width: canvas.width, height: canvas.height };
-    } catch {
-      return { src: objectUrl, width: raw.naturalWidth, height: raw.naturalHeight };
-    }
-  }, []);
+  const commitHistory = useCallback(() => {
+    dispatch({ kind: "commit" });
+    markCommitted();
+  }, [markCommitted]);
 
   const uploadFiles = useCallback(
     async (files: FileList) => {
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) continue;
         try {
-          const { src, width, height } = await loadImageSource(file);
+          const asset = await uploadProjectAsset(file);
+          const width = asset.width;
+          const height = asset.height;
+          if (!width || !height) throw new Error("Uploaded image has no dimensions.");
           const placement = activeSection && activeSectionBox
             ? fitElementToSection(
                 width,
@@ -282,11 +271,12 @@ export function useCustomizer(config: ProductConfig) {
           const element: DesignElement = {
             id: nextId("img"),
             type: "image",
-            src,
+            assetId: asset.id,
+            src: asset.readUrl,
             sourcePixelWidth: width,
             sourcePixelHeight: height,
-            sourceName: file.name,
-            sourceMimeType: file.type,
+            sourceName: asset.filename,
+            sourceMimeType: asset.mimeType,
             ...placement,
             scaleX: 1,
             scaleY: 1,
@@ -298,8 +288,13 @@ export function useCustomizer(config: ProductConfig) {
           });
           setSelectedId(element.id);
           scheduleDirty(activeSurfaceId);
-        } catch {
-          window.alert(`Could not read "${file.name}". Please use a PNG, JPG or WebP.`);
+          markCommitted();
+        } catch (cause) {
+          window.alert(
+            cause instanceof Error
+              ? cause.message
+              : `Could not upload "${file.name}". Please use a PNG, JPG or WebP.`,
+          );
         }
       }
     },
@@ -308,8 +303,9 @@ export function useCustomizer(config: ProductConfig) {
       activeSectionBox,
       activeSurface,
       activeSurfaceId,
-      loadImageSource,
+      markCommitted,
       scheduleDirty,
+      uploadProjectAsset,
     ],
   );
 
@@ -339,15 +335,17 @@ export function useCustomizer(config: ProductConfig) {
     dispatch({ kind: "apply", action: { type: "add", surfaceId: activeSurfaceId, element } });
     setSelectedId(element.id);
     scheduleDirty(activeSurfaceId);
-  }, [activeSection, activeSectionBox, activeSurface, activeSurfaceId, scheduleDirty]);
+    markCommitted();
+  }, [activeSection, activeSectionBox, activeSurface, activeSurfaceId, markCommitted, scheduleDirty]);
 
   const removeElement = useCallback(
     (id: string) => {
       dispatch({ kind: "apply", action: { type: "remove", surfaceId: activeSurfaceId, id } });
       setSelectedId((cur) => (cur === id ? null : cur));
       scheduleDirty(activeSurfaceId);
+      markCommitted();
     },
-    [activeSurfaceId, scheduleDirty],
+    [activeSurfaceId, markCommitted, scheduleDirty],
   );
 
   const deleteSelected = useCallback(() => {
@@ -361,16 +359,18 @@ export function useCustomizer(config: ProductConfig) {
         action: { type: "reorder", surfaceId: activeSurfaceId, id, direction },
       });
       scheduleDirty(activeSurfaceId);
+      markCommitted();
     },
-    [activeSurfaceId, scheduleDirty],
+    [activeSurfaceId, markCommitted, scheduleDirty],
   );
 
   const setBackground = useCallback(
     (color: string | null) => {
       dispatch({ kind: "apply", action: { type: "background", surfaceId: activeSurfaceId, color } });
       scheduleDirty(activeSurfaceId);
+      markCommitted();
     },
-    [activeSurfaceId, scheduleDirty],
+    [activeSurfaceId, markCommitted, scheduleDirty],
   );
 
   const centerSelected = useCallback(() => {
@@ -511,8 +511,9 @@ export function useCustomizer(config: ProductConfig) {
         },
       });
       scheduleDirty(activeSurfaceId);
+      markCommitted();
     },
-    [activeSurfaceId, design.surfaces, scheduleDirty],
+    [activeSurfaceId, design.surfaces, markCommitted, scheduleDirty],
   );
 
   const updateEmbroiderySettings = useCallback(
@@ -535,15 +536,17 @@ export function useCustomizer(config: ProductConfig) {
         transient,
       });
       scheduleDirty(activeSurfaceId);
+      if (!transient) markCommitted();
     },
-    [activeSurfaceId, design.surfaces, scheduleDirty],
+    [activeSurfaceId, design.surfaces, markCommitted, scheduleDirty],
   );
 
   const resetSurface = useCallback(() => {
     dispatch({ kind: "apply", action: { type: "resetSurface", surfaceId: activeSurfaceId } });
     setSelectedId(null);
     scheduleDirty(activeSurfaceId);
-  }, [activeSurfaceId, scheduleDirty]);
+    markCommitted();
+  }, [activeSurfaceId, markCommitted, scheduleDirty]);
 
   const selectSurface = useCallback(
     (surfaceId: string) => {
@@ -574,8 +577,14 @@ export function useCustomizer(config: ProductConfig) {
     [config.editableSurfaces],
   );
 
-  const doUndo = useCallback(() => dispatch({ kind: "undo" }), []);
-  const doRedo = useCallback(() => dispatch({ kind: "redo" }), []);
+  const doUndo = useCallback(() => {
+    dispatch({ kind: "undo" });
+    markCommitted();
+  }, [markCommitted]);
+  const doRedo = useCallback(() => {
+    dispatch({ kind: "redo" });
+    markCommitted();
+  }, [markCommitted]);
 
   // ---- Keyboard shortcuts ---------------------------------------------------
   useEffect(() => {
@@ -587,6 +596,7 @@ export function useCustomizer(config: ProductConfig) {
         e.preventDefault();
         dispatch({ kind: e.shiftKey ? "redo" : "undo" });
         scheduleDirty(activeSurfaceId);
+        markCommitted();
         return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
@@ -596,65 +606,11 @@ export function useCustomizer(config: ProductConfig) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId, removeElement, activeSurfaceId, scheduleDirty]);
+  }, [selectedId, removeElement, activeSurfaceId, markCommitted, scheduleDirty]);
 
   useEffect(() => {
     scheduleDirty(activeSurfaceId);
   }, [history.present, activeSurfaceId, scheduleDirty]);
-
-  // ---- Persistence ----------------------------------------------------------
-  useEffect(() => {
-    const raw = window.localStorage.getItem(`${STORAGE_KEY}:${config.id}`);
-    if (!raw) return;
-    const parsed = deserializeDesign(raw);
-    const matchesCurrentSurfaces = config.editableSurfaces.every(
-      (surface) => parsed?.surfaces?.[surface.id],
-    );
-    if (parsed && parsed.productId === config.id && matchesCurrentSurfaces) {
-      const migrated = config.materialProfile === "clear-barrier-gloss"
-        ? {
-            ...parsed,
-            surfaces: Object.fromEntries(
-              Object.entries(parsed.surfaces).map(([id, surface]) => [
-                id,
-                {
-                  ...surface,
-                  background: surface.background === "#f5f5f3" ? null : surface.background,
-                },
-              ]),
-            ),
-          }
-        : parsed;
-      dispatch({ kind: "apply", action: { type: "replace", document: migrated } });
-    }
-  }, [config.id, config.materialProfile, config.editableSurfaces]);
-
-  useEffect(() => {
-    // Nothing has been applied yet — neither an edit nor the restore above —
-    // so the in-memory document is still the empty default. Writing it here
-    // would erase the stored design before the restore effect can read it.
-    if (!history.past.length) return;
-
-    // Object URLs don't survive a reload, so only text persists.
-    const persistable: DesignDocument = {
-      ...design,
-      surfaces: Object.fromEntries(
-        Object.entries(design.surfaces).map(([id, surface]) => [
-          id,
-          { ...surface, elements: surface.elements.filter((el) => el.type === "text") },
-        ]),
-      ),
-    };
-    window.localStorage.setItem(`${STORAGE_KEY}:${config.id}`, serializeDesign(persistable));
-  }, [design, config.id, history.past.length]);
-
-  useEffect(() => {
-    const urls = objectUrlsRef.current;
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
-    };
-  }, []);
 
   const handleValidated = useCallback((result: ValidationResult, debug: SceneDebugInfo[]) => {
     setValidation(result);
@@ -708,5 +664,11 @@ export function useCustomizer(config: ProductConfig) {
     validation,
     debugInfo,
     handleValidated,
+    project: projectSession.project,
+    projectId: projectSession.projectId,
+    saveState: projectSession.saveState,
+    projectError: projectSession.error,
+    retrySave: projectSession.retrySave,
+    saveNow: projectSession.saveNow,
   };
 }

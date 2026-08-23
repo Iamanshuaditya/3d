@@ -10,9 +10,9 @@ export const metadata: Metadata = {
 export default async function StudioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ product?: string }>;
+  searchParams: Promise<{ product?: string; project?: string }>;
 }) {
-  const { product } = await searchParams;
+  const { product, project } = await searchParams;
   const config = getProduct(product ?? DEFAULT_PRODUCT_ID);
 
   // The switcher is driven by the registry, so adding a product to
@@ -37,7 +37,14 @@ export default async function StudioPage({
     );
   }
 
-  // Keying by product id resets editor state on a product switch; surface ids,
-  // history and canvases are all product-specific.
-  return <StudioShell key={config.id} config={config} catalogue={catalogue} />;
+  // Project changes also remount the editor so undo history can never cross a
+  // project boundary, even when both projects use the same product.
+  return (
+    <StudioShell
+      key={`${config.id}:${project ?? "new"}`}
+      config={config}
+      catalogue={catalogue}
+      requestedProjectId={project ?? null}
+    />
+  );
 }

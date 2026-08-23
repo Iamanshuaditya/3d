@@ -35,7 +35,7 @@ const TITLES: Record<StudioTool, string> = {
 
 const HINTS: Record<StudioTool, string> = {
   Text: "Type is placed inside the printable area and stays with your design between visits.",
-  Uploads: "Artwork stays on this device — nothing is uploaded to a server.",
+  Uploads: "Artwork is securely saved with this project and is restored when you return.",
   Background: "Fills the whole printable area behind your artwork.",
   Editor: "Position and scale whatever is selected on the canvas.",
 };

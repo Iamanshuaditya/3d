@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { statSync } from "node:fs";
 import { join } from "node:path";
+import Link from "next/link";
 import { PRODUCTS } from "@/lib/configurator/product-config";
 import { modelFilePath, summarize } from "@/lib/configurator/product-summary";
 import { ProductGallery, type GalleryItem } from "@/components/gallery/ProductGallery";
@@ -35,9 +36,17 @@ export default function LibraryPage() {
         <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--st-faint)]">
           Studio
         </p>
-        <h1 className="mt-3 text-[32px] font-semibold leading-[1.1] tracking-tight text-[var(--st-text)] sm:text-[40px]">
-          Product library
-        </h1>
+        <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+          <h1 className="text-[32px] font-semibold leading-[1.1] tracking-tight text-[var(--st-text)] sm:text-[40px]">
+            Product library
+          </h1>
+          <Link
+            href="/designs"
+            className="rounded-lg bg-[var(--st-raised)] px-4 py-2.5 text-[13px] font-semibold text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
+          >
+            My designs
+          </Link>
+        </div>
         <p className="mt-3 max-w-[54ch] text-[15px] leading-[1.6] text-[var(--st-dim)]">
           Every product registered in the configurator, rendered from the same
           meshes and material response the editor uses. Pick one to start

@@ -44,6 +44,7 @@ const Product3DViewer = dynamic(
 type StudioShellProps = {
   config: ProductConfig;
   catalogue: CatalogueEntry[];
+  requestedProjectId: string | null;
 };
 
 const EDITOR_DISPLAY_WIDTH = 720;
@@ -55,8 +56,8 @@ const MAX_ZOOM = 200;
 
 type PanPoint = { x: number; y: number };
 
-export function StudioShell({ config, catalogue }: StudioShellProps) {
-  const c = useCustomizer(config);
+export function StudioShell({ config, catalogue, requestedProjectId }: StudioShellProps) {
+  const c = useCustomizer(config, requestedProjectId);
   const [tool, setTool] = useState<StudioTool>("Text");
   const [zoom, setZoom] = useState(70);
   const [pan, setPan] = useState<PanPoint>({ x: 0, y: 0 });
@@ -273,8 +274,31 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
         onUndo={c.undo}
         onRedo={c.redo}
         onExport={exportProductionPdf}
+        saveState={c.saveState}
+        beforeNavigate={c.saveNow}
         exporting={exporting}
       />
+
+      {c.projectError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-4 border-b border-[var(--st-danger)] bg-[var(--st-danger)]/12 px-5 py-2.5"
+        >
+          <p className="text-[13px] font-medium text-[var(--st-danger)]">
+            {c.projectError}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              if (c.projectId) c.retrySave();
+              else window.location.reload();
+            }}
+            className="shrink-0 rounded-lg bg-[var(--st-surface)] px-3 py-1.5 text-[12px] font-semibold text-[var(--st-text)] ring-1 ring-[var(--st-line)]"
+          >
+            {c.projectId ? "Retry save" : "Reload"}
+          </button>
+        </div>
+      )}
 
       {exportNotice && (
         <div
@@ -319,7 +343,18 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
         ))}
       </div>
 
-      <div className="flex min-h-0 flex-1">
+      <div
+        className={`relative flex min-h-0 flex-1 transition-opacity ${
+          c.saveState === "loading" ? "pointer-events-none opacity-50" : ""
+        }`}
+      >
+        {c.saveState === "loading" && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[var(--st-bg)]/70 backdrop-blur-sm">
+            <p className="rounded-lg bg-[var(--st-surface)] px-4 py-2 text-[13px] font-medium text-[var(--st-dim)] shadow-lg ring-1 ring-[var(--st-line)]">
+              Opening your project…
+            </p>
+          </div>
+        )}
         {/* Below lg the three regions stack: stage, panel, then the tool rail
             as a bottom bar. Above lg they sit side by side. */}
         <div

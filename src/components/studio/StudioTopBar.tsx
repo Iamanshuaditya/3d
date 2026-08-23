@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Download, LayoutGrid, Redo2, Undo2 } from "lucide-react";
+import { ChevronDown, Download, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
+import type { ProjectSaveState } from "@/platform/projects/types";
 
 export type CatalogueEntry = { id: string; name: string };
 
@@ -14,7 +14,18 @@ type StudioTopBarProps = {
   onUndo: () => void;
   onRedo: () => void;
   onExport: () => void;
+  saveState: ProjectSaveState;
+  beforeNavigate: () => Promise<boolean>;
   exporting?: boolean;
+};
+
+const SAVE_STATUS: Record<ProjectSaveState, { label: string; dot: string }> = {
+  loading: { label: "Opening project…", dot: "bg-[var(--st-faint)] animate-pulse" },
+  saved: { label: "Saved", dot: "bg-[var(--st-positive)]" },
+  saving: { label: "Saving…", dot: "bg-[var(--st-accent)] animate-pulse" },
+  unsaved: { label: "Unsaved changes", dot: "bg-amber-500" },
+  failed: { label: "Save failed", dot: "bg-[var(--st-danger)]" },
+  offline: { label: "Offline", dot: "bg-amber-500" },
 };
 
 export function StudioTopBar({
@@ -25,14 +36,22 @@ export function StudioTopBar({
   onUndo,
   onRedo,
   onExport,
+  saveState,
+  beforeNavigate,
   exporting = false,
 }: StudioTopBarProps) {
   const router = useRouter();
+  const status = SAVE_STATUS[saveState];
+
+  const navigate = async (href: string) => {
+    if (await beforeNavigate()) router.push(href);
+  };
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--st-line)] bg-[var(--st-surface)] px-3 sm:gap-4 sm:px-4">
-      <Link
-        href="/"
+      <button
+        type="button"
+        onClick={() => void navigate("/")}
         title="Product library"
         className="flex h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-[var(--st-dim)] outline-none transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)] focus-visible:ring-2 focus-visible:ring-[var(--st-accent)]"
       >
@@ -40,7 +59,7 @@ export function StudioTopBar({
         <span className="hidden select-none text-[11px] font-semibold uppercase tracking-[0.24em] sm:inline">
           Library
         </span>
-      </Link>
+      </button>
 
       <div className="hidden h-5 w-px bg-[var(--st-line)] sm:block" aria-hidden="true" />
 
@@ -50,7 +69,11 @@ export function StudioTopBar({
         <select
           aria-label="Product"
           value={activeProductId}
-          onChange={(event) => router.push(`/studio?product=${event.target.value}`)}
+          onChange={(event) => {
+            const nextProductId = event.target.value;
+            event.target.value = activeProductId;
+            void navigate(`/studio?product=${nextProductId}`);
+          }}
           className="h-9 w-full cursor-pointer appearance-none truncate rounded-lg bg-[var(--st-raised)] pl-3 pr-9 text-[14px] font-medium text-[var(--st-text)] outline-none ring-[var(--st-accent)] transition-colors hover:bg-[var(--st-line-strong)] focus-visible:ring-2"
         >
           {catalogue.map((entry) => (
@@ -64,6 +87,16 @@ export function StudioTopBar({
           className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--st-dim)]"
         />
       </div>
+
+      <button
+        type="button"
+        onClick={() => void navigate("/designs")}
+        title="My designs"
+        className="hidden h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-[13px] font-medium text-[var(--st-dim)] transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)] md:flex"
+      >
+        <FolderOpen className="h-4 w-4" />
+        My designs
+      </button>
 
       <div className="hidden items-center gap-0.5 rounded-lg bg-[var(--st-raised)] p-0.5 sm:flex">
         <button
@@ -88,12 +121,16 @@ export function StudioTopBar({
         </button>
       </div>
 
-      <p className="hidden items-center gap-2 text-[13px] text-[var(--st-dim)] md:flex">
+      <p
+        role="status"
+        aria-live="polite"
+        className="hidden items-center gap-2 text-[13px] text-[var(--st-dim)] md:flex"
+      >
         <span
           aria-hidden="true"
-          className="h-1.5 w-1.5 rounded-full bg-[var(--st-positive)]"
+          className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
         />
-        Saved on this device
+        {status.label}
       </p>
 
       <button
