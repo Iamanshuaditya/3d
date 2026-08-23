@@ -82,15 +82,55 @@ export type DesignTemplateDto = TemplateSummaryDto & {
   designDocumentTemplate: DesignDocument;
 };
 
-/** Foundation for bounded CSV imports without creating another design model. */
+export type PersonalizationDatasetColumn = {
+  sourceColumn: string;
+  /** `null` means the source column was explicitly ignored. */
+  fieldKey: string | null;
+};
+
+export type PersonalizationDatasetRow = {
+  rowIndex: number;
+  sourceRowNumber: number;
+  personalization: PersonalizationData;
+};
+
+/** Bounded, validated CSV import tied to one immutable template version. */
 export type PersonalizationDataset = {
   id: string;
-  columns: string[];
-  rows: PersonalizationData[];
+  templateVersionId: string;
+  sha256: string;
+  columns: PersonalizationDatasetColumn[];
+  rows: PersonalizationDatasetRow[];
 };
 
 export type PersonalizedTemplateVariant = {
+  id: string;
   templateVersionId: string;
+  datasetId: string;
   rowIndex: number;
+  sourceRowNumber: number;
   personalization: PersonalizationData;
+  /** The same normal document consumed by Studio, 3D preview, and production. */
+  design: DesignDocument;
+};
+
+export type PersonalizationDatasetIssue = {
+  code: string;
+  message: string;
+  sourceRowNumber: number | null;
+  sourceColumn?: string;
+  fieldKey?: string;
+};
+
+export type PersonalizationDatasetReport = {
+  passed: boolean;
+  rowCount: number;
+  issueCount: number;
+  issues: PersonalizationDatasetIssue[];
+  issuesTruncated: boolean;
+};
+
+export type PersonalizationDatasetImportResult = {
+  dataset: PersonalizationDataset | null;
+  report: PersonalizationDatasetReport;
 };
