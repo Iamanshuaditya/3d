@@ -368,6 +368,15 @@ test("SVG CSS that can hide, transform, or conditionally select authority fails 
   );
   assert.throws(
     () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" style="translate:2px 3px;rotate:45deg;scale:2" x2="10" />
+      </svg>`,
+      { id: "css-individual-transform" },
+    ),
+    /CSS property "translate"/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
       `<?xml-stylesheet type="text/css" href="structural.css"?>
        <svg xmlns="${SVG_NS}" width="20mm" height="10mm">
          <line class="cut" data-operation="cut" x2="10" />
@@ -489,6 +498,17 @@ test("classified unsupported SVG content and active mutation cannot certify part
         </line>
       </svg>`,
       { id: "animated-geometry" },
+    ),
+    /active or conditional/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" stroke="#00f" x2="10">
+          <animateColor attributeName="stroke" to="#f00" />
+        </line>
+      </svg>`,
+      { id: "animated-color" },
     ),
     /active or conditional/,
   );

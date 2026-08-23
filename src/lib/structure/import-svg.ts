@@ -342,16 +342,23 @@ const CSS_GEOMETRY_OR_ACTIVE_PROPERTIES = new Set([
   "cy",
   "d",
   "height",
+  "offset-anchor",
+  "offset-distance",
   "offset-path",
+  "offset-position",
+  "offset-rotate",
   "path",
   "points",
   "r",
+  "rotate",
   "rx",
   "ry",
+  "scale",
   "transform",
   "transform-box",
   "transform-origin",
   "transition",
+  "translate",
   "width",
   "x",
   "x1",
@@ -1027,15 +1034,8 @@ export function importStructuralSvg(
       );
     }
     if (
-      [
-        "animate",
-        "animatemotion",
-        "animatetransform",
-        "discard",
-        "script",
-        "set",
-        "switch",
-      ].includes(localName)
+      localName.startsWith("animate") ||
+      ["discard", "script", "set", "switch"].includes(localName)
     ) {
       throw new Error(
         `SVG ${localName} content is active or conditional and cannot be structural authority`,
