@@ -487,7 +487,7 @@ test("later schemas preserve immutable PDFs while adding one SVG per revision", 
     (database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get() as {
       version: number;
     }).version,
-    13,
+    14,
   );
   assert.doesNotThrow(() => database.prepare(`
     INSERT INTO production_artifacts VALUES (

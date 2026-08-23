@@ -8,6 +8,7 @@ import type { PersonalizationData, PersonalizationScalar } from "@/types/configu
 import { instantiateTemplate, listTemplates } from "@/lib/templates/client";
 import { createProject } from "@/lib/projects/client";
 import { projectStudioHref } from "@/lib/projects/location";
+import { BulkPersonalizationPanel } from "./BulkPersonalizationPanel";
 
 type TemplateBrowserProps = {
   productId: string;
@@ -261,6 +262,9 @@ export function TemplateBrowser({
                     {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                     {busy ? "Creating project…" : "Use this template"}
                   </button>
+                  {template.placeholderDefinitions.length > 0 && (
+                    <BulkPersonalizationPanel template={template} />
+                  )}
                 </div>
               </article>
             );

@@ -384,6 +384,17 @@ export class SqliteProjectRepository implements ProjectRepository {
         WHERE owner_type = 'guest' AND owner_id = ?
       `).run(to.id, now, from.id);
 
+      this.database.prepare(`
+        UPDATE personalization_datasets
+        SET owner_type = 'user', owner_id = ?
+        WHERE owner_type = 'guest' AND owner_id = ?
+      `).run(to.id, from.id);
+      this.database.prepare(`
+        UPDATE personalization_jobs
+        SET owner_type = 'user', owner_id = ?, updated_at = ?
+        WHERE owner_type = 'guest' AND owner_id = ?
+      `).run(to.id, now, from.id);
+
       if (existing) {
         this.database.prepare(`
           UPDATE project_owner_claims

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 export type VortexDatabase = Database.Database;
 
@@ -545,6 +545,71 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (13, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 14) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE personalization_datasets (
+          id TEXT PRIMARY KEY,
+          domain_dataset_id TEXT NOT NULL,
+          owner_type TEXT NOT NULL CHECK (owner_type IN ('guest', 'user')),
+          owner_id TEXT NOT NULL,
+          template_version_id TEXT NOT NULL,
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          payload_sha256 TEXT NOT NULL CHECK (length(payload_sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          row_count INTEGER NOT NULL CHECK (row_count BETWEEN 1 AND 10000),
+          columns_json TEXT NOT NULL,
+          report_json TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL
+        );
+
+        CREATE INDEX personalization_datasets_owner_created_idx
+          ON personalization_datasets(owner_type, owner_id, created_at DESC);
+        CREATE INDEX personalization_datasets_expiry_idx
+          ON personalization_datasets(expires_at, id);
+
+        CREATE TABLE personalization_jobs (
+          id TEXT PRIMARY KEY,
+          owner_type TEXT NOT NULL CHECK (owner_type IN ('guest', 'user')),
+          owner_id TEXT NOT NULL,
+          dataset_id TEXT NOT NULL
+            REFERENCES personalization_datasets(id) ON DELETE CASCADE,
+          template_version_id TEXT NOT NULL,
+          status TEXT NOT NULL CHECK (
+            status IN ('queued', 'running', 'completed', 'failed', 'cancelled')
+          ),
+          processed INTEGER NOT NULL CHECK (processed >= 0),
+          total INTEGER NOT NULL CHECK (total BETWEEN 1 AND 10000),
+          failed INTEGER NOT NULL CHECK (failed >= 0),
+          attempt INTEGER NOT NULL CHECK (attempt BETWEEN 0 AND 3),
+          max_attempts INTEGER NOT NULL CHECK (max_attempts BETWEEN 1 AND 3),
+          idempotency_key TEXT NOT NULL,
+          output_storage_key TEXT UNIQUE,
+          output_sha256 TEXT CHECK (output_sha256 IS NULL OR length(output_sha256) = 64),
+          output_byte_size INTEGER CHECK (output_byte_size IS NULL OR output_byte_size > 0),
+          error_code TEXT,
+          created_at TEXT NOT NULL,
+          started_at TEXT,
+          completed_at TEXT,
+          updated_at TEXT NOT NULL,
+          CHECK (processed <= total),
+          CHECK (failed <= total)
+        );
+
+        CREATE INDEX personalization_jobs_owner_created_idx
+          ON personalization_jobs(owner_type, owner_id, created_at DESC);
+        CREATE INDEX personalization_jobs_status_created_idx
+          ON personalization_jobs(status, created_at);
+        CREATE INDEX personalization_jobs_dataset_idx
+          ON personalization_jobs(dataset_id, created_at);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (14, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

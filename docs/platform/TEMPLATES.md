@@ -1,6 +1,6 @@
 # Design templates and personalization
 
-Status: P2 editable templates, immutable versions, exact product compatibility, semantic text bindings, template previews, browsing, project instantiation, and the bounded bulk-CSV/variant domain are implemented. Platform-owned image assets, dataset persistence/API, and background bulk rendering remain later work.
+Status: Editable immutable templates, exact product compatibility, semantic text bindings, private platform-owned image assets, normal-project instantiation, and an owner-scoped bounded bulk-personalization lifecycle are implemented.
 
 ## Domain and invariants
 
@@ -44,6 +44,16 @@ The importer supports quoted commas, escaped quotes, CRLF, multiline quoted valu
 Each row is merged with template defaults, validated against required/max-length placeholder definitions, and nested through the explicit binding keys. Import is all-or-nothing: any structural, mapping, or row error yields no dataset. A successful `PersonalizationDataset` is tied to an immutable `templateVersionId`, carries a SHA-256 checksum and deterministic ID, and retains physical CSV row numbers for operator feedback.
 
 `personalizedTemplateVariant()` materializes one row into the same normal `DesignDocument` used everywhere else. Variant IDs are deterministic. `personalizedTemplateVariants()` is lazy, so a background job can stream a 10,000-row dataset without holding 10,000 copied documents at once. No alternate template renderer was introduced.
+
+## Durable bulk lifecycle
+
+The template browser exposes CSV upload and explicit column-to-placeholder mapping. The server reuses `importPersonalizationCsv()` and rejects the entire dataset when any row is invalid. A successful dataset is owner scoped in SQLite while its normalized values live in private object storage with an application SHA-256. Raw CSV bytes are not retained and row values are never logged.
+
+Customers may render the first three rows through the normal server preview pipeline before starting a job. Jobs are durable records with `queued`, `running`, `completed`, `failed`, and `cancelled` states, progress counters, idempotency, process-restart recovery, and at most three explicit attempts. The initial bounded runner allows two concurrent jobs and caps output at 64 MiB.
+
+The output is a private checksum-verified NDJSON bundle manifest containing deterministic variants and their ordinary `DesignDocument` values. It is not a manufacturing artifact. Creating production PDF/SVG output still requires materializing a normal immutable project revision and passing normal server preflight for each variant.
+
+Datasets and their job outputs expire after 30 days. Expired bytes are deleted before database records; owner-authorized reads fail closed. Guest dataset/job ownership transfers in the same SQLite transaction as guest project claiming, so sign-in does not orphan a bulk workflow.
 
 CSV bytes and row values are currently processed in memory and are neither persisted nor logged. An owner-scoped dataset/job API needs a privacy/retention policy, encrypted durable storage, cancellation/progress, and output lifecycle before customer upload is exposed.
 
