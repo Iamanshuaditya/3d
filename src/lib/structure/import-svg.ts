@@ -374,6 +374,8 @@ function unsupportedInlineCssReason(inline: Readonly<Record<string, string>>): s
       CSS_GEOMETRY_OR_ACTIVE_PROPERTIES.has(name) ||
       name.startsWith("animation-") ||
       name.startsWith("transition-") ||
+      name.startsWith("mask-") ||
+      name.startsWith("-webkit-mask-") ||
       name === "overflow-x" ||
       name === "overflow-y",
   );
@@ -1031,6 +1033,28 @@ export function importStructuralSvg(
     if (eventHandler) {
       throw new Error(
         `SVG event handler "${eventHandler}" is not supported as deterministic structural authority`,
+      );
+    }
+    const unsupportedTransformAttribute = ["transform-origin", "transform-box"].find(
+      (name) => attributes[name] !== undefined,
+    );
+    if (unsupportedTransformAttribute) {
+      throw new Error(
+        `SVG presentation attribute "${unsupportedTransformAttribute}" can alter structural transforms and is not supported`,
+      );
+    }
+    const conditionalAttribute = Object.keys(attributes).find((name) =>
+      [
+        "requiredextensions",
+        "requiredfeatures",
+        "requiredfonts",
+        "requiredformats",
+        "systemlanguage",
+      ].includes(name.toLowerCase()),
+    );
+    if (conditionalAttribute) {
+      throw new Error(
+        `SVG conditional-processing attribute "${conditionalAttribute}" is not supported as deterministic structural authority`,
       );
     }
     if (

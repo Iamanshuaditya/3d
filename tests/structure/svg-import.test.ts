@@ -377,6 +377,25 @@ test("SVG CSS that can hide, transform, or conditionally select authority fails 
   );
   assert.throws(
     () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="100mm" height="100mm" viewBox="0 0 100 100">
+        <line data-operation="cut" transform="rotate(90)" transform-origin="50 50"
+          x1="40" y1="50" x2="60" y2="50" />
+      </svg>`,
+      { id: "transform-origin-attribute" },
+    ),
+    /presentation attribute "transform-origin"/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" style="mask-image:url(mask.svg)" x2="10" />
+      </svg>`,
+      { id: "css-mask-image" },
+    ),
+    /CSS property "mask-image"/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
       `<?xml-stylesheet type="text/css" href="structural.css"?>
        <svg xmlns="${SVG_NS}" width="20mm" height="10mm">
          <line class="cut" data-operation="cut" x2="10" />
@@ -393,6 +412,15 @@ test("SVG CSS that can hide, transform, or conditionally select authority fails 
       { id: "conditional" },
     ),
     /active or conditional/,
+  );
+  assert.throws(
+    () => importStructuralSvg(
+      `<svg xmlns="${SVG_NS}" width="20mm" height="10mm">
+        <line data-operation="cut" systemLanguage="zz" x2="10" />
+      </svg>`,
+      { id: "conditional-attribute" },
+    ),
+    /conditional-processing attribute "systemLanguage"/,
   );
 });
 
