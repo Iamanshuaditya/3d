@@ -76,6 +76,8 @@ There is no registered flat/front-back print product yet, so none is falsely des
 
 The Burger Box capability correction is version 2. Its geometry did not change; v1 had briefly recorded progressive unfolding even though the product only opens/closes. The correction was published as a new immutable snapshot instead of rewriting v1.
 
+T-shirt, Mailer Box, and Bottle current versions are also version 2. Their geometry is unchanged; v2 publishes the first truthful editable-template capability and exact template-compatibility contract. Existing v1 projects remain pinned to v1, while the P2 fixture templates target only the new exact version/configuration identities.
+
 ## Project binding
 
 Every new project records:
@@ -91,5 +93,5 @@ Create, save validation, duplicate, and preview resolve the exact stored version
 
 - Existing registered products are static definitions; no customer option selector is shown yet.
 - Parameterized packaging providers are P5 work and must derive 2D, 3D, unfolding, and production geometry from one structure.
-- Product catalogue/resolve HTTP endpoints and admin publishing UI are P6 work.
+- Product catalogue/resolve HTTP endpoints and admin publishing UI are P6 work. Template catalogue endpoints are already exposed by P2.
 - Published version storage is implemented, but migrations between versions are deliberately absent; existing projects stay pinned unless a future explicit migration workflow is approved.

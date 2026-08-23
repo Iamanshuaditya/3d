@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 project persistence and P1 versioned product configuration are implemented on `feat/vortex-platform-p0-projects`. Template and server-production domains remain target boundaries.
+Status: P0 project persistence, P1 versioned product configuration, and P2 editable templates/personalization are implemented on `feat/vortex-platform-p0-projects`. Multi-page presentation and server-production domains remain target boundaries.
 
 ## Invariants
 
@@ -11,6 +11,8 @@ Status: P0 project persistence and P1 versioned product configuration are implem
 5. A successful project update creates a new immutable revision.
 6. Published product versions are immutable; approved production artifacts will be immutable.
 7. Public DTOs never contain filesystem paths, storage keys, or secrets.
+8. Published template versions target exact immutable product configurations.
+9. Template instantiation creates a normal project; previews and personalization never become a second design model.
 
 ## Modular-monolith boundaries
 
@@ -19,6 +21,12 @@ ProductDefinition + immutable ProductVersion + OptionSelection
                     │
                     ▼
        ResolvedProductConfiguration / ProductConfig
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+DesignTemplateVersion     blank document
+          │                   │
+          └──── instantiate ──┘
                     │
                     ▼
 DesignProject ── DesignDocument ── stable ProjectAsset references
@@ -48,6 +56,9 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Product catalogue | `ProductCatalogRepository` | SQLite definitions and immutable version snapshots |
 | Option resolution | `ProductOption`, `ProductConfigurationProvider` | Deterministic central resolver + legacy static adapter |
 | Version binding | `productVersionId`, `configurationId` | Exact-version project create/save/duplicate/preview |
+| Template catalogue | `DesignTemplateDefinition`, immutable `DesignTemplateVersion` | SQLite + checked code fixtures |
+| Personalization | explicit element binding + bounded `PersonalizationData` | Materialized into the same `DesignDocument` |
+| Template application | `TemplateService` | Exact-configuration, owner-scoped, idempotent project creation |
 
 SQLite and local filesystem storage are intentionally development/single-node adapters. The domain interfaces permit PostgreSQL and S3/R2 adapters without changing Studio or `DesignDocument`.
 
@@ -55,7 +66,7 @@ SQLite and local filesystem storage are intentionally development/single-node ad
 
 Development data defaults to `.data/`:
 
-- `.data/vortex.sqlite`: projects/revisions plus product definitions and immutable product versions.
+- `.data/vortex.sqlite`: projects/revisions plus immutable product and template catalogues.
 - `.data/objects/`: artwork and preview bytes plus content-type metadata.
 - `.data/guest-cookie-secret`: a generated local signing secret.
 
@@ -75,4 +86,4 @@ The in-memory rate limiter is a boundary, not a multi-instance production soluti
 
 ## Next boundaries
 
-P2 adds editable templates and explicit semantic bindings to the same `DesignDocument`. P3 adds page/presentation modes without equating pages to meshes. P4 moves production artifact generation behind immutable server snapshots. These extend the graph above; they do not create parallel design engines.
+P3 adds page/presentation modes without equating pages to meshes. P4 moves production artifact generation behind immutable server snapshots. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.

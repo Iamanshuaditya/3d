@@ -2,7 +2,7 @@
 
 ## Domain
 
-`DesignProject` binds a design to an immutable product version, deterministic resolved configuration, and owner. It records `productVersionId`, `configurationId`, and the validated `optionSelection`, plus a monotonic revision, lifecycle status, preview reference, and timestamps. Artwork metadata is stored separately as `ProjectAsset`; image elements carry `assetId` plus an optional runtime `src`.
+`DesignProject` binds a design to an immutable product version, deterministic resolved configuration, and owner. It records `productVersionId`, `configurationId`, the validated `optionSelection`, optional `sourceTemplateVersionId` provenance, a monotonic revision, lifecycle status, preview reference, and timestamps. Artwork metadata is stored separately as `ProjectAsset`; image elements carry `assetId` plus an optional runtime `src`.
 
 The persisted document never stores runtime `blob:` or authorized read URLs. `ProjectService.open()` hydrates a read URL for the current owner, and renderers continue consuming `src` without owning persistence concerns.
 
@@ -17,6 +17,8 @@ Opening Studio without a `project` query parameter creates a project and replace
 When options exist, the URL also carries the validated selection so the server can render the exact engine configuration before the client editor mounts. The owner-authorized project record remains authoritative; an incomplete historical URL self-corrects to the saved version and selection.
 
 Creation accepts an owner-scoped `clientRequestId`. Repeating a request—including React Strict Mode effects or a network retry—returns the existing project instead of creating an orphan. Reusing that key for a different resolved configuration fails.
+
+Template instantiation uses the same creation path after server-side exact-version compatibility, placeholder, and surface validation. The resulting project is independent customer state: later template publication cannot mutate it. Its source version is retained only for audit/provenance and survives duplication.
 
 Opening an existing project requires both the project ID and matching owner identity. A different guest receives the same not-found response as an unknown project.
 
@@ -81,3 +83,5 @@ Automated tests create a T-shirt project, upload decoded artwork, place/scale/ro
 - guest isolation.
 
 Versioning tests additionally prove that a v1 project remains editable after a structurally different v2 is published, while new projects receive v2. A schema migration test proves P0/v2-database projects reopen through the explicit `@legacy-v1` adapter.
+
+Template tests prove idempotent personalized creation, immutable template versions, provenance-preserving duplication, intentional binding detach, and text persistence after reopen. The Chrome workflow additionally verified template selection → normal project → autosave revision 2 → full reload on `tshirt@2`.
