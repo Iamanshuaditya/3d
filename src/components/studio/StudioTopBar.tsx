@@ -153,7 +153,7 @@ export function StudioTopBar({
       <button
         type="button"
         onClick={onExport}
-        disabled={exporting}
+        disabled={exporting || saveState === "loading"}
         className="flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[14px] font-semibold text-[var(--st-accent-ink)] transition-opacity hover:opacity-90 sm:px-4"
       >
         <Download className={`h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />

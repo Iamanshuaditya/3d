@@ -20,7 +20,8 @@ import { StudioToolRail, type StudioTool } from "./StudioToolRail";
 import { StudioPanel } from "./StudioPanel";
 import { StudioPreview } from "./StudioPreview";
 import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
-import { normalizePrintJob } from "@/lib/print/normalize-job";
+import { generateProductionArtifact } from "@/lib/production/client";
+import { ProjectApiError } from "@/lib/projects/client";
 import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
 
 const DesignEditor = dynamic(
@@ -241,37 +242,45 @@ export function StudioShell({
     setExporting(true);
     setExportNotice(null);
     try {
-      const job = normalizePrintJob(config, c.design);
-      const { generateProductionPdf } = await import("@/lib/print/generate-production-pdf");
-      const result = await generateProductionPdf(job);
-      const downloadBytes = result.bytes.slice();
-      const url = URL.createObjectURL(
-        new Blob([downloadBytes.buffer], { type: "application/pdf" }),
-      );
+      if (!c.projectId) throw new Error("Wait for the project to finish opening.");
+      if (!(await c.saveNow())) {
+        throw new Error("Save the current changes before generating production artwork.");
+      }
+      const artifact = await generateProductionArtifact(c.projectId);
       const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = result.fileName;
+      anchor.href = artifact.downloadUrl;
+      anchor.download = artifact.filename;
       anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 
-      const warningCount = result.report.issues.filter(
+      const warningCount = artifact.preflightReport.issues.filter(
         (issue) => issue.severity === "warning",
       ).length;
       setExportNotice({
         kind: "success",
         message: warningCount
-          ? `Production PDF downloaded after preflight with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
-          : "Production PDF downloaded. Geometry, image resolution, ICC output intent, and manufacturing paths passed preflight.",
+          ? `Immutable revision ${artifact.projectRevision} PDF stored and downloaded after preflight with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
+          : `Immutable revision ${artifact.projectRevision} PDF stored and downloaded. Geometry, artwork integrity, image resolution, ICC output intent, and manufacturing paths passed preflight.`,
       });
     } catch (error) {
+      const report = error instanceof ProjectApiError
+        ? error.details?.report as { issues?: { severity?: string; message?: string }[] } | undefined
+        : undefined;
+      const preflightMessages = report?.issues
+        ?.filter((issue) => issue.severity === "error" && issue.message)
+        .map((issue) => issue.message)
+        .slice(0, 4);
       setExportNotice({
         kind: "error",
-        message: error instanceof Error ? error.message : "Production PDF export failed.",
+        message: preflightMessages?.length
+          ? `Production preflight failed:\n${preflightMessages.join("\n")}`
+          : error instanceof Error
+            ? error.message
+            : "Production PDF export failed.",
       });
     } finally {
       setExporting(false);
     }
-  }, [c.design, config, exporting]);
+  }, [c, exporting]);
 
   // Dieline overlay comes from the same spec that generates the 3D mesh —
   // or, for onboarded products, directly from generated surface data.
