@@ -156,13 +156,34 @@ export const mailerBoxSpec: CartonSpec = {
     { id: "LID_RIGHT", rect: { x: XR, y: yLidTop, w: H, h: D }, parent: "LID_TOP", angle: 90 },
     { id: "LEFT", rect: { x: X0, y: yBase, w: H, h: D }, parent: "BASE", angle: 90 },
     { id: "RIGHT", rect: { x: XR, y: yBase, w: H, h: D }, parent: "BASE", angle: 90 },
-    { id: "DUST_BL", rect: { x: X0, y: yBack + 22, w: 0.01, h: 0.01 }, parent: "LEFT", angle: 55 },
-    { id: "DUST_BR", rect: { x: XR, y: yBack + 22, w: 0.01, h: 0.01 }, parent: "RIGHT", angle: 55 },
-    { id: "DUST_FL", rect: { x: X0, y: yFront, w: 0.01, h: 0.01 }, parent: "LEFT", angle: 55 },
-    { id: "DUST_FR", rect: { x: XR, y: yFront, w: 0.01, h: 0.01 }, parent: "RIGHT", angle: 55 },
+    // Dust flaps and the front roll-over are real board, sized from the
+    // printed contour above. They were previously 0.01mm placeholders, which
+    // meant the assembled box had no visible flaps and — more importantly —
+    // the flattened pose could not reproduce the dieline it prints from.
+    { id: "DUST_BL", rect: { x: X0, y: yBase - DUST, w: H, h: DUST }, parent: "LEFT", angle: 95 },
+    { id: "DUST_BR", rect: { x: XR, y: yBase - DUST, w: H, h: DUST }, parent: "RIGHT", angle: 95 },
+    { id: "DUST_FL", rect: { x: X0, y: yFront, w: H, h: DUST }, parent: "LEFT", angle: 95 },
+    { id: "DUST_FR", rect: { x: XR, y: yFront, w: H, h: DUST }, parent: "RIGHT", angle: 95 },
     { id: "FRONT", rect: { x: XM, y: yFront, w: W, h: H }, parent: "BASE", angle: 90 },
-    { id: "FRONT_ROLL", rect: { x: XM, y: yRoll, w: 0.01, h: 0.01 }, parent: "FRONT", angle: 178 },
+    { id: "FRONT_ROLL", rect: { x: XM, y: yRoll, w: W, h: ROLL }, parent: "FRONT", angle: 178 },
   ],
+  /**
+   * Authored unfolding sequence. A roll-end tray does not come apart in
+   * topological order — the tuck releases before the side flaps, and the dust
+   * flaps have to clear the walls before the tray can lie down — so the order
+   * is production data, not something to infer from the panel tree.
+   */
+  unfold: {
+    mode: "hinge-graph",
+    steps: [
+      { id: "open", label: "Open the lid", reverseLabel: "Close the lid", hingeIds: ["LID_TOP"], to: "open" },
+      { id: "tuck", label: "Release the tuck flap", hingeIds: ["LID_TUCK"], to: "flat" },
+      { id: "lid-flaps", label: "Unfold the lid side flaps", hingeIds: ["LID_LEFT", "LID_RIGHT"], to: "flat" },
+      { id: "lid", label: "Lay the lid flat", hingeIds: ["LID_TOP"], to: "flat" },
+      { id: "dust", label: "Unfold the dust flaps", hingeIds: ["DUST_BL", "DUST_BR", "DUST_FL", "DUST_FR", "FRONT_ROLL"], to: "flat" },
+      { id: "walls", label: "Lay the walls flat", hingeIds: ["BACK", "FRONT", "LEFT", "RIGHT"], to: "flat" },
+    ],
+  },
   dieline: {
     cuts: [path(contour, true)],
     creases: [

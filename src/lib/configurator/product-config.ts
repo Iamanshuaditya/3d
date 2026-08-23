@@ -1,4 +1,5 @@
 import type { CameraPreset, ProductConfig, SurfaceDieline } from "@/types/configurator";
+import type { ArtworkRenderMode } from "@/types/embroidery";
 import cameraProductJson from "./generated/camera-001.product.json";
 import pouch002ProductJson from "./generated/pouch-002.product.json";
 import sodaCanJson from "./generated/soda-can.product.json";
@@ -14,6 +15,7 @@ import pillBottleJson from "./generated/pill-bottle.product.json";
 import candleJarJson from "./generated/candle-jar.product.json";
 import spiceJarJson from "./generated/spice-jar.product.json";
 import waterBottleJson from "./generated/water-bottle.product.json";
+import tshirtJson from "./generated/tshirt.product.json";
 
 
 type Vec3 = [number, number, number];
@@ -40,6 +42,8 @@ function onboardedProduct(json: typeof cameraProductJson): ProductConfig {
       // Generated JSONs are typed against one sample product; dieline and
       // sections vary per layout mode, so pass them through explicitly.
       dieline: (s as { dieline?: SurfaceDieline }).dieline,
+      // Which reproduction methods this panel offers (print / embroidery).
+      renderModes: (s as { renderModes?: ArtworkRenderMode[] }).renderModes,
     })),
     camera: {
       initial: toVec3(json.camera.initial),
@@ -95,6 +99,12 @@ export const spiceJarProduct = onboardedProduct(spiceJarJson as unknown as typeo
 spiceJarProduct.hidden = HIDDEN_PRODUCT_IDS.has(spiceJarProduct.id);
 export const waterBottleProduct = onboardedProduct(waterBottleJson as unknown as typeof cameraProductJson);
 waterBottleProduct.hidden = HIDDEN_PRODUCT_IDS.has(waterBottleProduct.id);
+/**
+ * Garment SKU. Onboarded through the same pipeline as every other product —
+ * the chest print area is a face selection carved out of the shirt surface, so
+ * it is genuinely part of the cloth rather than a decal floating above it.
+ */
+export const tshirtProduct = onboardedProduct(tshirtJson as unknown as typeof cameraProductJson);
 
 
 /**
@@ -531,6 +541,7 @@ export const PRODUCTS: Record<string, ProductConfig> = {
   [candleJarProduct.id]: candleJarProduct,
   [spiceJarProduct.id]: spiceJarProduct,
   [waterBottleProduct.id]: waterBottleProduct,
+  [tshirtProduct.id]: tshirtProduct,
 };
 
 export function getProduct(id: string): ProductConfig | undefined {

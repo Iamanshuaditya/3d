@@ -1,0 +1,175 @@
+{
+  "id": "tshirt",
+  "name": "Classic T-Shirt (unisex, M)",
+  "family": "glb",
+  "modelUrl": "/models/tshirt-customizable.glb",
+  "modelYOffset": -36.3,
+  "shadowY": -36.302,
+  "materialProfile": "cotton-fabric",
+  "editableSurfaces": [
+    {
+      "id": "front-chest",
+      "label": "Front chest",
+      "meshName": "FRONT_CHEST",
+      "renderModes": [
+        "print",
+        "embroidery"
+      ],
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              1219,
+              1,
+              1219,
+              1073,
+              1,
+              1073
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              26.0,
+              26.0,
+              1194.0,
+              26.0,
+              1194.0,
+              1048.0,
+              26.0,
+              1048.0
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 1220,
+      "editorHeight": 1074,
+      "physicalWidthCm": 30.49,
+      "physicalHeightCm": 26.85,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      59.108,
+      42.22,
+      168.88
+    ],
+    "target": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "minDistance": 67.552,
+    "maxDistance": 506.641,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          8.444,
+          194.212
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          118.216,
+          59.108,
+          143.548
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          8.444,
+          -194.212
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          194.212,
+          8.444,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -185.768,
+          42.22
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-front-chest",
+        "label": "Close-up: Front chest",
+        "position": [
+          0.0,
+          15.294,
+          73.1417
+        ],
+        "target": [
+          0.0,
+          12.92,
+          8.092
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.0,
+      "reference": {
+        "extent": "y",
+        "cm": 72.6
+      },
+      "note": "modelled in centimetres; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}
