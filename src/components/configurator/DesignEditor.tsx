@@ -13,10 +13,19 @@ import {
 } from "react-konva";
 import type Konva from "konva";
 import type { DesignElement, EditableSurface, SurfaceDesign } from "@/types/configurator";
+import type { EmbroideryResult } from "@/types/embroidery";
 
 type DesignEditorProps = {
   surface: EditableSurface;
   design: SurfaceDesign;
+  /** Decoded artwork, keyed by source URL. Owned by the customizer. */
+  images: Record<string, HTMLImageElement>;
+  /**
+   * Stitched renderings, keyed by element id. When present for an element the
+   * editor draws the stitching instead of the flat asset, so the 2D canvas and
+   * the 3D texture are the same pixels — there is no separate preview path.
+   */
+  embroidery?: Record<string, EmbroideryResult>;
   selectedId: string | null;
   showGuides: boolean;
   onSelect: (id: string | null) => void;
@@ -46,54 +55,11 @@ type DesignEditorProps = {
   };
 };
 
-/** Loads element image sources into HTMLImageElements, keyed by src. */
-function useElementImages(elements: DesignElement[]) {
-  const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
-  // Tracked in a ref rather than read from `images`, so this effect never has
-  // to depend on the state it sets.
-  const requestedRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const sources = elements
-      .filter((el): el is Extract<DesignElement, { type: "image" }> => el.type === "image")
-      .map((el) => el.src);
-
-    let cancelled = false;
-    const pending = sources.filter((src) => !requestedRef.current.has(src));
-    if (!pending.length) return;
-    pending.forEach((src) => requestedRef.current.add(src));
-
-    Promise.all(
-      pending.map(
-        (src) =>
-          new Promise<[string, HTMLImageElement] | null>((resolve) => {
-            const img = new window.Image();
-            img.crossOrigin = "anonymous";
-            img.onload = () => resolve([src, img]);
-            img.onerror = () => resolve(null);
-            img.src = src;
-          }),
-      ),
-    ).then((loaded) => {
-      if (cancelled) return;
-      const next: Record<string, HTMLImageElement> = {};
-      loaded.forEach((entry) => {
-        if (entry) next[entry[0]] = entry[1];
-      });
-      if (Object.keys(next).length) setImages((prev) => ({ ...prev, ...next }));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [elements]);
-
-  return images;
-}
-
 export function DesignEditor({
   surface,
   design,
+  images,
+  embroidery,
   selectedId,
   showGuides,
   onSelect,
@@ -118,7 +84,6 @@ export function DesignEditor({
   const [scale, setScale] = useState(0.3);
 
   const { editorWidth: W, editorHeight: H } = surface;
-  const images = useElementImages(design.elements);
   const sections = useMemo(
     () =>
       (surface.sections ?? []).map((section) => ({
@@ -213,7 +178,7 @@ export function DesignEditor({
       onDirty(surface.id);
     });
     return () => cancelAnimationFrame(frame);
-  }, [H, W, design, images, onDirty, sections, surface.defaultBackground, surface.id]);
+  }, [H, W, design, images, embroidery, onDirty, sections, surface.defaultBackground, surface.id]);
 
   // Bind the transformer to the current selection.
   useEffect(() => {
@@ -350,13 +315,17 @@ export function DesignEditor({
                 };
 
                 if (el.type === "image") {
-                  const img = images[el.src];
-                  if (!img) return null;
+                  // Stitching wins when it exists; while it is still being
+                  // generated the original asset keeps the canvas populated so
+                  // the artwork never blinks out from under the customer.
+                  const stitched = embroidery?.[el.id];
+                  const source = stitched?.colour ?? images[el.src];
+                  if (!source) return null;
                   return (
                     <KonvaImage
                       key={el.id}
                       {...common}
-                      image={img}
+                      image={source}
                       width={el.width}
                       height={el.height}
                     />

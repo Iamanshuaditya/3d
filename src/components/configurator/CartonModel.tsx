@@ -1,23 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { CartonSpec } from "@/types/carton";
 import type { ProductConfig } from "@/types/configurator";
-import { applyFold, buildCartonTree } from "@/lib/configurator/carton-geometry";
+import type { HingeAngles } from "@/types/unfold";
+import {
+  applyHingeAngles,
+  buildCartonTree,
+  setDielineView,
+} from "@/lib/configurator/carton-geometry";
 
 type CartonModelProps = {
   spec: CartonSpec;
   config: ProductConfig;
   textures: Record<string, THREE.CanvasTexture | null>;
   consumeDirty: (surfaceId: string) => boolean;
-  /** 0 = flat dieline, 1 = assembled. */
-  fold: number;
-  /** 0 = lid closed, 1 = lid open. */
-  lidOpen: number;
+  /**
+   * Target pose: absolute hinge angles in degrees. Omitted hinges fall back to
+   * their assembled angle, so a product with no structural control is simply
+   * rendered assembled.
+   */
+  hingeAngles?: HingeAngles;
+  /**
+   * True once the product has reached its flat pose. Renders the blank as its
+   * printed sheet instead of as board — see `setDielineView`.
+   */
+  dielineView?: boolean;
   onSurfaceClick?: (surfaceId: string) => void;
 };
+
+/**
+ * Time constant for the exponential approach to the target pose, in seconds.
+ * Frame-rate independent: at 30fps and at 144fps the panel reaches the same
+ * angle at the same wall-clock moment.
+ */
+const HINGE_TAU = 0.16;
+const EMPTY_POSE: HingeAngles = {};
 
 function seededNoise(index: number): number {
   const value = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
@@ -29,8 +49,8 @@ export function CartonModel({
   config,
   textures,
   consumeDirty,
-  fold,
-  lidOpen,
+  hingeAngles = EMPTY_POSE,
+  dielineView = false,
   onSurfaceClick,
 }: CartonModelProps) {
   const surfaceId = config.editableSurfaces[0]?.id ?? "outside";
@@ -163,14 +183,45 @@ export function CartonModel({
     };
   }, [tree, materials]);
 
-  // Smoothly ease toward the requested fold / lid state.
-  const current = useRef({ fold: 1, lid: 0 });
+  // Structural animation is per-hinge, not one global scalar. The pose the
+  // model is *currently* showing lives here; the requested pose is a prop.
+  // Re-targeting mid-flight is therefore always safe — there is no transition
+  // object to interrupt and no accumulated value to corrupt.
+  const poseRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    // A rebuilt tree is a different set of joints; start it at rest.
+    poseRef.current = {};
+  }, [tree]);
+
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   useFrame((_, delta) => {
-    const k = Math.min(1, delta * 4.5);
-    current.current.fold += (fold - current.current.fold) * k;
-    current.current.lid += (lidOpen - current.current.lid) * k;
-    applyFold(tree, spec, current.current.fold, current.current.lid);
+    const pose = poseRef.current;
+    let maxDeviation = 0;
+    // Frame-rate independent easing; readers who prefer reduced motion get the
+    // structural change without the travel.
+    const alpha = reducedMotion ? 1 : 1 - Math.exp(-delta / HINGE_TAU);
+    for (const hinge of tree.hinges) {
+      const target = hingeAngles[hinge.id] ?? hinge.angleDeg;
+      // First frame for a joint snaps: the product must appear assembled, not
+      // animate itself together on load.
+      const currentAngle = pose[hinge.id] ?? target;
+      const stepped = currentAngle + (target - currentAngle) * alpha;
+      pose[hinge.id] = Math.abs(target - stepped) < 1e-4 ? target : stepped;
+      maxDeviation = Math.max(maxDeviation, Math.abs(target - pose[hinge.id]));
+    }
+    applyHingeAngles(tree, pose);
+    // Swap to the printed sheet only once the last fold is essentially done,
+    // so the board does not pop away at the start of the closing move.
+    setDielineView(tree, dielineView && maxDeviation < 6);
 
     /* eslint-disable react-hooks/immutability */
     if (texture && consumeDirty(surfaceId)) {

@@ -178,8 +178,9 @@ through the real editor. That's the definition of done.
     "note": "client spec / assumption flag"
   },
   "template": {"pxPerCm": 40, "minEditorPx": 480},
-  "modelYOffset": 0,
-  "materialProfile": "glossy-laminate",          // optional, this is default
+  "modelYOffset": 0,                             // camera presets are shifted by this
+  "cameraDistanceScale": 1.0,                    // optional; <1 frames tighter
+  "materialProfile": "glossy-laminate",          // or "cotton-fabric" for garments
   "layout": {                                    // optional; default separate
     "mode": "shared",
     "order": ["front", "bottom", "back"],
@@ -191,7 +192,8 @@ through the real editor. That's the definition of done.
       "select": {"by": "nodes", "nodes": ["Object_3"]},
       //   or   {"by": "faces", "node": "Mesh_0", "facesFile": "faces/body.json"}
       //   or   {"by": "faces", "node": "Mesh_0", "faces": [1,2,3]}
-      "strategy": {"type": "wrap", "axis": "y", "seam_deg": 270, "flip_u": true}
+      "strategy": {"type": "wrap", "axis": "y", "seam_deg": 270, "flip_u": true},
+      "renderModes": ["print", "embroidery"]     // optional; default is print only
       //   or   {"type": "planar", "axis": "z", "flip_u": false, "flip_v": false}
       //   or   {"type": "reuse_existing", "physicalWidthCm": 9, "physicalHeightCm": 9}
     },
