@@ -168,7 +168,7 @@ test("semantic classification is normalized and inline style wins over presentat
     <svg xmlns="${SVG_NS}" width="10mm" height="10mm" viewBox="0 0 10 10">
       <line id="mapped" stroke="#ff0000" style="stroke: rgb(0, 0, 255)" x1="0" y1="1" x2="10" y2="1" />
       <line id="authored" x1="0" y1="2" x2="10" y2="2" />
-      <line id="explicit" style="--structural-operation: perforation" x1="0" y1="3" x2="10" y2="3" />
+      <line id="explicit" style="--structural-operation: PERFORATION" x1="0" y1="3" x2="10" y2="3" />
     </svg>`;
   const { dieline } = importStructuralSvg(svg, {
     id: "classification",
@@ -229,6 +229,58 @@ test("multiple subpaths remain separate entities with stable provenance", () => 
   assert.deepEqual(dieline.entities.map(({ id }) => id), ["two-cuts-1", "two-cuts-2"]);
   assert.ok(dieline.entities.every(({ provenance }) => provenance.entityId === "two-cuts"));
   assert.ok(dieline.entities.every(({ path }) => path.closed));
+});
+
+test("nested ordinary groups preserve the nearest authored semantic layer", () => {
+  const svg = `
+    <svg xmlns="${SVG_NS}"
+      xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+      width="20mm" height="10mm" viewBox="0 0 20 10">
+      <g inkscape:groupmode="layer" inkscape:label="CUT">
+        <g id="g123"><path id="nested-cut" d="M0 0 H10 V5 H0 Z" /></g>
+      </g>
+    </svg>`;
+  const { dieline, issues } = importStructuralSvg(svg, {
+    id: "nested-layer",
+    operationMapping: { layers: { CUT: "cut" } },
+  });
+  assert.deepEqual(issues, []);
+  assert.deepEqual(dieline.entities.map(({ id, operation }) => ({ id, operation })), [
+    { id: "nested-cut", operation: "cut" },
+  ]);
+});
+
+test("display none hides an entire subtree even when a child requests inline display", () => {
+  const svg = `
+    <svg xmlns="${SVG_NS}" width="20mm" height="10mm" viewBox="0 0 20 10">
+      <g display="none">
+        <line id="must-stay-hidden" display="inline" data-operation="cut" x2="10" />
+      </g>
+      <line id="visible" data-operation="crease" y1="2" x2="10" y2="2" />
+    </svg>`;
+  const { dieline } = importStructuralSvg(svg, { id: "display-tree" });
+  assert.deepEqual(dieline.entities.map(({ id }) => id), ["visible"]);
+});
+
+test("clipped or masked structural geometry fails closed until exact clipping exists", () => {
+  const clipped = `
+    <svg xmlns="${SVG_NS}" width="20mm" height="10mm" viewBox="0 0 20 10">
+      <defs><clipPath id="half"><rect width="5" height="10" /></clipPath></defs>
+      <rect id="clipped-cut" data-operation="cut" clip-path="url(#half)" width="10" height="10" />
+    </svg>`;
+  assert.throws(
+    () => importStructuralSvg(clipped, { id: "clipped" }),
+    /exact structural clipping is not implemented/,
+  );
+
+  const masked = `
+    <svg xmlns="${SVG_NS}" width="20mm" height="10mm" viewBox="0 0 20 10">
+      <g mask="url(#fade)"><line data-operation="cut" x2="10" /></g>
+    </svg>`;
+  assert.throws(
+    () => importStructuralSvg(masked, { id: "masked" }),
+    /exact structural clipping is not implemented/,
+  );
 });
 
 test("invalid or unsupported production geometry fails instead of being silently approximated", () => {

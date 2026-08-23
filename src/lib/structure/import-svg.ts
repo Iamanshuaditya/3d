@@ -78,6 +78,8 @@ type SvgStyle = Readonly<{
   display?: string;
   visibility?: string;
   operation?: string;
+  clipPath?: string;
+  mask?: string;
 }>;
 
 type ElementFrame = Readonly<{
@@ -86,6 +88,8 @@ type ElementFrame = Readonly<{
   style: SvgStyle;
   layerName?: string;
   ignored: boolean;
+  displayNone: boolean;
+  unsupportedClip: boolean;
 }>;
 
 type RootGeometry = Readonly<{
@@ -321,14 +325,24 @@ function mergedStyle(parent: SvgStyle, attributes: Record<string, string>): SvgS
   return {
     stroke: property("stroke") ?? parent.stroke,
     fill: property("fill") ?? parent.fill,
-    display: property("display") ?? parent.display,
+    // `display` is not inherited. Ancestor display:none is tracked by the
+    // element frame because descendants cannot override a hidden subtree.
+    display: property("display"),
     visibility: property("visibility") ?? parent.visibility,
     operation:
       attributes["data-operation"] ??
       attributes.operation ??
       inline["--structural-operation"] ??
       parent.operation,
+    clipPath: property("clip-path"),
+    mask: property("mask"),
   };
+}
+
+function normalizeExplicitOperation(value: string | undefined): StructuralOperation | null {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  return isStructuralOperation(normalized) ? normalized : null;
 }
 
 function normalizePaint(value: string): string {
@@ -349,9 +363,13 @@ function classifyOperation(
   layerName: string | undefined,
   mapping: SvgOperationMapping | undefined,
 ): { operation: StructuralOperation; classification: OperationClassification } | null {
-  const explicit = attributes["data-operation"] ?? attributes.operation ?? style.operation;
-  if (explicit && isStructuralOperation(explicit)) {
-    return { operation: explicit, classification: { method: "explicit", sourceValue: explicit, confidence: 1 } };
+  const explicitSource = attributes["data-operation"] ?? attributes.operation ?? style.operation;
+  const explicit = normalizeExplicitOperation(explicitSource);
+  if (explicit) {
+    return {
+      operation: explicit,
+      classification: { method: "explicit", sourceValue: explicitSource?.trim(), confidence: 1 },
+    };
   }
   const id = attributes.id;
   if (id) {
@@ -776,11 +794,30 @@ function shapeSubpaths(
   }
 }
 
-function layerLabel(tag: SaxesTagNS, attributes: Record<string, string>): string | undefined {
+function namespacedAttribute(tag: SaxesTagNS, namespace: string, localName: string): string | undefined {
   for (const attribute of Object.values(tag.attributes)) {
-    if (attribute.local === "label" && attribute.uri === INKSCAPE_NAMESPACE) return attribute.value;
+    if (attribute.local === localName && attribute.uri === namespace) return attribute.value;
   }
-  return attributes["inkscape:label"] ?? attributes["data-layer"] ?? attributes.id;
+  return undefined;
+}
+
+function layerLabel(
+  tag: SaxesTagNS,
+  attributes: Record<string, string>,
+  parentLayerName: string | undefined,
+): string | undefined {
+  const inkscapeGroupMode =
+    namespacedAttribute(tag, INKSCAPE_NAMESPACE, "groupmode") ?? attributes["inkscape:groupmode"];
+  const inkscapeLabel =
+    namespacedAttribute(tag, INKSCAPE_NAMESPACE, "label") ?? attributes["inkscape:label"];
+  if (inkscapeGroupMode?.trim().toLowerCase() === "layer") {
+    return inkscapeLabel ?? attributes.id;
+  }
+  if (attributes["data-layer"]) return attributes["data-layer"];
+  // Many simple CAD SVGs use one top-level group id as a layer. Never let an
+  // ordinary nested subgroup id erase an already-established semantic layer.
+  if (!parentLayerName) return attributes.id;
+  return undefined;
 }
 
 function metadataAttributes(attributes: Record<string, string>): Readonly<Record<string, SourceMetadataValue>> {
@@ -842,12 +879,28 @@ export function importStructuralSvg(
     const sourceTransform = multiplyAffine(inheritedSourceTransform, ownTransform);
     const style = mergedStyle(parent?.style ?? {}, attributes);
     const layerName = localName === "g"
-      ? layerLabel(tag, attributes) ?? parent?.layerName
+      ? layerLabel(tag, attributes, parent?.layerName) ?? parent?.layerName
       : parent?.layerName;
     const ignored = Boolean(
       parent?.ignored || ["defs", "symbol", "clippath", "mask", "pattern", "marker"].includes(localName),
     );
-    frames.push({ transform, sourceTransform, style, layerName, ignored });
+    const displayNone = Boolean(parent?.displayNone || style.display?.trim().toLowerCase() === "none");
+    const clipPath = style.clipPath?.trim().toLowerCase();
+    const mask = style.mask?.trim().toLowerCase();
+    const unsupportedClip = Boolean(
+      parent?.unsupportedClip ||
+      (clipPath && clipPath !== "none") ||
+      (mask && mask !== "none"),
+    );
+    frames.push({
+      transform,
+      sourceTransform,
+      style,
+      layerName,
+      ignored,
+      displayNone,
+      unsupportedClip,
+    });
 
     if (localName === "style") {
       issues.push({
@@ -881,11 +934,18 @@ export function importStructuralSvg(
       });
       return;
     }
-    if (style.display === "none" || style.visibility === "hidden") return;
+    if (displayNone || ["hidden", "collapse"].includes(style.visibility?.trim().toLowerCase() ?? "")) {
+      return;
+    }
 
     elementIndex += 1;
     const elementId = attributes.id || `${localName}-${elementIndex}`;
     try {
+      if (unsupportedClip) {
+        throw new Error(
+          `SVG geometry "${elementId}" uses clip-path or mask; exact structural clipping is not implemented`,
+        );
+      }
       const classification = classifyOperation(attributes, style, layerName, options.operationMapping);
       if (!classification) {
         const issue: SvgImportIssue = {
