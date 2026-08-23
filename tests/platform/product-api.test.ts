@@ -60,6 +60,7 @@ test("public product DTOs omit engine, provider, and storage internals", async (
 
   assert.equal(detail.currentVersion.id, "mailer-box-001@3");
   assert.equal(detail.selectedVersion.current, true);
+  assert.equal(detail.links.quotes, "/api/v1/products/mailer-box-001/quotes");
   assert.equal(detail.capabilities.parameterizedDimensions, true);
   assert.deepEqual(
     detail.options.map((option) => option.id),
@@ -97,6 +98,7 @@ test("public resolution returns one safe authoritative mailer configuration", as
     displayUnit: "cm",
   });
   assert.deepEqual(configuration.production.formats, ["pdf", "svg"]);
+  assert.equal(configuration.links.quotes, "/api/v1/products/mailer-box-001/quotes");
   assert.match(configuration.links.studio, /^\/studio\?/);
   assert.match(configuration.links.templates, /^\/templates\?/);
   assert.equal(JSON.stringify(configuration).includes("LID_TOP"), false);
