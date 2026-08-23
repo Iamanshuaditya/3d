@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { TemplateBrowser } from "@/components/templates/TemplateBrowser";
 import { ProductOptionConfigurator } from "@/components/products/ProductOptionConfigurator";
-import { getProduct } from "@/lib/configurator/product-config";
 import { parseOptionSelection } from "@/platform/products/configuration-resolver";
 import { ProductDomainError } from "@/platform/products/errors";
 import type { OptionSelection, ResolvedProductConfiguration } from "@/platform/products/types";
@@ -20,8 +19,7 @@ export default async function TemplatesPage({
   searchParams: Promise<{ product?: string; options?: string }>;
 }) {
   const { product: productId, options: encodedOptions } = await searchParams;
-  const product = productId ? getProduct(productId) : undefined;
-  if (!product) {
+  if (!productId) {
     return (
       <main className="mx-auto max-w-xl px-6 py-24">
         <h1 className="text-2xl font-semibold text-[var(--st-text)]">Choose a product first</h1>
@@ -42,14 +40,26 @@ export default async function TemplatesPage({
   }
   let resolved: ResolvedProductConfiguration;
   try {
-    resolved = await catalog.resolve(product.id, null, selection);
+    resolved = await catalog.resolve(productId, null, selection);
   } catch (error) {
     resolutionError = error instanceof ProductDomainError
       ? error.message
       : "That product configuration could not be resolved.";
-    resolved = await catalog.resolve(product.id, null, {});
+    try {
+      resolved = await catalog.resolve(productId, null, {});
+    } catch {
+      return (
+        <main className="mx-auto max-w-xl px-6 py-24">
+          <h1 className="text-2xl font-semibold text-[var(--st-text)]">Product unavailable</h1>
+          <p className="mt-3 text-[15px] leading-6 text-[var(--st-dim)]">{resolutionError}</p>
+          <Link href="/" className="mt-5 inline-flex text-[14px] font-medium text-[var(--st-accent)]">
+            Return to product library
+          </Link>
+        </main>
+      );
+    }
   }
-  const version = await catalog.currentVersion(product.id);
+  const version = await catalog.currentVersion(productId);
   const surface = resolved.productConfig.editableSurfaces[0];
   const physicalLabel = surface
     ? `Print sheet ${(surface.physicalWidthCm * 10).toFixed(0)} × ${(surface.physicalHeightCm * 10).toFixed(0)} mm`
@@ -84,7 +94,7 @@ export default async function TemplatesPage({
       )}
       <TemplateBrowser
         key={`templates:${resolved.configurationId}`}
-        productId={product.id}
+        productId={productId}
         productName={resolved.productConfig.name}
         productVersionId={resolved.productVersionId}
         configurationId={resolved.configurationId}

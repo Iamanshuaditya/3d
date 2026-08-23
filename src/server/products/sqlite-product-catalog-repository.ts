@@ -22,11 +22,16 @@ type VersionRow = {
 };
 
 function decodeDefinition(row: DefinitionRow): ProductDefinition {
-  const definition = JSON.parse(row.definition_json) as ProductDefinition;
+  const definition = JSON.parse(row.definition_json) as ProductDefinition & {
+    visibility?: ProductDefinition["visibility"];
+  };
   return {
     ...definition,
     id: row.id,
     status: row.status,
+    // Pre-P6 rows did not persist discovery policy. Fail closed until code
+    // catalogue synchronization or an operator explicitly marks them public.
+    visibility: definition.visibility ?? "unlisted",
     currentVersionId: row.current_version_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -176,6 +181,15 @@ export class SqliteProductCatalogRepository implements ProductCatalogRepository 
       "SELECT * FROM product_definitions ORDER BY id",
     ).all() as DefinitionRow[];
     return rows.map(decodeDefinition);
+  }
+
+  async listVersions(productId: string): Promise<ProductVersion[]> {
+    const rows = this.database.prepare(`
+      SELECT * FROM product_versions
+      WHERE product_id = ?
+      ORDER BY version_number DESC, id DESC
+    `).all(productId) as VersionRow[];
+    return rows.map(decodeVersion);
   }
 
   async findVersion(productId: string, versionId: string): Promise<ProductVersion | null> {

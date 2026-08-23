@@ -90,6 +90,7 @@ export function legacyProductDefinition(config: ProductConfig): ProductDefinitio
   return {
     id: config.id,
     status: "published",
+    visibility: config.hidden ? "unlisted" : "public",
     currentVersionId: version.id,
     createdAt: LEGACY_PUBLISHED_AT,
     updatedAt: LEGACY_PUBLISHED_AT,
@@ -185,6 +186,7 @@ function currentProductDefinition(
   return {
     id: config.id,
     status: "published",
+    visibility: config.hidden ? "unlisted" : "public",
     currentVersionId: version.id,
     createdAt: LEGACY_PUBLISHED_AT,
     updatedAt: version.publishedAt,

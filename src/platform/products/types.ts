@@ -100,6 +100,8 @@ export type ProductDefinitionSnapshot = {
 export type ProductDefinition = ProductDefinitionSnapshot & {
   id: string;
   status: "draft" | "published";
+  /** Catalogue discovery policy; independent from immutable production geometry. */
+  visibility: "public" | "unlisted";
   currentVersionId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -152,6 +154,8 @@ export interface ProductConfigurationProvider {
 }
 
 export interface ProductCatalogReader {
+  listDefinitions(): Promise<ProductDefinition[]>;
+  listVersions(productId: string): Promise<ProductVersion[]>;
   currentVersion(productId: string): Promise<ProductVersion>;
   version(productId: string, versionId: string): Promise<ProductVersion>;
   definition(productId: string): Promise<ProductDefinition>;

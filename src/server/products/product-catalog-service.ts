@@ -159,6 +159,16 @@ export class ProductCatalogService implements ProductCatalogReader {
     return version;
   }
 
+  async listDefinitions(): Promise<ProductDefinition[]> {
+    await this.ensureSynchronized();
+    return this.repository.listDefinitions();
+  }
+
+  async listVersions(productId: string): Promise<ProductVersion[]> {
+    await this.ensureSynchronized();
+    return this.repository.listVersions(productId);
+  }
+
   async version(productId: string, versionId: string): Promise<ProductVersion> {
     await this.ensureSynchronized();
     const stored = await this.repository.findVersion(productId, versionId);

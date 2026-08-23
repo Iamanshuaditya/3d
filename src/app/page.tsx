@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import Link from "next/link";
-import { PRODUCTS } from "@/lib/configurator/product-config";
 import { modelFilePath, summarize } from "@/lib/configurator/product-summary";
 import { ProductGallery, type GalleryItem } from "@/components/gallery/ProductGallery";
 import { getProductCatalogService } from "@/server/products/container";
+import type { ProductConfig } from "@/types/configurator";
 
 export const metadata: Metadata = {
   title: "Product library",
@@ -24,17 +24,27 @@ function modelBytes(modelUrl: string): number | null {
 }
 
 export default async function LibraryPage() {
-  const visible = Object.values(PRODUCTS).filter((config) => !config.hidden);
+  const catalog = getProductCatalogService();
+  const visible = (await catalog.listDefinitions()).filter(
+    (definition) => definition.currentVersionId && definition.visibility === "public",
+  );
   const resolvedConfigs = await Promise.all(
-    visible.map(async (fallback) => {
+    visible.map(async (definition) => {
       try {
-        return (await getProductCatalogService().resolve(fallback.id, null, {})).productConfig;
-      } catch {
-        return fallback;
+        return (await catalog.resolve(definition.id, null, {})).productConfig;
+      } catch (error) {
+        console.warn(JSON.stringify({
+          scope: "vortex-platform",
+          event: "product.library-resolution-failed",
+          productId: definition.id,
+          message: error instanceof Error ? error.message : "Unknown error",
+        }));
+        return null;
       }
     }),
   );
-  const items: GalleryItem[] = resolvedConfigs.map((config) => ({
+  const configs = resolvedConfigs.filter((config): config is ProductConfig => Boolean(config));
+  const items: GalleryItem[] = configs.map((config) => ({
     config,
     summary: summarize(config, modelBytes(config.modelUrl)),
   }));

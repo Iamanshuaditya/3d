@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { StudioShell } from "@/components/studio/StudioShell";
-import { PRODUCTS, DEFAULT_PRODUCT_ID } from "@/lib/configurator/product-config";
+import { DEFAULT_PRODUCT_ID } from "@/lib/configurator/product-config";
 import { parseOptionSelection } from "@/platform/products/configuration-resolver";
 import { ProductDomainError } from "@/platform/products/errors";
 import type { ProductPresentationMode } from "@/platform/products/types";
-import { getProductCatalogService } from "@/server/products/container";
+import {
+  getProductApiService,
+  getProductCatalogService,
+} from "@/server/products/container";
 
 export const metadata: Metadata = {
   title: "Packaging Studio",
@@ -43,12 +46,10 @@ export default async function StudioPage({
         : "The product configuration could not be resolved.";
   }
 
-  // The switcher is driven by the registry, so adding a product to
-  // product-config.ts is enough to make it selectable here.
-  const visible = Object.values(PRODUCTS).filter((p) => !p.hidden);
-  const catalogue = visible.map((p) => ({
-    id: p.id,
-    name: config?.id === p.id ? config.name : p.name,
+  const visible = await getProductApiService().list();
+  const catalogue = visible.map((product) => ({
+    id: product.id,
+    name: config?.id === product.id ? config.name : product.name,
   }));
   if (config && !catalogue.some((entry) => entry.id === config.id)) {
     catalogue.unshift({ id: config.id, name: config.name });

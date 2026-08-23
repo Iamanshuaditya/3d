@@ -10,6 +10,7 @@ export interface ProductCatalogRepository {
   ): Promise<ProductVersion>;
   findDefinition(productId: string): Promise<ProductDefinition | null>;
   listDefinitions(): Promise<ProductDefinition[]>;
+  listVersions(productId: string): Promise<ProductVersion[]>;
   findVersion(productId: string, versionId: string): Promise<ProductVersion | null>;
   findCurrentVersion(productId: string): Promise<ProductVersion | null>;
 }
