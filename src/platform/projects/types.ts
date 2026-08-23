@@ -1,4 +1,5 @@
 import type { DesignDocument } from "@/types/configurator";
+import type { OptionSelection } from "@/platform/products/types";
 
 export type ProjectOwner =
   | { type: "guest"; id: string }
@@ -23,6 +24,8 @@ export type DesignProject = {
   title: string;
   productId: string;
   productVersionId: string;
+  configurationId: string;
+  optionSelection: OptionSelection;
   owner: ProjectOwner;
   status: ProjectStatus;
   design: DesignDocument;
@@ -59,6 +62,8 @@ export type ProjectSummaryDto = {
   title: string;
   productId: string;
   productVersionId: string;
+  configurationId: string;
+  optionSelection: OptionSelection;
   status: ProjectStatus;
   revision: number;
   previewUrl: string | null;
@@ -81,6 +86,8 @@ export type CreateProjectInput = {
   title: string;
   productId: string;
   productVersionId: string;
+  configurationId: string;
+  optionSelection: OptionSelection;
   owner: ProjectOwner;
   design: DesignDocument;
   /** Owner-scoped key that makes create retries safe. */

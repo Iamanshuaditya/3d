@@ -21,16 +21,25 @@ export async function POST(request: NextRequest) {
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ValidationError("INVALID_REQUEST", "Project request is invalid.");
     }
-    const { productId, title, clientRequestId } = body as {
+    const { productId, title, clientRequestId, optionSelection } = body as {
       productId?: unknown;
       title?: unknown;
       clientRequestId?: unknown;
+      optionSelection?: unknown;
     };
     if (typeof productId !== "string") {
       throw new ValidationError("INVALID_PRODUCT", "productId is required.");
     }
     return json(
-      { project: await getProjectService().create(owner, productId, title, clientRequestId) },
+      {
+        project: await getProjectService().create(
+          owner,
+          productId,
+          title,
+          clientRequestId,
+          optionSelection,
+        ),
+      },
       201,
     );
   });

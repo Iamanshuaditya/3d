@@ -46,10 +46,14 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
-export async function createProject(productId: string, clientRequestId: string) {
+export async function createProject(
+  productId: string,
+  clientRequestId: string,
+  optionSelection: Record<string, string | number | boolean> = {},
+) {
   const result = await requestJson<{ project: DesignProjectDto }>("/api/v1/projects", {
     method: "POST",
-    body: JSON.stringify({ productId, clientRequestId }),
+    body: JSON.stringify({ productId, clientRequestId, optionSelection }),
   });
   return result.project;
 }

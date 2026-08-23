@@ -3,7 +3,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
+import Database from "better-sqlite3";
 import sharp from "sharp";
+import { createEmptyDocument } from "@/lib/configurator/design-state";
+import { getProduct } from "@/lib/configurator/product-config";
 import { DEFAULT_EMBROIDERY } from "@/types/embroidery";
 import type { DesignDocument, ImageElement, TextElement } from "@/types/configurator";
 import { ConflictError, NotFoundError, ValidationError } from "@/platform/projects/errors";
@@ -11,6 +14,8 @@ import type { ProjectOwner } from "@/platform/projects/types";
 import { openVortexDatabase } from "@/server/persistence/database";
 import { SqliteProjectRepository } from "@/server/persistence/sqlite-project-repository";
 import { ProjectService } from "@/server/projects/project-service";
+import { ProductCatalogService } from "@/server/products/product-catalog-service";
+import { SqliteProductCatalogRepository } from "@/server/products/sqlite-product-catalog-repository";
 import { FilesystemObjectStore } from "@/server/storage/filesystem-object-store";
 
 const guest: ProjectOwner = {
@@ -260,4 +265,97 @@ test("preview caches do not change design revision or customer edit time", async
   assert.equal(preview.revision, created.revision);
   assert.equal(preview.updatedAt, created.updatedAt);
   assert.match(preview.previewUrl ?? "", /\/content$/);
+});
+
+test("schema v2 projects migrate and reopen against their legacy product version", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "vortex-v2-migration-test-"));
+  const filename = join(directory, "vortex.sqlite");
+  const oldDatabase = new Database(filename);
+  oldDatabase.exec(`
+    CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+    INSERT INTO schema_migrations VALUES (1, '2026-08-23T00:00:00.000Z');
+    INSERT INTO schema_migrations VALUES (2, '2026-08-23T00:00:01.000Z');
+
+    CREATE TABLE design_projects (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      product_id TEXT NOT NULL,
+      product_version_id TEXT NOT NULL,
+      owner_type TEXT NOT NULL,
+      owner_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      design_json TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      preview_asset_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      creation_key TEXT
+    );
+    CREATE UNIQUE INDEX design_projects_owner_creation_key_idx
+      ON design_projects(owner_type, owner_id, creation_key);
+    CREATE TABLE project_revisions (
+      project_id TEXT NOT NULL REFERENCES design_projects(id) ON DELETE CASCADE,
+      revision INTEGER NOT NULL,
+      design_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (project_id, revision)
+    );
+    CREATE TABLE project_assets (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES design_projects(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      byte_size INTEGER NOT NULL,
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      sha256 TEXT NOT NULL,
+      storage_key TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL
+    );
+  `);
+  const product = getProduct("tshirt");
+  assert.ok(product);
+  const design = createEmptyDocument(product);
+  const oldProjectId = "3d52386d-304b-419a-8a49-a6a5ed26e348";
+  const now = "2026-08-23T00:00:02.000Z";
+  oldDatabase.prepare(`
+    INSERT INTO design_projects (
+      id, title, product_id, product_version_id, owner_type, owner_id,
+      status, design_json, revision, created_at, updated_at
+    ) VALUES (?, 'Legacy shirt', 'tshirt', 'tshirt@legacy-v1', ?, ?, 'draft', ?, 1, ?, ?)
+  `).run(oldProjectId, guest.type, guest.id, JSON.stringify(design), now, now);
+  oldDatabase.prepare(`
+    INSERT INTO project_revisions(project_id, revision, design_json, created_at)
+    VALUES (?, 1, ?, ?)
+  `).run(oldProjectId, JSON.stringify(design), now);
+  oldDatabase.close();
+
+  const database = openVortexDatabase(filename);
+  const repository = new SqliteProjectRepository(database);
+  const catalog = new ProductCatalogService(new SqliteProductCatalogRepository(database));
+  const service = new ProjectService(
+    repository,
+    new FilesystemObjectStore(join(directory, "objects")),
+    undefined,
+    undefined,
+    catalog,
+  );
+  t.after(async () => {
+    database.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  const reopened = await service.open(guest, oldProjectId);
+  assert.equal(reopened.productVersionId, "tshirt@legacy-v1");
+  assert.equal(reopened.configurationId, "tshirt@legacy-v1|");
+  assert.deepEqual(reopened.optionSelection, {});
+  const saved = await service.update(guest, oldProjectId, {
+    expectedRevision: 1,
+    design: addText(reopened.design, "after migration"),
+  });
+  assert.equal(saved.revision, 2);
+
+  const current = await service.create(guest, "tshirt", "Current shirt");
+  assert.equal(current.productVersionId, "tshirt@1");
 });

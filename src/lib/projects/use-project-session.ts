@@ -26,6 +26,21 @@ type PendingSave = {
   design: DesignDocument;
 };
 
+function applyProjectLocation(url: URL, project: DesignProjectDto) {
+  url.searchParams.set("product", project.productId);
+  url.searchParams.set("project", project.id);
+  url.searchParams.set("version", project.productVersionId);
+  const optionEntries = Object.entries(project.optionSelection);
+  if (optionEntries.length) {
+    url.searchParams.set(
+      "options",
+      JSON.stringify(Object.fromEntries(optionEntries.sort(([a], [b]) => a.localeCompare(b)))),
+    );
+  } else {
+    url.searchParams.delete("options");
+  }
+}
+
 export type ProjectSession = {
   project: DesignProjectDto | null;
   projectId: string | null;
@@ -134,12 +149,25 @@ export function useProjectSession(
       try {
         let loaded = requestedProjectId
           ? await getProject(requestedProjectId)
-          : await createProject(config.id, creationKeyRef.current);
+          : await createProject(
+              config.id,
+              creationKeyRef.current,
+              config.optionSelection ?? {},
+            );
         if (cancelled) return;
         if (loaded.productId !== config.id) {
           throw new Error(
             `This project belongs to ${loaded.productId}, not the selected ${config.id} product.`,
           );
+        }
+        if (
+          (config.productVersionId && loaded.productVersionId !== config.productVersionId) ||
+          (config.configurationId && loaded.configurationId !== config.configurationId)
+        ) {
+          const url = new URL(window.location.href);
+          applyProjectLocation(url, loaded);
+          window.location.replace(url);
+          return;
         }
 
         // One-time migration for the old text-only local save. Uploaded images
@@ -168,12 +196,9 @@ export function useProjectSession(
         loadedCallbackRef.current(loaded.design);
         setSaveState("saved");
 
-        if (!requestedProjectId) {
-          const url = new URL(window.location.href);
-          url.searchParams.set("product", config.id);
-          url.searchParams.set("project", loaded.id);
-          window.history.replaceState(window.history.state, "", url);
-        }
+        const url = new URL(window.location.href);
+        applyProjectLocation(url, loaded);
+        window.history.replaceState(window.history.state, "", url);
       } catch (cause) {
         if (cancelled) return;
         setSaveState("failed");
@@ -184,7 +209,13 @@ export function useProjectSession(
     return () => {
       cancelled = true;
     };
-  }, [config.id, requestedProjectId]);
+  }, [
+    config.configurationId,
+    config.id,
+    config.optionSelection,
+    config.productVersionId,
+    requestedProjectId,
+  ]);
 
   useEffect(() => {
     if (!projectRef.current || commitSequence <= lastQueuedSequenceRef.current) return;

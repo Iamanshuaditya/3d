@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { StudioShell } from "@/components/studio/StudioShell";
-import { PRODUCTS, getProduct, DEFAULT_PRODUCT_ID } from "@/lib/configurator/product-config";
+import { PRODUCTS, DEFAULT_PRODUCT_ID } from "@/lib/configurator/product-config";
+import { parseOptionSelection } from "@/platform/products/configuration-resolver";
+import { ProductDomainError } from "@/platform/products/errors";
+import { getProductCatalogService } from "@/server/products/container";
 
 export const metadata: Metadata = {
   title: "Packaging Studio",
@@ -10,10 +13,29 @@ export const metadata: Metadata = {
 export default async function StudioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ product?: string; project?: string }>;
+  searchParams: Promise<{
+    product?: string;
+    project?: string;
+    version?: string;
+    options?: string;
+  }>;
 }) {
-  const { product, project } = await searchParams;
-  const config = getProduct(product ?? DEFAULT_PRODUCT_ID);
+  const { product, project, version, options } = await searchParams;
+  const productId = product ?? DEFAULT_PRODUCT_ID;
+  let config = null;
+  let resolutionError: string | null = null;
+  try {
+    const selection = parseOptionSelection(options ? JSON.parse(options) : {});
+    config = (
+      await getProductCatalogService().resolve(productId, version ?? null, selection)
+    ).productConfig;
+  } catch (error) {
+    resolutionError = error instanceof ProductDomainError
+      ? error.message
+      : options && error instanceof SyntaxError
+        ? "The product option selection in this URL is invalid."
+        : "The product configuration could not be resolved.";
+  }
 
   // The switcher is driven by the registry, so adding a product to
   // product-config.ts is enough to make it selectable here.
@@ -30,7 +52,7 @@ export default async function StudioPage({
           Unknown product
         </h1>
         <p className="mt-3 text-[15px] leading-[1.6] text-[var(--st-dim)]">
-          No product is registered with id &ldquo;{product}&rdquo;. Registered ids:{" "}
+          {resolutionError ?? `No product is registered with id “${productId}”.`} Registered ids:{" "}
           {catalogue.map((p) => p.id).join(", ")}.
         </p>
       </main>
@@ -41,7 +63,7 @@ export default async function StudioPage({
   // project boundary, even when both projects use the same product.
   return (
     <StudioShell
-      key={`${config.id}:${project ?? "new"}`}
+      key={`${config.id}:${config.configurationId}:${project ?? "new"}`}
       config={config}
       catalogue={catalogue}
       requestedProjectId={project ?? null}

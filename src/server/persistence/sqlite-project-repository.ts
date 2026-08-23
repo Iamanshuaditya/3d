@@ -12,12 +12,15 @@ import type {
   UpdateProjectResult,
 } from "@/platform/projects/types";
 import type { VortexDatabase } from "./database";
+import { parseOptionSelection } from "@/platform/products/configuration-resolver";
 
 type ProjectRow = {
   id: string;
   title: string;
   product_id: string;
   product_version_id: string;
+  configuration_id: string | null;
+  option_selection_json: string;
   owner_type: ProjectOwner["type"];
   owner_id: string;
   status: ProjectStatus;
@@ -48,6 +51,8 @@ function decodeProject(row: ProjectRow): DesignProject {
     title: row.title,
     productId: row.product_id,
     productVersionId: row.product_version_id,
+    configurationId: row.configuration_id ?? `${row.product_version_id}|`,
+    optionSelection: parseOptionSelection(JSON.parse(row.option_selection_json)),
     owner: { type: row.owner_type, id: row.owner_id } as ProjectOwner,
     status: row.status,
     design: JSON.parse(row.design_json) as DesignDocument,
@@ -84,15 +89,18 @@ export class SqliteProjectRepository implements ProjectRepository {
     const row = this.database.transaction(() => {
       const inserted = this.database.prepare(`
         INSERT INTO design_projects (
-          id, title, product_id, product_version_id, owner_type, owner_id,
-          status, design_json, revision, preview_asset_id, creation_key, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, 1, NULL, ?, ?, ?)
+          id, title, product_id, product_version_id, configuration_id,
+          option_selection_json, owner_type, owner_id, status, design_json,
+          revision, preview_asset_id, creation_key, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, 1, NULL, ?, ?, ?)
         ON CONFLICT(owner_type, owner_id, creation_key) DO NOTHING
       `).run(
         input.id,
         input.title,
         input.productId,
         input.productVersionId,
+        input.configurationId,
+        JSON.stringify(input.optionSelection),
         input.owner.type,
         input.owner.id,
         designJson,

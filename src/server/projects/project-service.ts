@@ -1,7 +1,18 @@
 import { createHash } from "node:crypto";
 import { createEmptyDocument } from "@/lib/configurator/design-state";
 import { getProduct } from "@/lib/configurator/product-config";
+import { legacyProductVersion } from "@/lib/configurator/product-definitions";
 import type { DesignDocument, ProductConfig } from "@/types/configurator";
+import {
+  parseOptionSelection,
+  resolveProductConfiguration,
+} from "@/platform/products/configuration-resolver";
+import { ProductDomainError } from "@/platform/products/errors";
+import type {
+  OptionSelection,
+  ProductCatalogReader,
+  ResolvedProductConfiguration,
+} from "@/platform/products/types";
 import { ConflictError, NotFoundError, ValidationError } from "@/platform/projects/errors";
 import {
   collectAssetIds,
@@ -41,10 +52,6 @@ function assetReadUrl(projectId: string, assetId: string) {
 
 function previewReadUrl(projectId: string, previewAssetId: string | null) {
   return previewAssetId ? assetReadUrl(projectId, previewAssetId) : null;
-}
-
-function legacyProductVersionId(product: ProductConfig) {
-  return `${product.id}@legacy-v1`;
 }
 
 function logEvent(event: string, values: Record<string, unknown>) {
@@ -111,7 +118,80 @@ export class ProjectService {
     private readonly objectStore: ObjectStore,
     private readonly clock: Clock = () => new Date().toISOString(),
     private readonly generateId: IdGenerator = () => crypto.randomUUID(),
+    private readonly productCatalog?: ProductCatalogReader,
   ) {}
+
+  private productError(error: unknown): never {
+    if (error instanceof ProductDomainError) {
+      throw new ValidationError(error.code, error.message, error.details);
+    }
+    throw error;
+  }
+
+  private async resolveConfiguration(
+    productId: string,
+    versionId: string | null,
+    input: unknown,
+  ): Promise<ResolvedProductConfiguration> {
+    let selection: OptionSelection;
+    try {
+      selection = parseOptionSelection(input);
+      if (this.productCatalog) return await this.productCatalog.resolve(productId, versionId, selection);
+      const product = getProduct(productId);
+      if (!product) {
+        throw new ProductDomainError("UNKNOWN_PRODUCT", "That product is not registered.");
+      }
+      if (Object.keys(selection).length) {
+        throw new ProductDomainError(
+          "UNKNOWN_OPTION",
+          "The compatibility product does not define configurable options.",
+        );
+      }
+      const legacyId = versionId ?? `${product.id}@legacy-v1`;
+      const version = {
+        ...legacyProductVersion(product, 1),
+        id: legacyId,
+        resolution: {
+          kind: "static" as const,
+          productConfig: { ...structuredClone(product), productVersionId: legacyId },
+        },
+      };
+      return resolveProductConfiguration(version);
+    } catch (error) {
+      return this.productError(error);
+    }
+  }
+
+  private async configurationForProject(project: DesignProject) {
+    const resolved = await this.resolveConfiguration(
+      project.productId,
+      project.productVersionId,
+      project.optionSelection,
+    );
+    if (resolved.configurationId !== project.configurationId) {
+      throw new ValidationError(
+        "PROJECT_CONFIGURATION_MISMATCH",
+        "The project configuration does not match its immutable product version.",
+      );
+    }
+    return resolved;
+  }
+
+  private summaryDto(project: DesignProject): ProjectSummaryDto {
+    return {
+      id: project.id,
+      title: project.title,
+      productId: project.productId,
+      productVersionId: project.productVersionId,
+      configurationId: project.configurationId,
+      optionSelection: { ...project.optionSelection },
+      status: project.status,
+      revision: project.revision,
+      previewUrl: previewReadUrl(project.id, project.previewAssetId),
+      createdAt: project.createdAt,
+      updatedAt: project.updatedAt,
+    };
+  }
 
   private assetDto(asset: ProjectAsset): ProjectAssetDto {
     const publicAsset: Omit<ProjectAsset, "storageKey"> = {
@@ -149,9 +229,10 @@ export class ProjectService {
     productId: string,
     title?: unknown,
     creationKey?: unknown,
+    optionSelection?: unknown,
   ): Promise<DesignProjectDto> {
-    const product = getProduct(productId);
-    if (!product) throw new ValidationError("UNKNOWN_PRODUCT", "That product is not registered.");
+    const resolved = await this.resolveConfiguration(productId, null, optionSelection);
+    const product = resolved.productConfig;
     if (
       creationKey !== undefined &&
       (typeof creationKey !== "string" ||
@@ -169,13 +250,18 @@ export class ProjectService {
       id: this.generateId(),
       title: normalizeProjectTitle(title, product.name),
       productId: product.id,
-      productVersionId: legacyProductVersionId(product),
+      productVersionId: resolved.productVersionId,
+      configurationId: resolved.configurationId,
+      optionSelection: resolved.selection,
       owner,
       design: createEmptyDocument(product),
       creationKey: creationKey as string | undefined,
       now,
     });
-    if (project.productId !== product.id) {
+    if (
+      project.productId !== product.id ||
+      project.configurationId !== resolved.configurationId
+    ) {
       throw new ValidationError(
         "CREATION_KEY_REUSED",
         "That clientRequestId was already used for another product.",
@@ -193,17 +279,7 @@ export class ProjectService {
 
   async list(owner: ProjectOwner): Promise<ProjectSummaryDto[]> {
     const projects = await this.repository.list(owner);
-    return projects.map((project) => ({
-      id: project.id,
-      title: project.title,
-      productId: project.productId,
-      productVersionId: project.productVersionId,
-      status: project.status,
-      revision: project.revision,
-      previewUrl: previewReadUrl(project.id, project.previewAssetId),
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-    }));
+    return projects.map((project) => this.summaryDto(project));
   }
 
   async update(
@@ -219,8 +295,7 @@ export class ProjectService {
     if (existing.status === "archived") {
       throw new ValidationError("PROJECT_ARCHIVED", "An archived project cannot be edited.");
     }
-    const product = getProduct(existing.productId);
-    if (!product) throw new ValidationError("UNKNOWN_PRODUCT", "The project product is unavailable.");
+    const product = (await this.configurationForProject(existing)).productConfig;
     const parsed = parseDesignDocument(request.design);
     if (parsed.productId !== existing.productId) {
       throw new ValidationError("PRODUCT_MISMATCH", "The design belongs to a different product.");
@@ -317,8 +392,7 @@ export class ProjectService {
   async duplicate(owner: ProjectOwner, sourceId: string): Promise<DesignProjectDto> {
     const source = await this.repository.findById(sourceId, owner);
     if (!source) throw new NotFoundError("Project not found.");
-    const product = getProduct(source.productId);
-    if (!product) throw new ValidationError("UNKNOWN_PRODUCT", "The project product is unavailable.");
+    const product = (await this.configurationForProject(source)).productConfig;
 
     const destinationId = this.generateId();
     const sourceAssets = (await this.repository.listAssets(sourceId, owner)).filter(
@@ -347,6 +421,8 @@ export class ProjectService {
         title: normalizeProjectTitle(`${source.title.slice(0, 115)} copy`, product.name),
         productId: source.productId,
         productVersionId: source.productVersionId,
+        configurationId: source.configurationId,
+        optionSelection: source.optionSelection,
         owner,
         design,
         now: this.clock(),
@@ -372,8 +448,7 @@ export class ProjectService {
   async generatePreview(owner: ProjectOwner, id: string): Promise<ProjectSummaryDto> {
     const project = await this.repository.findById(id, owner);
     if (!project) throw new NotFoundError("Project not found.");
-    const product = getProduct(project.productId);
-    if (!product) throw new ValidationError("UNKNOWN_PRODUCT", "The project product is unavailable.");
+    const product = (await this.configurationForProject(project)).productConfig;
     const assets = await this.repository.listAssets(id, owner);
     const rendered = await renderProjectPreview(project, product, assets, this.objectStore);
     const assetId = this.generateId();
@@ -410,17 +485,7 @@ export class ProjectService {
     const updated = await this.repository.findById(id, owner);
     if (!updated) throw new NotFoundError("Project not found.");
     logEvent("project.preview-generated", { projectId: id, revision: project.revision });
-    return {
-      id: updated.id,
-      title: updated.title,
-      productId: updated.productId,
-      productVersionId: updated.productVersionId,
-      status: updated.status,
-      revision: updated.revision,
-      previewUrl: previewReadUrl(updated.id, updated.previewAssetId),
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
+    return this.summaryDto(updated);
   }
 
   /** Called by a future authenticated session adapter after successful login. */
