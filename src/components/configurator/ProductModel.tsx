@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useCubeTexture, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { ProductConfig, ValidationResult } from "@/types/configurator";
 import { validateProductModel, inspectScene, type SceneDebugInfo } from "@/lib/configurator/model-validator";
 import { createFabricMaterial, createWeaveBumpTexture } from "@/lib/configurator/fabric-material";
+import type { HingeAngles } from "@/types/unfold";
+import {
+  applyGlbHingeAngles,
+  rigGlbArticulation,
+  type GlbArticulationRig,
+} from "@/lib/configurator/glb-articulation";
+import { stepPose } from "@/lib/configurator/hinge-animation";
 
 type SurfaceTextures = Record<string, THREE.CanvasTexture | null>;
 
@@ -25,6 +32,11 @@ type ProductModelProps = {
   materialTextures?: SurfaceMaterialTextures;
   /** Returns true once per changed frame; drives needsUpdate. */
   consumeDirty: (surfaceId: string) => boolean;
+  /**
+   * Structural pose for a GLB that declares articulation. Absent, or absent
+   * from the config, and the model renders exactly at its authored rest pose.
+   */
+  hingeAngles?: HingeAngles;
   onValidated: (result: ValidationResult, debug: SceneDebugInfo[]) => void;
   onSurfaceClick?: (surfaceId: string) => void;
   highlightedMeshName?: string | null;
@@ -36,6 +48,8 @@ const VISTAPRINT_POUCH_REFLECTION_FACES = Array(6).fill(
   "vistaprint-pouch-reflection.jpg",
 ) as [string, string, string, string, string, string];
 
+const EMPTY_POSE: HingeAngles = {};
+
 function meshNamesFor(surface: ProductConfig["editableSurfaces"][number]) {
   return surface.meshNames?.length ? surface.meshNames : [surface.meshName];
 }
@@ -45,6 +59,7 @@ export function ProductModel({
   textures,
   materialTextures,
   consumeDirty,
+  hingeAngles = EMPTY_POSE,
   onValidated,
   onSurfaceClick,
   highlightedMeshName = null,
@@ -215,6 +230,60 @@ export function ProductModel({
       material.color.setHex(meshName === highlightedMeshName ? 0xffff4d : 0xffffff);
     }
   }, [highlightedMeshName, model, textures]);
+
+  // ---- Authored articulation -------------------------------------------------
+  // A GLB carries no structural information, so a hinge graph has to be
+  // declared alongside it.
+  //
+  // The rig is built INSIDE the effect, not in a memo. Rigging mutates the
+  // scene graph, and under StrictMode an effect runs mount -> cleanup -> mount:
+  // a memo-built rig would be un-rigged by that cleanup and never rebuilt,
+  // leaving `applyGlbHingeAngles` rotating groups that are no longer in the
+  // scene — the product would render correctly and simply refuse to move. Same
+  // hazard the material effect above documents.
+  const articulation = config.articulation;
+  const rigRef = useRef<GlbArticulationRig | null>(null);
+  const poseRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!articulation || articulation.mode !== "glb-nodes" || !articulation.hinges.length) {
+      return;
+    }
+    // Rig the CLONE, so the cached source scene drei hands every mount is
+    // never touched.
+    const rig = rigGlbArticulation(model, articulation);
+    rigRef.current = rig;
+    poseRef.current = {};
+    return () => {
+      rig.dispose();
+      rigRef.current = null;
+    };
+  }, [model, articulation]);
+
+  const [reducedMotion, setReducedMotion] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useFrame((_, delta) => {
+    const rig = rigRef.current;
+    if (!rig) return;
+    stepPose(
+      poseRef.current,
+      rig.bindings.map((binding) => ({
+        id: binding.id,
+        restAngleDeg: binding.assembledAngleDeg,
+      })),
+      hingeAngles,
+      delta,
+      reducedMotion,
+    );
+    applyGlbHingeAngles(rig, poseRef.current);
+  });
 
   // The live-preview heartbeat: upload only when the 2D canvas actually changed.
   // `needsUpdate` is three.js's required re-upload signal and must be written on

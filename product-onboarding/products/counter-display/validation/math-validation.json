@@ -1,0 +1,190 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "back-panel: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "back-panel: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "back-panel: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=1.000"
+    },
+    {
+      "check": "back-panel: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "back-panel: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "back-panel: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "back-panel: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "back-panel: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "back-panel: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "back-panel: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=0.0000"
+    },
+    {
+      "check": "back-panel: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=4.00000"
+    },
+    {
+      "check": "back-panel: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "header-card: TEXCOORD_0 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "header-card: UV in [0,1]",
+      "ok": true,
+      "detail": "range u[0.000,1.000] v[0.000,1.000]"
+    },
+    {
+      "check": "header-card: overlap low",
+      "ok": true,
+      "detail": "overlap=0.000 coverage=1.000"
+    },
+    {
+      "check": "header-card: strategy reproducible",
+      "ok": true,
+      "detail": "p99.5_uv_err=0.00000"
+    },
+    {
+      "check": "header-card: probe (0.15, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.15))"
+    },
+    {
+      "check": "header-card: probe (0.85, 0.15) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.15))"
+    },
+    {
+      "check": "header-card: probe (0.5, 0.5) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.5), np.float64(0.5))"
+    },
+    {
+      "check": "header-card: probe (0.15, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.15), np.float64(0.85))"
+    },
+    {
+      "check": "header-card: probe (0.85, 0.85) maps to 3D",
+      "ok": true,
+      "detail": "landed at (np.float64(0.85), np.float64(0.85))"
+    },
+    {
+      "check": "header-card: planar probes stay on plate",
+      "ok": true,
+      "detail": "spread=1.6009"
+    },
+    {
+      "check": "header-card: not mirrored (chirality)",
+      "ok": true,
+      "detail": "dot(step,right)=4.53860"
+    },
+    {
+      "check": "header-card: TEXCOORD_1 present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "structure: node BASE preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "structure: node BACK_BOARD preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "structure: node WING_RIGHT_BOARD preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "structure: node WING_LEFT_BOARD preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "structure: node HEADER_BOARD preserved",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[back-panel]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[back-panel]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[back-panel]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[back-panel]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    },
+    {
+      "check": "dieline[header-card]: present",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[header-card]: all paths inside canvas",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[header-card]: paths are smooth (<=120 pts)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "check": "dieline[header-card]: safety outlines present per region",
+      "ok": true,
+      "detail": "1 outlines for 1 region(s)"
+    }
+  ]
+}

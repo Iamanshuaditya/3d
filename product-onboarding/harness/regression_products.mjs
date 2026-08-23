@@ -20,6 +20,7 @@ const PRODUCTS = [
   ["pouch-002", "onboarded GLB (shared web)"],
   ["bottle-001", "hand-authored GLB"],
   ["tshirt", "garment (cotton fabric, embroidery capable)"],
+  ["counter-display", "articulated GLB (authored hinge graph)"],
 ];
 
 const browser = await chromium.launch({ channel: "chrome", headless: true });

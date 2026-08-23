@@ -1,0 +1,329 @@
+{
+  "id": "counter-display",
+  "name": "Folding Counter Display",
+  "family": "glb",
+  "modelUrl": "/models/counter-display-customizable.glb",
+  "modelYOffset": -21.09,
+  "shadowY": -21.092,
+  "materialProfile": "standard",
+  "articulation": {
+    "mode": "glb-nodes",
+    "hinges": [
+      {
+        "nodeName": "BACK",
+        "parentNodeName": null,
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "pivot": [
+          0.0,
+          0.4,
+          -8.0
+        ],
+        "assembledAngleDeg": 0,
+        "flatAngleDeg": -90
+      },
+      {
+        "nodeName": "HEADER",
+        "parentNodeName": "BACK",
+        "axis": [
+          1,
+          0,
+          0
+        ],
+        "pivot": [
+          0.0,
+          30.4,
+          -7.8
+        ],
+        "assembledAngleDeg": 0,
+        "flatAngleDeg": -12.0
+      },
+      {
+        "nodeName": "WING_LEFT",
+        "parentNodeName": "BACK",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "pivot": [
+          -13.0,
+          15.4,
+          -7.8
+        ],
+        "assembledAngleDeg": 0,
+        "flatAngleDeg": -55.0
+      },
+      {
+        "nodeName": "WING_RIGHT",
+        "parentNodeName": "BACK",
+        "axis": [
+          0,
+          1,
+          0
+        ],
+        "pivot": [
+          13.0,
+          15.4,
+          -7.8
+        ],
+        "assembledAngleDeg": 0,
+        "flatAngleDeg": 55.0
+      }
+    ],
+    "sequence": [
+      {
+        "id": "header",
+        "label": "Fold the header down",
+        "hingeIds": [
+          "HEADER"
+        ],
+        "to": "flat"
+      },
+      {
+        "id": "wings",
+        "label": "Fold in the side wings",
+        "hingeIds": [
+          "WING_LEFT",
+          "WING_RIGHT"
+        ],
+        "to": "flat"
+      },
+      {
+        "id": "back",
+        "label": "Lay the display flat",
+        "hingeIds": [
+          "BACK"
+        ],
+        "to": "flat"
+      }
+    ]
+  },
+  "editableSurfaces": [
+    {
+      "id": "back-panel",
+      "label": "Back panel",
+      "meshName": "BACK_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              599,
+              1,
+              599,
+              695,
+              1,
+              695
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              21.0,
+              21.0,
+              579.0,
+              21.0,
+              579.0,
+              675.0,
+              21.0,
+              675.0
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 600,
+      "editorHeight": 696,
+      "physicalWidthCm": 25.0,
+      "physicalHeightCm": 29.0,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    },
+    {
+      "id": "header-card",
+      "label": "Header card",
+      "meshName": "HEADER_PRINT",
+      "dieline": {
+        "cuts": [
+          {
+            "points": [
+              1,
+              1,
+              695,
+              1,
+              695,
+              257,
+              1,
+              257
+            ],
+            "closed": true
+          }
+        ],
+        "creases": [],
+        "safety": [
+          {
+            "points": [
+              9.0,
+              9.0,
+              687.0,
+              9.0,
+              687.0,
+              249.0,
+              9.0,
+              249.0
+            ],
+            "closed": true
+          }
+        ]
+      },
+      "editorWidth": 696,
+      "editorHeight": 258,
+      "physicalWidthCm": 29.0,
+      "physicalHeightCm": 10.76,
+      "displayUnit": "cm",
+      "defaultBackground": "#ffffff",
+      "guides": {
+        "bleed": 12,
+        "safeArea": 32
+      }
+    }
+  ],
+  "camera": {
+    "initial": [
+      43.903,
+      31.359,
+      125.437
+    ],
+    "target": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "minDistance": 50.175,
+    "maxDistance": 376.31,
+    "presets": [
+      {
+        "id": "front",
+        "label": "Front",
+        "position": [
+          0.0,
+          6.272,
+          144.252
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "angle",
+        "label": "3/4",
+        "position": [
+          87.806,
+          43.903,
+          106.621
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "back",
+        "label": "Back",
+        "position": [
+          0.0,
+          6.272,
+          -144.252
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "side",
+        "label": "Side",
+        "position": [
+          144.252,
+          6.272,
+          0.0
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "bottom",
+        "label": "Bottom",
+        "position": [
+          0.0,
+          -137.981,
+          31.359
+        ],
+        "target": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "closeup-back-panel",
+        "label": "Close-up: Back panel",
+        "position": [
+          0.0,
+          -5.69,
+          53.6914
+        ],
+        "target": [
+          0.0,
+          -5.69,
+          -7.57
+        ]
+      },
+      {
+        "id": "closeup-header-card",
+        "label": "Close-up: Header card",
+        "position": [
+          0.0,
+          4.813,
+          42.2138
+        ],
+        "target": [
+          0.0,
+          15.131,
+          -6.3276
+        ]
+      }
+    ]
+  },
+  "metadata": {
+    "generatedBy": "product-onboarding",
+    "uvContract": "TEXCOORD_0 = customization, TEXCOORD_1 = original. glTF drops UV names; channel order IS the contract. Region UVs occupy uv.rect within their surface canvas.",
+    "physical": {
+      "cmPerUnit": 1.00002,
+      "reference": {
+        "extent": "y",
+        "cm": 42.18
+      },
+      "note": "modelled in centimetres; reference equals measured extent (cmPerUnit=1)"
+    }
+  }
+}

@@ -2,6 +2,7 @@ import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import type { UnfoldPlan } from "@/types/unfold";
 import { CARTONS } from "./carton-spec";
 import { cartonUnfoldPlan } from "./unfold-plan";
+import { glbUnfoldPlan } from "./glb-articulation";
 
 /**
  * What a product can DO, as opposed to what it looks like.
@@ -31,24 +32,34 @@ export function resolveProductPresentation(config: ProductConfig): ProductPresen
   if (config.family === "folded-carton") {
     const spec = CARTONS[config.cartonSpecId ?? ""];
     if (!spec) return { mode: "static" };
-    const plan = cartonUnfoldPlan(spec);
-    if (!plan || !plan.steps.length) return { mode: "static" };
-    return plan.reachesFlat
-      ? { mode: "progressive-unfold", plan }
-      : { mode: "open-close", plan };
+    return classify(cartonUnfoldPlan(spec));
   }
 
   if (config.articulation) {
-    return {
-      mode: "unsupported",
-      reason:
-        `Product "${config.id}" declares "${config.articulation.mode}" articulation. ` +
-        `Driving authored GLB node hinges is not implemented yet — an arbitrary ` +
-        `GLB carries no structural information, so it cannot be unfolded without one.`,
-    };
+    if (config.articulation.mode !== "glb-nodes") {
+      return {
+        mode: "unsupported",
+        reason:
+          `Product "${config.id}" declares "${config.articulation.mode}" articulation, ` +
+          `which has no runtime driver.`,
+      };
+    }
+    return classify(glbUnfoldPlan(config.articulation));
   }
 
   return { mode: "static" };
+}
+
+/**
+ * A plan becomes a toggle only when there is genuinely one thing to toggle.
+ * Anything with more than one stage gets the stepped control, whether or not
+ * it ends flat — a hinged case that opens and then folds out an easel has two
+ * meaningful stages and should say so.
+ */
+function classify(plan: UnfoldPlan | null): ProductPresentation {
+  if (!plan || !plan.steps.length) return { mode: "static" };
+  if (plan.steps.length === 1 && !plan.reachesFlat) return { mode: "open-close", plan };
+  return { mode: "progressive-unfold", plan };
 }
 
 /** Convenience predicate for callers that only care whether a control shows. */

@@ -151,10 +151,20 @@ test("presentation is derived per product, and non-articulated products get no c
   }
 });
 
-test("declared-but-undriveable GLB articulation is reported, not silently dropped", () => {
+test("an articulation mode with no runtime driver is reported, not silently dropped", () => {
+  const presentation = resolveProductPresentation({
+    ...PRODUCTS["mug"],
+    // Deliberately not "glb-nodes": that one is driven now, so this stands in
+    // for whatever contract gets added next.
+    articulation: { mode: "skinned-rig", hinges: [] } as never,
+  });
+  assert.equal(presentation.mode, "unsupported");
+});
+
+test("a GLB that declares articulation but no hinges stays static", () => {
   const presentation = resolveProductPresentation({
     ...PRODUCTS["mug"],
     articulation: { mode: "glb-nodes", hinges: [] },
   });
-  assert.equal(presentation.mode, "unsupported");
+  assert.equal(presentation.mode, "static");
 });

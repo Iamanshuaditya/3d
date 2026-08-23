@@ -89,19 +89,33 @@ export function StudioShell({ config, catalogue }: StudioShellProps) {
   const unfold = useUnfold(unfoldPlan);
   const [pendingPreset, setPendingPreset] = useState<CameraPreset | null>(null);
   const wasFlatRef = useRef(false);
+  const movedCameraRef = useRef(false);
 
-  // Reaching the flat pose is the moment the 3D view and the 2D dieline show
-  // the same thing, so the camera moves overhead to say so. Leaving it
-  // restores the product's own framing.
+  /**
+   * Reaching the flat pose is the moment a carton's 3D view and its 2D dieline
+   * show the same thing, so the camera moves to say so — and moves back when
+   * the product folds up again.
+   *
+   * Only cartons get that: their flat pose IS the printed sheet, at a known
+   * size. An articulated GLB folds flat too, but into a flat-packed product
+   * rather than a dieline, and the runtime does not know its flat extent — so
+   * it keeps the product camera, and the restore is skipped rather than
+   * yanking a view the customer may have orbited themselves.
+   */
   useEffect(() => {
     const isFlat = Boolean(unfold.status?.isFlat);
     if (isFlat === wasFlatRef.current) return;
     wasFlatRef.current = isFlat;
+
     if (isFlat) {
       const spec = CARTONS[config.cartonSpecId ?? ""];
-      if (spec) setPendingPreset(dielineCameraPreset(config, spec.width, spec.height));
+      if (!spec) return;
+      movedCameraRef.current = true;
+      setPendingPreset(dielineCameraPreset(config, spec.width, spec.height));
       return;
     }
+    if (!movedCameraRef.current) return;
+    movedCameraRef.current = false;
     setPendingPreset(defaultCameraPreset(config));
   }, [config, unfold.status?.isFlat]);
 
