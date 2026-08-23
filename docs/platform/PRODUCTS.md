@@ -1,6 +1,6 @@
 # Product domain
 
-Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. No registered customer product currently exposes dynamic options; that remains intentional until a provider can truthfully update every affected physical and production contract.
+Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. P3 now uses the resolved version's presentation mode and explicit surface navigation semantics. No registered customer product currently exposes dynamic options; that remains intentional until a provider can truthfully update every affected physical and production contract.
 
 ## Domain separation
 
@@ -89,9 +89,16 @@ Every new project records:
 
 Create, save validation, duplicate, and preview resolve the exact stored version and selection. Studio URLs carry version/selection provenance for server rendering and self-correct from the owner-authorized project DTO when an older link omits it. P0 rows using `<productId>@legacy-v1` remain resolvable through a narrow compatibility path.
 
+## Presentation and surface roles
+
+`ProductVersion.presentation.mode` now drives Studio composition through `resolveStudioPresentation()`. Optional `EditableSurface.presentation` declares customer navigation as page, print area, or continuous production web. A page references one existing `SurfaceDesign`; mesh mappings remain a separate renderer concern.
+
+Legacy configs remain source-compatible. Section-bearing packaging surfaces are inferred as continuous webs and other surfaces as print areas. Pages are never guessed. Adding authored page roles, page order, or new surfaces to a published product requires a new immutable product version. See `PRESENTATION.md` for the full contract.
+
 ## Remaining P1 limits
 
 - Existing registered products are static definitions; no customer option selector is shown yet.
+- No current registered product supplies explicit front/back page metadata; the P3 contract has synthetic coverage until a real flat SKU is onboarded.
 - Parameterized packaging providers are P5 work and must derive 2D, 3D, unfolding, and production geometry from one structure.
 - Product catalogue/resolve HTTP endpoints and admin publishing UI are P6 work. Template catalogue endpoints are already exposed by P2.
 - Published version storage is implemented, but migrations between versions are deliberately absent; existing projects stay pinned unless a future explicit migration workflow is approved.

@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 project persistence, P1 versioned product configuration, and P2 editable templates/personalization are implemented on `feat/vortex-platform-p0-projects`. Multi-page presentation and server-production domains remain target boundaries.
+Status: P0 project persistence, P1 versioned product configuration, P2 editable templates/personalization, and P3 page-aware Studio presentation are implemented on `feat/vortex-platform-p0-projects`. Server production remains the next target boundary.
 
 ## Invariants
 
@@ -13,6 +13,8 @@ Status: P0 project persistence, P1 versioned product configuration, and P2 edita
 7. Public DTOs never contain filesystem paths, storage keys, or secrets.
 8. Published template versions target exact immutable product configurations.
 9. Template instantiation creates a normal project; previews and personalization never become a second design model.
+10. A page is navigation metadata referencing an editable surface; it is not a mesh or a second design document.
+11. Studio Preview reads live design state. It is not an immutable production artifact.
 
 ## Modular-monolith boundaries
 
@@ -31,8 +33,9 @@ DesignTemplateVersion     blank document
                     ▼
 DesignProject ── DesignDocument ── stable ProjectAsset references
       │                 │
-      │                 ├── 2D editor
+      │                 ├── page/surface navigation → 2D editor
       │                 ├── CanvasTexture → Three.js preview
+      │                 ├── chrome-free Studio Preview
       │                 ├── server preview cache
       │                 └── print normalization
       │
@@ -59,6 +62,8 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Template catalogue | `DesignTemplateDefinition`, immutable `DesignTemplateVersion` | SQLite + checked code fixtures |
 | Personalization | explicit element binding + bounded `PersonalizationData` | Materialized into the same `DesignDocument` |
 | Template application | `TemplateService` | Exact-configuration, owner-scoped, idempotent project creation |
+| Studio presentation | `ResolvedStudioPresentation` | Page/print-area/web navigation + capability-driven layout |
+| Live Preview | Same `DesignDocument` and renderer contracts | Read-only 2D proof or existing live 3D/unfold view |
 
 SQLite and local filesystem storage are intentionally development/single-node adapters. The domain interfaces permit PostgreSQL and S3/R2 adapters without changing Studio or `DesignDocument`.
 
@@ -86,4 +91,4 @@ The in-memory rate limiter is a boundary, not a multi-instance production soluti
 
 ## Next boundaries
 
-P3 adds page/presentation modes without equating pages to meshes. P4 moves production artifact generation behind immutable server snapshots. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
+P4 moves production artifact generation behind immutable server snapshots. P5 then extends authoritative structural geometry into manufacturing SVG and, only if the researched specification is implementable without guessing, CFF2. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
