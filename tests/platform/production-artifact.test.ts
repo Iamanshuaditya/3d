@@ -427,7 +427,7 @@ test("manufacturing SVG fails closed for the historical Mailer surface/spec drif
   );
 });
 
-test("schema v6 preserves immutable PDFs while adding one SVG per revision", async (t) => {
+test("later schemas preserve immutable PDFs while adding one SVG per revision", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "vortex-v6-migration-test-"));
   const filename = join(directory, "vortex.sqlite");
   const oldDatabase = new Database(filename);
@@ -487,7 +487,7 @@ test("schema v6 preserves immutable PDFs while adding one SVG per revision", asy
     (database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get() as {
       version: number;
     }).version,
-    6,
+    7,
   );
   assert.doesNotThrow(() => database.prepare(`
     INSERT INTO production_artifacts VALUES (
