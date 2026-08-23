@@ -4,7 +4,13 @@ import type { ProductDefinitionSnapshot, ProductResolutionSpec } from "./types";
 export type ProductOperatorPermission =
   | "products:read"
   | "products:edit"
-  | "products:publish";
+  | "products:validate"
+  | "products:publish"
+  | "templates:read"
+  | "templates:edit"
+  | "templates:publish"
+  | "assets:upload"
+  | "onboarding:run";
 
 /** Must be created by a trusted authentication adapter, never from request JSON. */
 export type ProductOperator = {
@@ -38,6 +44,11 @@ export type ProductDraft = {
   document: ProductDraftDocument;
   validation: ProductDraftValidationReport | null;
   publishedVersionId: string | null;
+  onboardingProvenance: {
+    jobId: string;
+    reportChecksum: string;
+    toolVersion: string;
+  } | null;
   createdBy: string;
   updatedBy: string;
   createdAt: string;
@@ -49,6 +60,7 @@ export type ProductAuditAction =
   | "draft_updated"
   | "draft_validated"
   | "draft_validation_failed"
+  | "onboarding_attached"
   | "version_published";
 
 export type ProductAuditEvent = {

@@ -19,6 +19,7 @@ import {
   ProductCatalogService,
 } from "./product-catalog-service";
 import { validateResolvedProductContract } from "./product-contract-validator";
+import { operatorHasPermission } from "@/server/operators/operator-authorization-service";
 
 const MAX_DRAFT_BYTES = 10 * 1024 * 1024;
 const PRODUCT_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,127}$/;
@@ -39,16 +40,7 @@ function hasPermission(
   operator: ProductOperator,
   permission: ProductOperatorPermission,
 ) {
-  const permissions = new Set(operator.permissions);
-  if (permission === "products:read") {
-    return permissions.has("products:read") ||
-      permissions.has("products:edit") ||
-      permissions.has("products:publish");
-  }
-  if (permission === "products:edit") {
-    return permissions.has("products:edit") || permissions.has("products:publish");
-  }
-  return permissions.has("products:publish");
+  return operatorHasPermission(operator.permissions, permission);
 }
 
 function assertExpectedRevision(expectedRevision: number) {
@@ -284,6 +276,7 @@ export class ProductPublishingService {
       document: safeDocument,
       validation: null,
       publishedVersionId: null,
+      onboardingProvenance: null,
       createdBy: operator.id,
       updatedBy: operator.id,
       createdAt: now,
@@ -374,7 +367,7 @@ export class ProductPublishingService {
     draftId: string,
     expectedRevision: number,
   ) {
-    authorize(operator, "products:edit");
+    authorize(operator, "products:validate");
     assertExpectedRevision(expectedRevision);
     const draft = await this.requireDraft(draftId);
     if (draft.revision !== expectedRevision) {
@@ -405,6 +398,34 @@ export class ProductPublishingService {
       errorCount: evaluation.report.issues.filter((issue) => issue.severity === "error").length,
     }));
     return validated;
+  }
+
+  async attachOnboarding(
+    operator: ProductOperator,
+    draftId: string,
+    expectedRevision: number,
+    provenance: NonNullable<ProductDraft["onboardingProvenance"]>,
+  ) {
+    authorize(operator, "products:edit");
+    assertExpectedRevision(expectedRevision);
+    if (
+      !/^[0-9a-f-]{36}$/i.test(provenance.jobId) ||
+      !/^[a-f0-9]{64}$/.test(provenance.reportChecksum) ||
+      !/^[a-f0-9]{64}$/.test(provenance.toolVersion)
+    ) {
+      throw new ProductDomainError(
+        "ONBOARDING_PROVENANCE_INVALID",
+        "Onboarding provenance is invalid.",
+      );
+    }
+    return this.drafts.attachOnboarding(
+      draftId,
+      expectedRevision,
+      structuredClone(provenance),
+      operator.id,
+      this.idFactory(),
+      this.clock(),
+    );
   }
 
   async publish(

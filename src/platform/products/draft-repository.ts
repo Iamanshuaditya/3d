@@ -37,6 +37,14 @@ export interface ProductDraftRepository {
     auditEventId: string,
     now: string,
   ): Promise<ProductDraft>;
+  attachOnboarding(
+    draftId: string,
+    expectedRevision: number,
+    provenance: NonNullable<ProductDraft["onboardingProvenance"]>,
+    actorId: string,
+    auditEventId: string,
+    now: string,
+  ): Promise<ProductDraft>;
   publishDraft(input: PublishProductDraftInput): Promise<ProductDraft>;
   listAudit(draftId: string): Promise<ProductAuditEvent[]>;
 }

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-const SCHEMA_VERSION = 10;
+const SCHEMA_VERSION = 13;
 
 export type VortexDatabase = Database.Database;
 
@@ -423,6 +423,128 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (10, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 11) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE operator_grants (
+          user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+          permission TEXT NOT NULL CHECK (permission IN (
+            'products:read', 'products:edit', 'products:validate', 'products:publish',
+            'templates:read', 'templates:edit', 'templates:publish',
+            'assets:upload', 'onboarding:run'
+          )),
+          granted_by TEXT NOT NULL,
+          granted_at TEXT NOT NULL,
+          PRIMARY KEY (user_id, permission)
+        );
+
+        CREATE INDEX operator_grants_permission_idx
+          ON operator_grants(permission, user_id);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (11, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 12) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE onboarding_assets (
+          id TEXT PRIMARY KEY,
+          job_id TEXT NOT NULL,
+          role TEXT NOT NULL CHECK (role IN (
+            'input_glb', 'input_manifest', 'inspection', 'validation_report',
+            'product_glb', 'product_config', 'regions', 'diagnostic', 'uv_template'
+          )),
+          filename TEXT NOT NULL,
+          mime_type TEXT NOT NULL,
+          byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE onboarding_jobs (
+          id TEXT PRIMARY KEY,
+          operator_id TEXT NOT NULL,
+          product_id TEXT NOT NULL,
+          draft_id TEXT REFERENCES product_drafts(id) ON DELETE SET NULL,
+          status TEXT NOT NULL CHECK (
+            status IN ('queued', 'running', 'passed', 'failed', 'cancelled')
+          ),
+          input_asset_id TEXT NOT NULL REFERENCES onboarding_assets(id) ON DELETE RESTRICT,
+          manifest_asset_id TEXT REFERENCES onboarding_assets(id) ON DELETE RESTRICT,
+          command_version TEXT NOT NULL,
+          started_at TEXT,
+          completed_at TEXT,
+          report_asset_id TEXT REFERENCES onboarding_assets(id) ON DELETE RESTRICT,
+          error_code TEXT,
+          stdout_text TEXT NOT NULL,
+          stderr_text TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX onboarding_jobs_product_created_idx
+          ON onboarding_jobs(product_id, created_at DESC);
+        CREATE INDEX onboarding_jobs_status_created_idx
+          ON onboarding_jobs(status, created_at);
+        CREATE INDEX onboarding_assets_job_idx
+          ON onboarding_assets(job_id, role, created_at);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (12, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 13) {
+    database.transaction(() => {
+      database.exec(`
+        ALTER TABLE product_drafts ADD COLUMN onboarding_job_id TEXT;
+        ALTER TABLE product_drafts ADD COLUMN onboarding_report_sha256 TEXT;
+        ALTER TABLE product_drafts ADD COLUMN onboarding_tool_version TEXT;
+
+        CREATE TABLE product_version_onboarding_provenance (
+          product_version_id TEXT PRIMARY KEY
+            REFERENCES product_versions(id) ON DELETE RESTRICT,
+          onboarding_job_id TEXT NOT NULL
+            REFERENCES onboarding_jobs(id) ON DELETE RESTRICT,
+          report_sha256 TEXT NOT NULL CHECK (length(report_sha256) = 64),
+          tool_version TEXT NOT NULL CHECK (length(tool_version) = 64),
+          recorded_at TEXT NOT NULL
+        );
+
+        CREATE TABLE product_audit_events_v13 (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL,
+          draft_id TEXT NOT NULL REFERENCES product_drafts(id) ON DELETE RESTRICT,
+          action TEXT NOT NULL CHECK (
+            action IN (
+              'draft_created', 'draft_updated', 'draft_validated',
+              'draft_validation_failed', 'onboarding_attached', 'version_published'
+            )
+          ),
+          actor_id TEXT NOT NULL,
+          draft_revision INTEGER NOT NULL CHECK (draft_revision >= 1),
+          product_version_id TEXT,
+          created_at TEXT NOT NULL
+        );
+
+        INSERT INTO product_audit_events_v13 SELECT * FROM product_audit_events;
+        DROP TABLE product_audit_events;
+        ALTER TABLE product_audit_events_v13 RENAME TO product_audit_events;
+        CREATE INDEX product_audit_events_draft_idx
+          ON product_audit_events(draft_id, created_at, id);
+        CREATE INDEX product_audit_events_product_idx
+          ON product_audit_events(product_id, created_at, id);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (13, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

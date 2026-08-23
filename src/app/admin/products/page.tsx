@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +12,13 @@ import {
   Layers3,
 } from "lucide-react";
 import { getProductOperationsService } from "@/server/products/container";
+import { PlatformError } from "@/platform/projects/errors";
+import { ProductDraftPanel } from "@/components/admin/ProductDraftPanel";
+import { getOperatorAuthorizationService } from "@/server/operators/container";
+import { operatorHasPermission } from "@/server/operators/operator-authorization-service";
+import { AccountControl } from "@/components/auth/AccountControl";
+import { OnboardingPanel } from "@/components/admin/OnboardingPanel";
+import { TemplateAssetPanel } from "@/components/admin/TemplateAssetPanel";
 
 export const metadata: Metadata = {
   title: "Product operations",
@@ -29,9 +37,18 @@ function dateLabel(value: string) {
 }
 
 export default async function ProductOperationsPage() {
-  // This inventory exposes unlisted catalogue metadata. Keep it local until a
-  // real operator identity/authorization adapter is present.
-  if (process.env.NODE_ENV === "production") notFound();
+  let operator;
+  try {
+    operator = await getOperatorAuthorizationService().require(
+      new Headers(await headers()),
+      "products:read",
+    );
+  } catch (error) {
+    if (error instanceof PlatformError && error.status === 401) {
+      redirect("/sign-in?returnTo=%2Fadmin%2Fproducts");
+    }
+    notFound();
+  }
 
   const products = await getProductOperationsService().list();
   const passed = products.filter((product) => product.validation.passed).length;
@@ -63,15 +80,18 @@ export default async function ProductOperationsPage() {
               Product operations
             </h1>
           </div>
-          <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-800">
-            Local read-only view
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-800">
+              Protected operator surface
+            </span>
+            <AccountControl />
+          </div>
         </div>
         <p className="mt-3 max-w-[68ch] text-[15px] leading-6 text-[var(--st-dim)]">
           One inventory for immutable product versions, resolved Studio surfaces,
           production formats, and validation. The revisioned draft/validate/publish
-          service is ready server-side; mutation controls stay disabled until an
-          operator authentication adapter is connected.
+          service is exposed through revision-checked controls. Published versions
+          remain immutable and every action is attributed to the authenticated operator.
         </p>
       </header>
 
@@ -89,6 +109,14 @@ export default async function ProductOperationsPage() {
           </div>
         ))}
       </section>
+
+      {operatorHasPermission(operator.permissions, "assets:upload") && (
+        <TemplateAssetPanel />
+      )}
+
+      {operatorHasPermission(operator.permissions, "onboarding:run") && (
+        <OnboardingPanel />
+      )}
 
       <section className="mt-8 space-y-4" aria-label="Products">
         {products.map((product) => {
@@ -175,6 +203,12 @@ export default async function ProductOperationsPage() {
                   ))}
                 </ul>
               )}
+              <ProductDraftPanel
+                productId={product.id}
+                canEdit={operatorHasPermission(operator.permissions, "products:edit")}
+                canValidate={operatorHasPermission(operator.permissions, "products:validate")}
+                canPublish={operatorHasPermission(operator.permissions, "products:publish")}
+              />
             </article>
           );
         })}

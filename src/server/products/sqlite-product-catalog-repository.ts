@@ -42,6 +42,9 @@ type DraftRow = {
   document_json: string;
   validation_json: string | null;
   published_version_id: string | null;
+  onboarding_job_id: string | null;
+  onboarding_report_sha256: string | null;
+  onboarding_tool_version: string | null;
   created_by: string;
   updated_by: string;
   created_at: string;
@@ -99,6 +102,15 @@ function decodeDraft(row: DraftRow): ProductDraft {
       ? JSON.parse(row.validation_json) as ProductDraftValidationReport
       : null,
     publishedVersionId: row.published_version_id,
+    onboardingProvenance: row.onboarding_job_id &&
+        row.onboarding_report_sha256 &&
+        row.onboarding_tool_version
+      ? {
+          jobId: row.onboarding_job_id,
+          reportChecksum: row.onboarding_report_sha256,
+          toolVersion: row.onboarding_tool_version,
+        }
+      : null,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     createdAt: row.created_at,
@@ -431,7 +443,9 @@ export class SqliteProductCatalogRepository implements
       this.database.prepare(`
         UPDATE product_drafts
         SET status = 'draft', revision = ?, document_json = ?,
-            validation_json = NULL, updated_by = ?, updated_at = ?
+            validation_json = NULL, onboarding_job_id = NULL,
+            onboarding_report_sha256 = NULL, onboarding_tool_version = NULL,
+            updated_by = ?, updated_at = ?
         WHERE id = ? AND revision = ? AND status != 'published'
       `).run(revision, JSON.stringify(document), actorId, now, draftId, expectedRevision);
       this.insertAudit({
@@ -484,6 +498,54 @@ export class SqliteProductCatalogRepository implements
         action: report.passed ? "draft_validated" : "draft_validation_failed",
         actorId,
         draftRevision: expectedRevision,
+        productVersionId: null,
+        createdAt: now,
+      });
+      return decodeDraft(this.requireDraftRow(draftId));
+    })();
+  }
+
+  async attachOnboarding(
+    draftId: string,
+    expectedRevision: number,
+    provenance: NonNullable<ProductDraft["onboardingProvenance"]>,
+    actorId: string,
+    auditEventId: string,
+    now: string,
+  ): Promise<ProductDraft> {
+    return this.database.transaction(() => {
+      const row = this.requireDraftRow(draftId);
+      this.assertDraftRevision(row, expectedRevision);
+      const revision = row.revision + 1;
+      const updated = this.database.prepare(`
+        UPDATE product_drafts
+        SET status = 'draft', revision = ?, validation_json = NULL,
+            onboarding_job_id = ?, onboarding_report_sha256 = ?,
+            onboarding_tool_version = ?, updated_by = ?, updated_at = ?
+        WHERE id = ? AND revision = ? AND status != 'published'
+      `).run(
+        revision,
+        provenance.jobId,
+        provenance.reportChecksum,
+        provenance.toolVersion,
+        actorId,
+        now,
+        draftId,
+        expectedRevision,
+      );
+      if (updated.changes !== 1) {
+        throw new ProductDomainError(
+          "PRODUCT_DRAFT_ALREADY_PUBLISHED",
+          "A published product draft is immutable.",
+        );
+      }
+      this.insertAudit({
+        id: auditEventId,
+        productId: row.product_id,
+        draftId,
+        action: "onboarding_attached",
+        actorId,
+        draftRevision: revision,
         productVersionId: null,
         createdAt: now,
       });
@@ -544,6 +606,24 @@ export class SqliteProductCatalogRepository implements
         input.versionSha256,
         input.now,
       );
+      if (
+        row.onboarding_job_id &&
+        row.onboarding_report_sha256 &&
+        row.onboarding_tool_version
+      ) {
+        this.database.prepare(`
+          INSERT INTO product_version_onboarding_provenance (
+            product_version_id, onboarding_job_id, report_sha256,
+            tool_version, recorded_at
+          ) VALUES (?, ?, ?, ?, ?)
+        `).run(
+          input.version.id,
+          row.onboarding_job_id,
+          row.onboarding_report_sha256,
+          row.onboarding_tool_version,
+          input.now,
+        );
+      }
       this.database.prepare(`
         UPDATE product_drafts
         SET status = 'published', published_version_id = ?,

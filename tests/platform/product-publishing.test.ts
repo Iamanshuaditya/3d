@@ -10,11 +10,12 @@ import { ProductDomainError } from "@/platform/products/errors";
 import { openVortexDatabase } from "@/server/persistence/database";
 import { ProductCatalogService } from "@/server/products/product-catalog-service";
 import { ProductPublishingService } from "@/server/products/product-publishing-service";
+import { productDraftAdminDto } from "@/server/products/admin-dto";
 import { SqliteProductCatalogRepository } from "@/server/products/sqlite-product-catalog-repository";
 
 const editor: ProductOperator = {
   id: "operator.editor",
-  permissions: ["products:read", "products:edit"],
+  permissions: ["products:read", "products:edit", "products:validate"],
 };
 const publisher: ProductOperator = {
   id: "operator.publisher",
@@ -47,6 +48,10 @@ test("revisioned product drafts validate and publish an immutable next version",
   assert.equal(draft.baseVersionId, "tshirt@2");
   assert.equal(draft.revision, 1);
   assert.equal(draft.status, "draft");
+  const safeDto = productDraftAdminDto(draft);
+  assert.equal(safeDto.metadata.resolutionKind, "static");
+  assert.equal(JSON.stringify(safeDto).includes("productConfig"), false);
+  assert.equal(JSON.stringify(safeDto).includes("providerId"), false);
 
   const document = structuredClone(draft.document);
   document.definition.name = "Classic T-Shirt — reviewed";
@@ -179,5 +184,66 @@ test("operator permissions are checked at the service data boundary", async (t) 
   await assert.rejects(
     () => service.publish(editor, draft.id, 1),
     (error) => error instanceof ProductDomainError && error.code === "OPERATOR_FORBIDDEN",
+  );
+});
+
+test("passed onboarding provenance is revisioned and frozen onto publication", async (t) => {
+  const { database, service } = fixture(t);
+  const draft = await service.createFromCurrent(editor, "tshirt");
+  const jobId = "f0474c8b-c37a-4617-bbbb-4184aaca7bb1";
+  const inputAssetId = "545d822b-a35d-439f-8bad-da842b2d45f7";
+  const reportAssetId = "a8c73d71-28e8-4b16-a4bb-44c0f9467970";
+  const reportChecksum = "a".repeat(64);
+  const toolVersion = "b".repeat(64);
+  database.prepare(`
+    INSERT INTO onboarding_assets (
+      id, job_id, role, filename, mime_type, byte_size, sha256, storage_key, created_at
+    ) VALUES (?, ?, 'input_glb', 'source.glb', 'model/gltf-binary', 12, ?, ?, ?)
+  `).run(inputAssetId, jobId, "c".repeat(64), `onboarding/${jobId}/input`, draft.createdAt);
+  database.prepare(`
+    INSERT INTO onboarding_assets (
+      id, job_id, role, filename, mime_type, byte_size, sha256, storage_key, created_at
+    ) VALUES (?, ?, 'validation_report', 'report.json', 'application/json', 20, ?, ?, ?)
+  `).run(reportAssetId, jobId, reportChecksum, `onboarding/${jobId}/report`, draft.createdAt);
+  database.prepare(`
+    INSERT INTO onboarding_jobs (
+      id, operator_id, product_id, draft_id, status, input_asset_id,
+      manifest_asset_id, command_version, started_at, completed_at,
+      report_asset_id, error_code, stdout_text, stderr_text, created_at
+    ) VALUES (?, ?, 'tshirt', ?, 'passed', ?, NULL, ?, ?, ?, ?, NULL, '', '', ?)
+  `).run(
+    jobId,
+    editor.id,
+    draft.id,
+    inputAssetId,
+    toolVersion,
+    draft.createdAt,
+    draft.createdAt,
+    reportAssetId,
+    draft.createdAt,
+  );
+
+  const attached = await service.attachOnboarding(editor, draft.id, 1, {
+    jobId,
+    reportChecksum,
+    toolVersion,
+  });
+  assert.equal(attached.revision, 2);
+  assert.deepEqual(attached.onboardingProvenance, { jobId, reportChecksum, toolVersion });
+  const validated = await service.validate(editor, draft.id, 2);
+  assert.equal(validated.validation?.passed, true);
+  const published = await service.publish(publisher, draft.id, 2);
+  assert.equal(published.version.id, "tshirt@3");
+  assert.deepEqual(database.prepare(`
+    SELECT onboarding_job_id, report_sha256, tool_version
+    FROM product_version_onboarding_provenance WHERE product_version_id = 'tshirt@3'
+  `).get(), {
+    onboarding_job_id: jobId,
+    report_sha256: reportChecksum,
+    tool_version: toolVersion,
+  });
+  assert.deepEqual(
+    (await service.audit(viewer, draft.id)).map((event) => event.action),
+    ["draft_created", "onboarding_attached", "draft_validated", "version_published"],
   );
 });
