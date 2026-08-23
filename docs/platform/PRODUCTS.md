@@ -1,6 +1,6 @@
 # Product domain
 
-Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. P3 uses the resolved version's presentation mode and explicit surface navigation semantics. P5 publishes the first real dynamic provider: Mailer Box v3 resolves customer dimensions into one version-pinned structural contract.
+Status: P1 product definitions, option schemas, deterministic configuration resolution, immutable published versions, and the legacy `ProductConfig` adapter are implemented. P3 uses the resolved version's presentation mode and explicit surface navigation semantics. P5 publishes the first real dynamic provider: Mailer Box v3 resolves customer dimensions into one version-pinned structural contract. P6 exposes an explicit public DTO projection and a local operator validation inventory without leaking engine internals.
 
 ## Domain separation
 
@@ -105,6 +105,28 @@ Every new project records:
 
 Create, save validation, duplicate, and preview resolve the exact stored version and selection. Studio URLs carry version/selection provenance for server rendering and self-correct from the owner-authorized project DTO when an older link omits it. P0 rows using `<productId>@legacy-v1` remain resolvable through a narrow compatibility path.
 
+## Public catalogue boundary
+
+`ProductApiService` is the only mapper from the internal product catalogue to `/api/v1/products`. It returns explicit `ProductSummaryDto`, `ProductDetailDto`, and `ResolvedProductConfigurationDto` contracts. A resolved response includes customer options, physical surface geometry, presentation roles, capabilities, supported production formats, and version-bound links. Discovery uses `ProductDefinition.visibility`, not the legacy engine registry, so future database-authored products can become public without adding a product-name conditional. Pre-P6 rows missing this metadata fail closed as unlisted.
+
+It intentionally omits:
+
+- `ProductConfig` itself;
+- model/texture URLs and mesh mapping names;
+- provider IDs and provider parameters;
+- carton hinge/path implementation details;
+- ICC file locations;
+- storage keys;
+- production-only option values.
+
+This keeps the public API evolvable while Studio and production continue consuming the richer internal resolved contract. Hidden registry fixtures are not a public discovery mechanism: list omits them and direct public reads/resolution fail with 404.
+
+## Operator validation
+
+`ProductOperationsService` resolves every current version at its default selection and checks the contracts required before an operator could safely publish or inspect it: valid option/version schema, editable surface identity and physical bounds, section bounds, presentation roles, GLB model presence, print-profile registration, folded-carton structure presence, and exact one-sheet structure/surface agreement. It also reports immutable version history, resolver kind, visibility, and truthful PDF/SVG availability.
+
+The initial `/admin/products` surface is deliberately local-development-only and read-only. It proves the catalogue/admin read model without making unlisted metadata public or introducing unauthenticated publish controls. Draft persistence and immutable `publish()` already live in the domain service; authenticated operator mutation, GLB job orchestration, and approval policy remain subsequent work.
+
 ## Presentation and surface roles
 
 `ProductVersion.presentation.mode` now drives Studio composition through `resolveStudioPresentation()`. Optional `EditableSurface.presentation` declares customer navigation as page, print area, or continuous production web. A page references one existing `SurfaceDesign`; mesh mappings remain a separate renderer concern.
@@ -115,6 +137,6 @@ Legacy configs remain source-compatible. Section-bearing packaging surfaces are 
 
 - Mailer Box is the first parameterized registered product; all other registered products continue through immutable static adapters until an authoritative provider can update their full 2D/3D/production contract.
 - No current registered product supplies explicit front/back page metadata; the P3 contract has synthetic coverage until a real flat SKU is onboarded.
-- Product catalogue/resolve HTTP endpoints and admin publishing UI are P6 work. Template catalogue endpoints are already exposed by P2.
+- Public product catalogue/detail/resolve endpoints are implemented. Authenticated product authoring and publishing HTTP endpoints are not.
 - Published version storage is implemented, but migrations between versions are deliberately absent; existing projects stay pinned unless a future explicit migration workflow is approved.
-- The web option form is a customer configuration surface, not an operator authoring UI. Draft validation and publish controls remain P6.
+- The web option form is a customer configuration surface, not an operator authoring UI. The operator page is currently a local read-only validation inventory; authenticated draft/publish controls remain.

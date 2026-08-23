@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 projects/assets, P1 versioned products, P2 editable templates/personalization, P3 page-aware presentation, P4 immutable server production, and P5 parameterized packaging/manufacturing SVG are implemented on `feat/vortex-platform-p0-projects`.
+Status: P0 projects/assets, P1 versioned products, P2 editable templates/personalization, P3 page-aware presentation, P4 immutable server production, P5 parameterized packaging/manufacturing SVG, and the P6 public product API/operator validation foundation are implemented on `feat/vortex-platform-p0-projects`.
 
 ## Invariants
 
@@ -67,6 +67,8 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Studio persistence | `useProjectSession` | Debounced, ordered, revision-CAS autosave |
 | Product catalogue | `ProductCatalogRepository` | SQLite definitions and immutable version snapshots |
 | Option resolution | `ProductOption`, `ProductConfigurationProvider` | Deterministic central resolver + legacy static adapter |
+| Public product API | Explicit product/configuration DTO projections | `/api/v1/products`; no `ProductConfig` serialization |
+| Product operations | Current-version validation inventory | Local-only read model over the same catalogue/resolver |
 | Version binding | `productVersionId`, `configurationId` | Exact-version project create/save/duplicate/preview |
 | Template catalogue | `DesignTemplateDefinition`, immutable `DesignTemplateVersion` | SQLite + checked code fixtures |
 | Personalization | explicit element binding + bounded `PersonalizationData` | Materialized into the same `DesignDocument` |
@@ -102,9 +104,10 @@ Set `VORTEX_DATA_DIR` to relocate all development data. Production requires `VOR
 - Production re-resolves project identity and verifies every referenced asset before export.
 - Artifact reads are owner scoped and recheck MIME metadata, byte length, and SHA-256.
 - Artifact downloads are attachment-only, `nosniff`, same-origin resources with a sandbox content-security policy; generated SVG cannot become active application content.
+- Hidden engine fixtures are omitted from public product APIs. The operations inventory is disabled in production until operator authentication and authorization exist.
 
 The in-memory rate limiter is a boundary, not a multi-instance production solution. A shared limiter should replace it when horizontally scaling.
 
 ## Next boundaries
 
-P6 exposes public product catalogue/resolution APIs and operator publishing foundations over the existing domain. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
+The next P6 step is authenticated operator draft validation/publishing and an adapter for launching the proven onboarding jobs; no geometry tooling should move into React. A pricing/quote boundary can then consume `configurationId` without placing arithmetic in Studio. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
