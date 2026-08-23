@@ -1,14 +1,9 @@
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, normalize, relative, resolve } from "node:path";
 import type { ObjectStore, StoredObject } from "@/platform/storage/object-store";
+import { assertStorageKey } from "./storage-key";
 
 type Metadata = { contentType: string };
-
-function assertStorageKey(key: string) {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9/_\-.]{0,511}$/.test(key) || key.includes("..")) {
-    throw new Error("Invalid object-store key.");
-  }
-}
 
 export class FilesystemObjectStore implements ObjectStore {
   private readonly root: string;

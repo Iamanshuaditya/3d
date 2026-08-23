@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { getVortexDatabase } from "@/server/persistence/database";
-import { FilesystemObjectStore } from "@/server/storage/filesystem-object-store";
+import { getObjectStore } from "@/server/storage/container";
 import { OnboardingRunner } from "./onboarding-runner";
 import { OnboardingService } from "./onboarding-service";
 import { SqliteOnboardingJobRepository } from "./sqlite-onboarding-job-repository";
@@ -12,7 +12,7 @@ export function getOnboardingService() {
   const dataRoot = process.env.VORTEX_DATA_DIR || join(process.cwd(), ".data");
   const onboardingRoot = join(process.cwd(), "product-onboarding");
   const repository = new SqliteOnboardingJobRepository(getVortexDatabase());
-  const objectStore = new FilesystemObjectStore(join(dataRoot, "objects"));
+  const objectStore = getObjectStore();
   const runner = new OnboardingRunner(
     repository,
     objectStore,
