@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, FilePlus2, LoaderCircle, Search } from "lucide-react";
 import type { TemplateSummaryDto } from "@/platform/templates/types";
 import type { PersonalizationData, PersonalizationScalar } from "@/types/configurator";
 import { instantiateTemplate, listTemplates } from "@/lib/templates/client";
-import { configurationStudioHref, projectStudioHref } from "@/lib/projects/location";
+import { createProject } from "@/lib/projects/client";
+import { projectStudioHref } from "@/lib/projects/location";
 
 type TemplateBrowserProps = {
   productId: string;
@@ -126,6 +126,21 @@ export function TemplateBrowser({
     }
   };
 
+  const createBlank = async () => {
+    const requestKey = "blank";
+    setBusyId(requestKey);
+    setError(null);
+    const clientRequestId = requestIds.current.get(requestKey) ?? crypto.randomUUID();
+    requestIds.current.set(requestKey, clientRequestId);
+    try {
+      const project = await createProject(productId, clientRequestId, optionSelection);
+      window.location.assign(projectStudioHref(project));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "The blank project could not be created.");
+      setBusyId(null);
+    }
+  };
+
   return (
     <>
       <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -177,16 +192,19 @@ export function TemplateBrowser({
             <p className="mt-2 text-[13px] leading-6 text-[var(--st-dim)]">
               Start with an empty {productName} and build it from scratch.
             </p>
-            <Link
-              href={configurationStudioHref({
-                productId,
-                productVersionId,
-                optionSelection,
-              })}
+            <button
+              type="button"
+              disabled={Boolean(busyId)}
+              onClick={() => void createBlank()}
               className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[var(--st-accent)] px-4 py-2.5 text-[13px] font-semibold text-[var(--st-accent-ink)]"
             >
-              Start blank <ArrowRight className="h-4 w-4" />
-            </Link>
+              {busyId === "blank" ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
+              {busyId === "blank" ? "Creating project…" : "Start blank"}
+            </button>
           </article>
 
           {visible.map((template, index) => {

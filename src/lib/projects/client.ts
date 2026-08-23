@@ -25,6 +25,8 @@ export class ProjectApiError extends Error {
   }
 }
 
+let ownerBootstrap: Promise<void> | null = null;
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -46,11 +48,27 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
+/**
+ * A fresh browser has no signed guest cookie. Establish it with one shared
+ * read before React Strict Mode can race two project mutations under two
+ * independently issued guest identities.
+ */
+async function ensureOwnerContext() {
+  ownerBootstrap ??= requestJson<{ owner: { type: "guest" | "user" } }>(
+    "/api/v1/session",
+  ).then(() => undefined).catch((error) => {
+    ownerBootstrap = null;
+    throw error;
+  });
+  await ownerBootstrap;
+}
+
 export async function createProject(
   productId: string,
   clientRequestId: string,
   optionSelection: Record<string, string | number | boolean> = {},
 ) {
+  await ensureOwnerContext();
   const result = await requestJson<{ project: DesignProjectDto }>("/api/v1/projects", {
     method: "POST",
     body: JSON.stringify({ productId, clientRequestId, optionSelection }),

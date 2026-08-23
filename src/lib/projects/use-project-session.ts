@@ -22,6 +22,10 @@ const AUTOSAVE_DELAY_MS = 700;
 const PREVIEW_DELAY_MS = 1_500;
 const LEGACY_STORAGE_KEY = "configurator:design";
 const pendingCreationKeys = new Map<string, string>();
+const pendingProjectCreations = new Map<
+  string,
+  { key: string; promise: Promise<DesignProjectDto> }
+>();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type PendingSave = {
@@ -65,6 +69,34 @@ function clearPendingCreationKey(identity: string, value: string) {
     // Storage can be unavailable in hardened browser contexts; the module map
     // still protects normal Strict Mode remounts in that case.
   }
+}
+
+function createPendingProject(
+  identity: string,
+  productId: string,
+  optionSelection: ProductConfig["optionSelection"],
+) {
+  const existing = pendingProjectCreations.get(identity);
+  if (existing) return existing;
+  const key = pendingCreationKey(identity);
+  const entry = {
+    key,
+    promise: createProject(productId, key, optionSelection ?? {}).catch((error) => {
+      if (pendingProjectCreations.get(identity)?.key === key) {
+        pendingProjectCreations.delete(identity);
+      }
+      throw error;
+    }),
+  };
+  pendingProjectCreations.set(identity, entry);
+  return entry;
+}
+
+function clearPendingProjectCreation(identity: string, key: string) {
+  if (pendingProjectCreations.get(identity)?.key === key) {
+    pendingProjectCreations.delete(identity);
+  }
+  clearPendingCreationKey(identity, key);
 }
 
 export type ProjectSession = {
@@ -178,14 +210,17 @@ export function useProjectSession(
         // not create another project from stale server props.
         const locationProjectId = requestedProjectId
           ?? new URL(window.location.href).searchParams.get("project");
-        const creationKey = locationProjectId ? null : pendingCreationKey(creationIdentity);
+        const pendingCreation = locationProjectId
+          ? null
+          : createPendingProject(
+              creationIdentity,
+              config.id,
+              config.optionSelection,
+            );
+        const creationKey = pendingCreation?.key ?? null;
         let loaded = locationProjectId
           ? await getProject(locationProjectId)
-          : await createProject(
-              config.id,
-              creationKey!,
-              config.optionSelection ?? {},
-            );
+          : await pendingCreation!.promise;
         if (cancelled) return;
         if (loaded.productId !== config.id) {
           throw new Error(
@@ -231,7 +266,7 @@ export function useProjectSession(
         const url = new URL(window.location.href);
         applyProjectLocation(url, loaded);
         window.history.replaceState(window.history.state, "", url);
-        if (creationKey) clearPendingCreationKey(creationIdentity, creationKey);
+        if (creationKey) clearPendingProjectCreation(creationIdentity, creationKey);
       } catch (cause) {
         if (cancelled) return;
         setSaveState("failed");
