@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "fixtureId": "cloudlab-lock-bottom-window-300x150x200",
+  "status": "reference-only-private-source-required",
+  "product": {
+    "referenceName": "Lock Bottom and top incl. window",
+    "nominalDimensionsMm": [300, 150, 200],
+    "dimensionOrder": "not-encoded-in-pdf"
+  },
+  "source": {
+    "format": "pdf",
+    "pdfVersion": "1.7",
+    "expectedLocalFilename": "source.local.pdf",
+    "originalFilename": "product_Lock Bottom and top incl. window_mm_300_150_200.pdf",
+    "sha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557",
+    "byteSize": 6385,
+    "pageCount": 1,
+    "producer": "PDFlib Personalization Server 10.0.1 (PHP/Linux-x64)",
+    "creationTimestamp": "2026-08-23T21:16:02+02:00",
+    "redistribution": "unconfirmed-do-not-commit"
+  },
+  "page": {
+    "userUnit": 1,
+    "mediaBoxPt": [0, 0, 2104.44, 1417.33],
+    "mediaSizeMm": [742.399667, 500.002528],
+    "trimBoxPt": [42.5198, 42.5198, 2061.92, 1374.81],
+    "trimSizeMm": [712.399515, 470.002376],
+    "explicitBoxes": ["MediaBox", "TrimBox"]
+  },
+  "content": {
+    "rasterImages": 0,
+    "fonts": 0,
+    "textCharacters": 0,
+    "annotations": 0,
+    "optionalContentGroups": 0,
+    "formXObjects": 1,
+    "strokePaints": 103,
+    "backgroundFills": 1,
+    "moveToOperations": 105,
+    "lineToOperations": 253,
+    "closePathOperations": 3,
+    "clipOperations": 2,
+    "cubicBezierOperations": 0,
+    "quadraticBezierOperations": 0,
+    "arcOperations": 0
+  },
+  "transforms": [
+    [1, 0, 0, -1, 0, 1417.33],
+    [1, 0, 0, 1, 79.3702, 283.465]
+  ],
+  "separations": [
+    {
+      "name": "DieCutBlue",
+      "alternateCmyk": [1, 1, 0, 0],
+      "paintCount": 78,
+      "strokeWidthPt": 1.2,
+      "reviewedOperation": "cut",
+      "confidence": "high"
+    },
+    {
+      "name": "DieCutRed",
+      "alternateCmyk": [0, 1, 1, 0],
+      "paintCount": 24,
+      "strokeWidthPt": 1.2,
+      "reviewedOperation": "crease",
+      "confidence": "high"
+    },
+    {
+      "name": "DieCutGreen",
+      "alternateCmyk": [0, 0, 1, 0.5],
+      "paintCount": 1,
+      "strokeWidthPt": 14.1733,
+      "reviewedOperation": "exterior-presentation-band-not-a-cut",
+      "confidence": "medium-high"
+    }
+  ],
+  "geometryEvidence": {
+    "outerCut": {
+      "sourceSegmentCount": 70,
+      "closedCycles": 1,
+      "boundsMm": [15.000006, 15.000107, 727.399614, 485.000629],
+      "sizeMm": [712.399608, 470.000522],
+      "perimeterMm": 3066.476365,
+      "areaMm2": 308652.67429
+    },
+    "windowCut": {
+      "sourceSegmentCount": 8,
+      "closedCycles": 1,
+      "boundsMm": [387.999185, 120.00018, 568.000515, 380.000578],
+      "sizeMm": [180.00133, 260.000398],
+      "perimeterMm": 856.570641,
+      "areaMm2": 46600.394271,
+      "shape": "eight-edge-polygon-with-four-approximately-10mm-chamfers"
+    },
+    "creaseSourceSegmentCount": 24,
+    "creaseConnectedChainCount": 16,
+    "mainBodyHeightMm": 300.000455,
+    "minimumCutSegmentMm": 0.299852,
+    "normalizationToleranceMm": 0.01,
+    "normalizationWarning": "Approximately 0.3 mm source details and gaps are deliberate evidence and must not be silently removed."
+  },
+  "screenshots": [
+    {
+      "id": "REF-IMG-001",
+      "sha256": "aa8af09a88dc924112780e88d6988eb6a24a98322ade70c8a98528ba3d05d6b7",
+      "pixelSize": [1600, 1242],
+      "tracked": false
+    },
+    {
+      "id": "REF-IMG-002",
+      "sha256": "1711f2f6380cca137959977359c4f07e258b2c63e37680b97d7e7f5051044d36",
+      "pixelSize": [1600, 822],
+      "tracked": false
+    },
+    {
+      "id": "REF-IMG-003",
+      "sha256": "9f695c9297dfedcb68bc7624868e3ab19e9cd91a993f504e9aa41515596cbc2a",
+      "pixelSize": [1600, 1343],
+      "tracked": false
+    },
+    {
+      "id": "REF-IMG-004",
+      "sha256": "141c386ca30879b77fd87c507e57a2a5653fe49f4a9c51ebb00830a476823ebb",
+      "pixelSize": [1600, 896],
+      "tracked": false
+    },
+    {
+      "id": "REF-IMG-005",
+      "sha256": "de22ccc714bb7e24d51dd3323a9b6d4643aedf93669044029d6be8ea1f462742",
+      "pixelSize": [1600, 1067],
+      "tracked": false
+    },
+    {
+      "id": "REF-IMG-006",
+      "sha256": "b507b726bef0f3c4f7844f4928e7332697c22b148ca894fbd8cdcdb85589e4e7",
+      "pixelSize": [1600, 798],
+      "tracked": false
+    }
+  ],
+  "constructionMetadata": {
+    "status": "required-not-authored",
+    "mustBeValidated": [
+      "panel-identities",
+      "root-panel",
+      "fold-direction",
+      "assembled-angle",
+      "hinge-hierarchy",
+      "fold-sequence",
+      "glue-seam",
+      "tuck-destination",
+      "lock-destination",
+      "board-thickness",
+      "printed-outside-convention"
+    ]
+  }
+}
