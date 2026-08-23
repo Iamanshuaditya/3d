@@ -37,7 +37,7 @@ async function fixture(
     join(directory, "work"),
     onboardingRoot,
     executor,
-    join(onboardingRoot, ".venv", "bin", "python"),
+    process.env.VORTEX_ONBOARDING_PYTHON || join(onboardingRoot, ".venv", "bin", "python"),
     120_000,
     maxConcurrent,
   );

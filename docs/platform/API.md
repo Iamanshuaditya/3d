@@ -1,11 +1,11 @@
 # Platform API
 
-Status: version 1 exposes products/configuration resolution, owner-scoped immutable price quotes, projects, artwork, editable templates, server preflight, and immutable PDF/manufacturing-SVG artifacts. Project, quote, and artifact DTOs are bound to immutable product versions and resolved configurations.
+Status: version 1 exposes authenticated/guest owner sessions, products/configuration resolution, owner-scoped immutable price quotes, projects, artwork, editable templates and private catalogue artwork, durable bulk personalization, protected operator product/template/onboarding APIs, server preflight, and immutable PDF/manufacturing-SVG artifacts. Project, quote, template, and artifact DTOs remain bound to immutable versions and resolved configurations.
 
 ## Conventions
 
 - JSON unless an upload endpoint specifies multipart form data.
-- Owner identity comes from an HTTP-only guest cookie or future auth provider.
+- Owner identity comes from a verified Better Auth session or an HMAC-signed HTTP-only guest cookie. Provider user IDs are translated to the existing user-owner model at the request boundary.
 - Owner data uses `Cache-Control: no-store`; authorized asset bytes are private-cacheable and immutable-version template previews are public immutable-cacheable.
 - Mutations require same-origin browser context.
 - Public DTOs contain authorized read URLs, never storage keys.
@@ -29,8 +29,11 @@ Errors use:
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/api/v1/session` | Establish/refresh the signed owner context without exposing its opaque ID |
+| `POST` | `/api/v1/session/claim` | Atomically claim this signed guest's projects/datasets/jobs into the current authenticated account |
 
 The project client completes this read before its first create mutation. This prevents React remounts from racing two initial mutations before a fresh browser has received its signed guest cookie. Blank/template actions still carry an idempotency UUID; the cookie defines ownership and the UUID only deduplicates a mutation within that owner.
+
+Email/password sign-up, sign-in, session, and sign-out use the Better Auth handler mounted at `/api/auth/*`. The claim route accepts no identity body: it requires a server-verified authenticated session and a separately valid current guest cookie, enforces same origin/rate limits, commits ownership and a claim ledger transactionally, and clears the guest cookie. The same-user retry is harmless; cross-user reuse fails with a conflict.
 
 ## Product endpoints
 
@@ -154,7 +157,48 @@ Instantiation body:
 }
 ```
 
-The server independently resolves product identity/configuration, validates compatibility and placeholders, and creates a normal project. The mutation is owner scoped, same-origin checked, rate limited, and idempotent. Image-backed template instantiation currently fails explicitly until the platform-owned template asset adapter exists.
+The server independently resolves product identity/configuration, validates compatibility, placeholders, and every declared template asset, then creates a normal project. Private immutable catalogue artwork is copied to new owner-scoped project assets and document IDs are rewritten before revision 1 is stored. The mutation is owner scoped, same-origin checked, rate limited, and idempotent.
+
+## Bulk-personalization endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/personalization-datasets` | List the current owner's unexpired dataset records |
+| `POST` | `/api/v1/personalization-datasets` | Upload/map a bounded CSV against one immutable template version |
+| `GET` | `/api/v1/personalization-datasets/:datasetId/preview?row=0` | Render one of the first three normal-document variants |
+| `GET` | `/api/v1/personalization-jobs` | List current owner's jobs/progress |
+| `POST` | `/api/v1/personalization-jobs` | Idempotently queue a bounded manifest job |
+| `GET` | `/api/v1/personalization-jobs/:jobId` | Read owner-scoped status/progress |
+| `POST` | `/api/v1/personalization-jobs/:jobId/cancel` | Cancel a queued job |
+| `POST` | `/api/v1/personalization-jobs/:jobId/retry` | Retry a failed job within the attempt bound |
+| `GET` | `/api/v1/personalization-jobs/:jobId/output` | Download the private checksum-verified NDJSON result |
+
+CSV input is multipart, at most 5 MiB/256 columns/10,000 rows/2,000 characters per cell, and all-or-nothing. Dataset and job DTOs omit storage keys and values. The output contains ordinary `DesignDocument` variants, not manufacturing approval; each production output still requires a normal immutable project revision and preflight.
+
+## Operator endpoints
+
+All routes below require a verified session plus a server-side permission grant. Mutations enforce same origin; admin DTOs omit storage keys and internal engine/provider objects.
+
+| Method | Path | Permission and purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/products` | `products:read`; safe product/version/validation inventory |
+| `POST` | `/api/v1/admin/products/:productId/drafts` | `products:edit`; clone a current product into a revisioned draft |
+| `GET` | `/api/v1/admin/product-drafts` | `products:read`; list safe draft DTOs |
+| `GET/PATCH` | `/api/v1/admin/product-drafts/:draftId` | read or CAS-update a draft |
+| `POST` | `/api/v1/admin/product-drafts/:draftId/validate` | `products:validate`; resolve and persist report |
+| `POST` | `/api/v1/admin/product-drafts/:draftId/publish` | `products:publish`; atomically publish an immutable version |
+| `GET` | `/api/v1/admin/product-drafts/:draftId/audit` | `products:read`; append-only history |
+| `GET/POST` | `/api/v1/admin/template-assets` | list or `assets:upload` immutable private catalogue images |
+| `GET/POST` | `/api/v1/admin/template-drafts` | list or create/clone revisioned template drafts |
+| `GET/PATCH` | `/api/v1/admin/template-drafts/:draftId` | read or CAS-update a template draft |
+| `POST` | `/api/v1/admin/template-drafts/:draftId/validate` | `templates:edit`; validate exact compatibility/assets |
+| `POST` | `/api/v1/admin/template-drafts/:draftId/publish` | `templates:publish`; create an immutable template version |
+| `GET` | `/api/v1/admin/template-drafts/:draftId/audit` | `templates:read`; append-only history |
+| `POST` | `/api/v1/admin/onboarding/jobs` | `onboarding:run`; submit bounded GLB/manifest input |
+| `GET` | `/api/v1/admin/onboarding/jobs/:jobId` | `onboarding:run`; status, report, and safe artifact URLs |
+| `POST` | `/api/v1/admin/onboarding/jobs/:jobId/attach` | attach passed provenance to a matching product draft |
+| `GET` | `/api/v1/admin/onboarding/jobs/:jobId/assets/:assetId/content` | authorized checksummed report/artifact bytes |
+| `GET/POST` | `/api/v1/admin/production-fonts` | list or `assets:upload` approved immutable font records |
 
 ## Production endpoints
 
@@ -174,4 +218,4 @@ Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the st
 
 API DTOs are defined in `src/platform/products/public-types.ts`, `src/platform/pricing/types.ts`, `src/platform/projects/types.ts`, `src/platform/templates/types.ts`, and `src/platform/production/types.ts`, separate from repository rows and `ProductConfig`. Project, quote, and artifact DTOs expose immutable provenance but not internal version snapshots, provider references, or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
 
-Not yet exposed: guest claim, project revision history, permanent deletion, signed object-store URLs, authenticated template/product admin mutations, artifact approval/order linkage, carts/orders/reprints, supplier-approved production pricing, tax/shipping calculation, and bulk-personalization dataset/job APIs. Bounded CSV mapping/validation and lazy normal-document variants exist server-side, but customer uploads wait for owner-scoped storage, privacy/retention policy, and a background output lifecycle. The internal product draft/validate/publish service and audit transaction likewise have no HTTP route until an operator identity provider is connected.
+Not yet exposed: project revision-history browsing, permanent deletion, direct signed object-store URLs, artifact approval/order linkage, carts/orders/reprints, supplier-approved production pricing, and tax/shipping calculation. PostgreSQL is a target schema rather than a runnable API backing store. Registered production fonts are not yet renderer-bound, and bulk manifest outputs are not manufacturing artifacts.

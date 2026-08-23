@@ -95,4 +95,4 @@ The exporter currently supports exact one-sheet carton structures. It is deliber
 
 `ProductionExporter` is format-neutral and now registers PDF and SVG. CFF2 remains gated by the documented interoperability requirements in `docs/research/CF2.md`; without real receiving-CAD fixtures and partner line-type profiles it is neither implemented nor presented to customers.
 
-Generation is synchronous in the initial modular monolith. It is bounded and rate limited, but large production work will eventually need a durable job adapter with retries/timeouts; no distributed queue is introduced prematurely. SQLite and the filesystem object store remain single-node development adapters.
+Generation is synchronous in the initial modular monolith. It is bounded and rate limited, but large production work will eventually need a durable job adapter with retries/timeouts; no distributed queue is introduced prematurely. SQLite remains the runnable single-node database adapter. Object bytes can use the atomic filesystem development adapter or the private S3/R2-compatible production adapter described in `STORAGE.md`.

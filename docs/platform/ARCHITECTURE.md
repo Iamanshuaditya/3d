@@ -1,120 +1,100 @@
 # Vortex platform architecture
 
-Status: P0 projects/assets, P1 versioned products, P2 editable templates/semantic and bulk personalization, P3 page-aware presentation, P4 immutable server production, P5 parameterized packaging/manufacturing SVG, P6 public product APIs plus audited product publishing, and the first commerce quote boundary are implemented on `feat/vortex-platform-p0-projects`.
+Status: the modular monolith now supports authenticated customers, signed guests and atomic guest claiming, immutable catalogue artwork/templates, an authenticated operator control plane, bounded GLB onboarding, private filesystem or S3-compatible object storage, durable bulk-personalization jobs, and a production-font registry boundary. `DesignDocument`, immutable product versions, and immutable project revisions remain the platform's central contracts.
 
 ## Invariants
 
-1. `DesignDocument` is the only customer-design source of truth.
-2. The 2D editor mutates that document; 3D, previews, and production derive from it.
-3. Uploaded artwork is identified by stable `assetId`, never by a browser object URL.
-4. Physical product dimensions govern 2D scale and production output. Screen pixels do not.
-5. A successful project update creates a new immutable revision.
-6. Published product versions and persisted production artifacts are immutable.
-7. Public DTOs never contain filesystem paths, storage keys, or secrets.
-8. Published template versions target exact immutable product configurations.
-9. Template instantiation creates a normal project; previews and personalization never become a second design model.
-10. A page is navigation metadata referencing an editable surface; it is not a mesh or a second design document.
-11. Studio Preview reads live design state. It is not an immutable production artifact.
-12. A production artifact names the exact project revision, product version, and configuration that generated it.
-13. A price quote is an immutable server-resolved snapshot; client prices, configuration IDs, and totals are never trusted.
-14. Bulk personalization materializes bound fields into ordinary `DesignDocument` variants; it never creates another renderer or design truth.
+1. `DesignDocument` is the only customer-design source of truth. The 2D editor mutates it; 3D, previews, personalization, and production derive from it.
+2. Published `ProductVersion` and `DesignTemplateVersion` rows never change in place.
+3. Every successful project save creates a new immutable revision through compare-and-swap.
+4. Production binds `projectId + projectRevision + productVersionId + configurationId` and re-resolves all authoritative inputs server-side.
+5. Browser identity, role, price, dimensions, configuration, readiness, asset metadata, checksums, and approvals are untrusted claims.
+6. Stable private asset IDs replace browser object URLs and arbitrary remote URLs.
+7. Public DTOs never contain storage keys, filesystem paths, provider internals, credentials, or wholesale engine configuration.
+8. Template and bulk variants remain ordinary editable `DesignDocument` values rather than parallel render models.
 
-## Modular-monolith boundaries
+## Resulting modular monolith
 
 ```text
-ProductDefinition + immutable ProductVersion + OptionSelection
+Customer
+   │
+Better Auth session ── or ── signed guest cookie
+   │                              │
+   └──────── ProjectOwner ────────┘
                     │
                     ▼
- ProductConfigurationProvider / authoritative structure
-                    │
-                    ▼
-       ResolvedProductConfiguration / ProductConfig
-                    │
-          ┌─────────┼─────────────────┐
-          ▼         ▼                 ▼
-  PricingProvider  DesignTemplateVersion     blank document
-          │                 │                   │
-          ▼                 └──── instantiate ──┘
-immutable PriceQuote                  │
-                                     ▼
-DesignProject ── DesignDocument ── stable ProjectAsset references
-      │                 │
-      │                 ├── page/surface navigation → 2D editor
-      │                 ├── CanvasTexture → Three.js preview
-      │                 ├── chrome-free Studio Preview
-      │                 ├── server preview cache
-      │                 └── print normalization + server preflight
-      │
-      ├── immutable project revisions
-      ├── owner-scoped API
-      └── normalized physical job
-                  ├── PDF exporter
-                  └── manufacturing geometry → SVG exporter
-                              │
-                              ▼
-                   immutable ProductionArtifact
+ProjectService ─────────────── ObjectStore
+     │                         filesystem | private S3/R2
+     │
+DesignDocument + immutable revision
+     ├── 2D editor
+     ├── Three.js preview
+     └── production preflight/export
+             ├── PDF
+             └── manufacturing SVG
+
+Operator
+   │
+Better Auth session + server-side grants
+   │
+Admin APIs/UI
+   ├── product drafts → validate → immutable ProductVersion
+   ├── template assets/drafts → validate → immutable TemplateVersion
+   ├── production font registry
+   └── onboarding jobs
+          │
+          ▼
+    existing Python CLI
+          │
+          ▼
+    immutable reports/artifacts + publication provenance
 ```
 
-The current platform stays inside the Next.js application. Domain contracts live in `src/platform`, server implementations in `src/server`, versioned HTTP adapters in `src/app/api/v1`, and Studio clients in `src/lib/projects`. React components do not call SQLite or object storage.
+Domain contracts live under `src/platform`, server adapters under `src/server`, versioned HTTP adapters under `src/app/api/v1`, and customer integration code under `src/lib`. React components do not access SQLite, private object storage, or operator grants directly.
 
-## Implemented platform modules
+## Implemented boundaries
 
-| Boundary | Contract | Current adapter |
+| Boundary | Contract | Adapter/state |
 | --- | --- | --- |
-| Project persistence | `ProjectRepository` | SQLite in `src/server/persistence` |
-| Artwork bytes | `ObjectStore` | Atomic local filesystem store |
-| Ownership | `ProjectOwner`, `AuthenticationProvider` | Signed guest identity; auth-provider seam |
-| Application logic | `ProjectService` | Create/open/save/list/duplicate/archive/claim/preview |
-| Public API | `/api/v1/projects/*` | Next.js Node route handlers |
-| Studio persistence | `useProjectSession` | Debounced, ordered, revision-CAS autosave |
-| Product catalogue | `ProductCatalogRepository` | SQLite definitions and immutable version snapshots |
-| Option resolution | `ProductOption`, `ProductConfigurationProvider` | Deterministic central resolver + legacy static adapter |
-| Public product API | Explicit product/configuration DTO projections | `/api/v1/products`; no `ProductConfig` serialization |
-| Product operations | Current-version validation inventory | Local-only read model over the same catalogue/resolver |
-| Product publishing | Revisioned `ProductDraft`, validation report, operator permissions | SQLite drafts + atomic immutable publish/audit transaction |
-| Commercial quote | `PricingProvider`, `PriceQuoteRepository` | Exact-configuration provider + owner-scoped immutable SQLite quote |
-| Version binding | `productVersionId`, `configurationId` | Exact-version project create/save/duplicate/preview |
-| Template catalogue | `DesignTemplateDefinition`, immutable `DesignTemplateVersion` | SQLite + checked code fixtures |
-| Personalization | explicit element binding + bounded `PersonalizationData` | Materialized into the same `DesignDocument` |
-| Bulk personalization | checked CSV mapping/report + deterministic lazy variants | Server importer; durable dataset/job API intentionally pending |
-| Template application | `TemplateService` | Exact-configuration, owner-scoped, idempotent project creation |
-| Studio presentation | `ResolvedStudioPresentation` | Page/print-area/web navigation + capability-driven layout |
-| Live Preview | Same `DesignDocument` and renderer contracts | Read-only 2D proof or existing live 3D/unfold view |
-| Parameterized packaging | `ProductConfigurationProvider`, embedded version-pinned `CartonSpec` | Mailer 0427 provider; one structure feeds editor, 3D, unfold, PDF, and SVG |
-| Manufacturing geometry | `ManufacturingGeometry` in millimetres | Authoritative carton cut/crease/bleed normalization |
-| Production artifacts | `ProductionArtifactRepository`, `ProductionExporter` | SQLite metadata + object-store PDF/SVG bytes |
-| Server print adapters | `ProductionArtworkRenderer`, `IccProfileLoader` | Sharp surface renderer + checked public/embedded ICC loader |
+| Customer authentication | `AuthenticationProvider` → `ProjectOwner` | Better Auth email/password sessions; provider IDs remain behind the owner projection |
+| Guest identity and claim | signed opaque guest + authenticated owner | HMAC cookie; transactional project/dataset/job transfer and claim ledger |
+| Operator authorization | explicit permission grants | SQLite grants plus explicit bootstrap IDs; roles are never read from request JSON |
+| Project persistence | `ProjectRepository` | SQLite projects and immutable revisions |
+| Private bytes | `ObjectStore` | atomic filesystem or AWS SigV4 S3/R2-compatible adapter |
+| Product catalogue/publishing | catalogue, drafts, validation, audit | SQLite immutable versions and atomic publish transaction |
+| Template catalogue/publishing | catalogue assets, drafts, validation, audit | private immutable assets and immutable template versions |
+| Onboarding | durable job/service/runner boundary | bounded argument-array subprocesses over the existing Python tooling |
+| Bulk personalization | owner-scoped datasets and jobs | private normalized dataset objects, durable job records, bounded manifest runner |
+| Production fonts | immutable approved asset registry | private checksummed TTF/OTF records; renderer binding deliberately gated |
+| Production | exporter/artifact repository | exact-revision PDF/SVG, private bytes, SHA-256 verification |
+| Pricing | provider boundary and quote repository | server-resolved immutable quotes; development estimate disabled in production by default |
+| PostgreSQL | target schema and verification harness | documented and fail-closed; runtime repositories are not yet ported |
 
-SQLite and local filesystem storage are intentionally development/single-node adapters. The domain interfaces permit PostgreSQL and S3/R2 adapters without changing Studio or `DesignDocument`.
+## Runtime persistence
 
-## Runtime data
+SQLite schema v16 stores projects/revisions/assets, auth sessions, owner-claim records, products/templates and drafts/audit events, onboarding jobs/assets, bulk datasets/jobs, quotes, production artifacts, operator grants, and production font metadata. Development defaults to `.data/vortex.sqlite` and `.data/objects`; filesystem bytes can be replaced with private S3/R2 through `VORTEX_OBJECT_STORE` without changing domain services.
 
-Development data defaults to `.data/`:
+SQLite remains the only runnable database adapter. `VORTEX_DATABASE=postgresql` fails closed until all transaction-sensitive repositories and Better Auth have real PostgreSQL implementations. See `POSTGRESQL.md`.
 
-- `.data/vortex.sqlite`: projects/revisions, immutable product/template catalogues, production artifacts, and price quotes.
-- `.data/objects/`: artwork and preview bytes plus content-type metadata.
-- `.data/guest-cookie-secret`: a generated local signing secret.
+## Security and resource boundaries
 
-Set `VORTEX_DATA_DIR` to relocate all development data. Production requires `VORTEX_GUEST_COOKIE_SECRET`, containing at least 32 random bytes encoded as base64url. Production deployments must mount durable storage or replace the local adapters.
+- Authenticated user IDs come from server-verified sessions. Guest IDs come only from an HMAC-signed `HttpOnly`, `SameSite=Lax` cookie.
+- Claiming requires both identities from the same request, is same-origin/rate-limit protected, uses a claim ledger, and clears the guest cookie after success.
+- Owner-scoped reads include owner type and ID; knowing a UUID is not authorization.
+- Operator routes require a server-resolved permission and return structured 401/403 errors without exposing catalogue metadata.
+- JSON and multipart routes allowlist fields, enforce byte limits, and reject unsafe/unknown values.
+- Artwork is fully decoded and bounded by bytes/pixels. GLBs are magic-checked, size bounded, run with argument arrays in per-job directories, and have bounded time/output capture.
+- Private object-store credentials and keys remain server-only. Provider ETags never replace application SHA-256 checks.
+- Production re-resolves exact immutable state and verifies every stored object before export/download.
+- Structured events contain stable IDs and durations, never credentials, cookies, image bytes, or CSV values.
 
-## Security boundaries
+The current rate limiter and job runners are in-process boundaries. Horizontal deployment requires a shared rate limiter and external worker/lease implementation. This limitation is explicit; requests do not silently perform unbounded work.
 
-- Every repository lookup includes owner type and owner ID; a UUID alone is never authorization.
-- Guest IDs are random UUIDs in signed, HTTP-only, SameSite cookies.
-- Mutations enforce same-origin checks and owner-scoped rate-limit buckets.
-- Uploads require a bounded request length and are fully decoded with pixel/byte limits.
-- MIME type, dimensions, and checksum come from server decoding, not client claims.
-- Filesystem keys are generated from UUIDs and checked against traversal.
-- Revision compare-and-swap rejects stale writers with HTTP 409.
-- Production re-resolves project identity and verifies every referenced asset before export.
-- Artifact reads are owner scoped and recheck MIME metadata, byte length, and SHA-256.
-- Artifact downloads are attachment-only, `nosniff`, same-origin resources with a sandbox content-security policy; generated SVG cannot become active application content.
-- Hidden engine fixtures are omitted from public product APIs. The operations inventory is disabled in production until operator authentication and authorization exist.
-- Product mutation methods require a trusted operator context and role checks at the service boundary. No mutation HTTP route exists until a real identity adapter can supply that context.
-- Quote endpoints ignore client price/configuration claims, re-resolve product options, validate provider arithmetic, and owner-scope every lookup; static development estimates are off in production by default.
+## Remaining infrastructure gates
 
-The in-memory rate limiter is a boundary, not a multi-instance production solution. A shared limiter should replace it when horizontally scaling.
-
-## Next boundaries
-
-The next admin step is connecting a real operator identity provider and an adapter for launching the proven onboarding jobs; no geometry tooling should move into React. Bulk personalization next needs owner-scoped encrypted dataset storage and a cancellable background output lifecycle before an upload route is responsible. The commerce successor is a small cart/order boundary that references an unexpired contract quote, exact project revision, and approved immutable production artifact without duplicating any of them. A real supplier pricing adapter must replace development estimates before checkout. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
+- Complete and exercise the PostgreSQL repositories before selecting that backend.
+- Bind approved registered font bytes into server rendering and artifact provenance before removing font reproducibility warnings.
+- Replace development pricing with real supplier pricing before checkout.
+- Validate CFF2 and manufacturing formats against receiving-partner fixtures before advertising them.
+- Supply production secrets, private bucket policy, database/volume deployment, and shared worker/rate-limit infrastructure.
+- Configure the documented GitHub `main` branch protection rules if repository administration cannot be performed by the delivery environment.

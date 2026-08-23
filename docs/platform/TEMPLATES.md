@@ -57,7 +57,7 @@ The output is a private checksum-verified NDJSON bundle manifest containing dete
 
 Datasets and their job outputs expire after 30 days. Expired bytes are deleted before database records; owner-authorized reads fail closed. Guest dataset/job ownership transfers in the same SQLite transaction as guest project claiming, so sign-in does not orphan a bulk workflow.
 
-CSV bytes and row values are currently processed in memory and are neither persisted nor logged. An owner-scoped dataset/job API needs a privacy/retention policy, encrypted durable storage, cancellation/progress, and output lifecycle before customer upload is exposed.
+CSV bytes are processed in memory, normalized values are stored only in private object storage, and raw uploads/row values are never logged. The customer-facing dataset/job routes enforce owner scope, a 30-day retention time, cancellation/progress/retry rules, and checksum-verified private output downloads. At-rest encryption is delegated to the configured filesystem volume or private S3/R2 provider and remains a deployment responsibility.
 
 ## Catalogue and customer flow
 
@@ -78,10 +78,10 @@ Three text-only fixtures prove distinct product families:
 
 Preview PNGs are rendered server-side from the same template document and product configuration. Version-addressed preview URLs are immutable-cacheable.
 
-## Asset limitation
+## Platform-owned image assets
 
-The domain already declares `assetIds`, and catalogue validation requires image references to match that declaration exactly. Instantiation currently rejects image-backed templates with `TEMPLATE_ASSET_CLONING_REQUIRED`; preview generation likewise rejects them without a template-asset resolver. This is deliberate: customer project assets are owner-scoped, while reusable template artwork needs a separate platform-owned asset scope plus intentional copy/grant semantics. The current fixtures therefore contain editable text and backgrounds only.
+`TemplateAsset` is a distinct immutable catalogue scope with content checksum, decoded image metadata, private storage key, and upload provenance. Only an operator with `assets:upload` may create one. Published versions list exact asset IDs; validation rejects missing IDs, undeclared image references, `blob:`, `data:`, and arbitrary remote URLs.
 
-Do not bypass this guard by embedding filesystem paths, public provider credentials, object URLs, or arbitrary remote image URLs in template documents.
+Preview resolves those private bytes server-side. Instantiation uses copy semantics: each referenced template asset is copied through `ObjectStore` into a new project-owned `ProjectAsset`, document references are rewritten, and optional `sourceTemplateAssetId` provenance is retained. Project duplication follows the ordinary project-asset copy path. Unpublishing or publishing a newer template therefore cannot break historical projects, and customers never receive a general endpoint for private catalogue bytes.
 
-Bulk CSV import, explicit mapping, validation reporting, and lazy document variants are implemented; owner-scoped dataset persistence, upload API, background rendering, cancellation, and output packaging are not. Placeholder values remain text-only; image placeholders require the separate owned-asset workflow above.
+Placeholder values remain text-only. Image-placeholder datasets require a separately designed owner-upload and binding workflow; unsupported bindings fail closed.

@@ -56,9 +56,9 @@ Every design edit after `ready_for_preflight` or `production_ready` creates a ne
 
 ## Guest ownership and claim
 
-The default adapter issues a random signed guest identity. `AuthenticationProvider` is the seam for a future real auth system. After a successful login, that adapter can call `ProjectService.claimGuestProjects(guest, user)`; ownership changes without rewriting designs or assets.
+The default `AuthenticationProvider` verifies Better Auth server sessions and projects the provider user into `{ type: "user", id }`. Anonymous visitors retain a random HMAC-signed `HttpOnly`, `SameSite=Lax` guest cookie. Provider/session details never enter project domain code.
 
-Claiming is not exposed as an unauthenticated public endpoint.
+After sign-in the customer calls same-origin `POST /api/v1/session/claim`. The route derives both the authenticated user and current guest identity from secure request state; it accepts no owner or guest ID in JSON. A SQLite transaction transfers projects plus durable personalization datasets/jobs, records the guest-to-user claim, and prevents stale guest writes. Repeated or concurrent claims by the same user converge; a different user receives a conflict. A successful claim clears the guest cookie, leaves project IDs/revisions/assets unchanged, and therefore preserves existing Studio URLs. Price quotes deliberately remain bound to their original owner in this version.
 
 ## Library, duplicate, archive, and previews
 
