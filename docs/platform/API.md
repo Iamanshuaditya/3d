@@ -1,6 +1,6 @@
 # Platform API
 
-Status: version 1 exposes products/configuration resolution, projects, artwork, editable templates, server preflight, and immutable PDF/manufacturing-SVG artifacts. Project/artifact DTOs are bound to immutable product versions and resolved configurations.
+Status: version 1 exposes products/configuration resolution, owner-scoped immutable price quotes, projects, artwork, editable templates, server preflight, and immutable PDF/manufacturing-SVG artifacts. Project, quote, and artifact DTOs are bound to immutable product versions and resolved configurations.
 
 ## Conventions
 
@@ -10,6 +10,7 @@ Status: version 1 exposes products/configuration resolution, projects, artwork, 
 - Mutations require same-origin browser context.
 - Public DTOs contain authorized read URLs, never storage keys.
 - Public product DTOs are explicit projections; they never serialize `ProductConfig`, provider identifiers, GLB URLs, mesh names, carton internals, ICC paths, or production-only option values.
+- Money is represented as integer minor units plus an ISO-style three-letter currency code. Browser-provided prices and totals are never accepted.
 
 Errors use:
 
@@ -57,6 +58,30 @@ Resolution body:
 The response contains validated customer values, deterministic `configurationId`, physical surface dimensions in millimetres, surface/page navigation, render capabilities, production format availability, and version-bound Studio/template links. It does not expose the internal engine config. The server re-runs option dependency, bounds, provider, and manufacturability validation; clients must not derive or assert production dimensions themselves.
 
 Unlisted/hidden registry products do not appear in the public list and direct public detail/resolve calls return 404. Internal project reopening continues through the exact owner-authorized project/product-version path, not through this discovery API.
+
+## Price quote endpoints
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/v1/products/:productId/quotes` | Resolve configuration server-side and persist an owner-scoped immutable quote |
+| `GET` | `/api/v1/price-quotes/:quoteId` | Read owner-authorized immutable quote terms and current active/expired status |
+
+Create body:
+
+```json
+{
+  "productVersionId": "tshirt@2",
+  "optionSelection": {},
+  "quantity": 10,
+  "clientRequestId": "b201c748-51d3-4c57-9746-4ceefaf62cdd"
+}
+```
+
+The server resolves the exact product version and deterministic `configurationId`, then sends that trusted configuration and quantity to `PricingProvider`. It validates currency, expiry, unique line codes, safe-integer amounts, and every `quantity × unitAmountMinor = amountMinor` relationship before storage. The public DTO includes immutable line items, total, tax/shipping inclusion flags, pricing version, expiry, and resource links; it excludes owner IDs, provider identity/reference, idempotency keys, and request fingerprints.
+
+Quote creation is same-origin checked, owner scoped, rate limited, and idempotent. Reusing a client request ID with different product/options/version/quantity returns 409. A product version published after the quote cannot mutate or float the saved quote. `status` is derived as `active` or `expired`; expiry never rewrites the immutable record.
+
+The checked-in static provider is explicitly a development estimate for one exact T-shirt configuration. It is disabled in production unless `VORTEX_ENABLE_DEVELOPMENT_PRICING=true`. Unsupported configurations return `PRICING_UNAVAILABLE` rather than a fabricated price. A quote is not a cart reservation, checkout authorization, tax calculation, shipping promise, or order.
 
 ## Project endpoints
 
@@ -147,6 +172,6 @@ Failed generation returns HTTP 422 with `PRODUCTION_PREFLIGHT_FAILED` and the st
 
 ## Compatibility and evolution
 
-API DTOs are defined in `src/platform/products/public-types.ts`, `src/platform/projects/types.ts`, `src/platform/templates/types.ts`, and `src/platform/production/types.ts`, separate from repository rows and `ProductConfig`. Project and artifact DTOs expose immutable provenance but not internal version snapshots or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
+API DTOs are defined in `src/platform/products/public-types.ts`, `src/platform/pricing/types.ts`, `src/platform/projects/types.ts`, `src/platform/templates/types.ts`, and `src/platform/production/types.ts`, separate from repository rows and `ProductConfig`. Project, quote, and artifact DTOs expose immutable provenance but not internal version snapshots, provider references, or storage rows. Additive v1 changes remain possible; incompatible public changes require a new version or an explicit compatibility period.
 
-Not yet exposed: guest claim, project revision history, permanent deletion, signed object-store URLs, authenticated template/product admin mutations, artifact approval/order linkage, pricing, and bulk personalization jobs. The internal product draft/validate/publish service and audit transaction are implemented, but deliberately have no HTTP route until an operator identity provider is connected.
+Not yet exposed: guest claim, project revision history, permanent deletion, signed object-store URLs, authenticated template/product admin mutations, artifact approval/order linkage, carts/orders/reprints, supplier-approved production pricing, tax/shipping calculation, and bulk personalization jobs. The internal product draft/validate/publish service and audit transaction are implemented, but deliberately have no HTTP route until an operator identity provider is connected.
