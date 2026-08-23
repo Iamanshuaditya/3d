@@ -6,6 +6,7 @@ import { prepareArtwork } from "./preprocess";
 import { quantize } from "./quantize";
 import { planStitches } from "./stitch-plan";
 import { renderEmbroideryMaps } from "./render-maps";
+import { domCanvasFactory, type CanvasFactory } from "./canvas";
 
 /**
  * image -> stitches -> material maps.
@@ -22,7 +23,20 @@ export type EmbroideryQuality = "preview" | "full";
  * `full` puts roughly three pixels across a 0.4 mm thread, which is the point
  * at which individual strands stop aliasing into a texture.
  */
-const PX_PER_MM: Record<EmbroideryQuality, number> = { preview: 3.2, full: 8 };
+const PX_PER_MM: Record<EmbroideryQuality, number> = { preview: 2.8, full: 8 };
+
+/**
+ * Raster ceiling per tier.
+ *
+ * Cost is linear in raster area, so a ceiling is what stops a poster-sized
+ * placement taking a hundred times longer than a badge. The preview ceiling is
+ * deliberately tight: it exists to be fast, and a 21 cm logo at the full
+ * tier's density is not a preview of anything.
+ */
+const MAX_PIXELS: Record<EmbroideryQuality, number> = {
+  preview: 420_000,
+  full: 2_600_000,
+};
 
 /** House fill angle. 45 degrees is the packaging-industry default for tatami. */
 const FILL_ANGLE_RAD = (45 * Math.PI) / 180;
@@ -39,14 +53,19 @@ export type EmbroideryRequest = {
   heightMm: number;
   settings: EmbroiderySettings;
   quality: EmbroideryQuality;
+  /** Where canvases come from. Defaults to the DOM; the worker passes its own. */
+  canvas?: CanvasFactory;
 };
 
 export function generateEmbroidery(request: EmbroideryRequest): EmbroideryResult {
   const { settings, quality } = request;
+  const canvas = request.canvas ?? domCanvasFactory;
   const prepared = prepareArtwork(request.image, {
     widthMm: request.widthMm,
     heightMm: request.heightMm,
     pxPerMm: PX_PER_MM[quality],
+    maxPixels: MAX_PIXELS[quality],
+    canvas,
   });
 
   const { palette, indices, assessment } = quantize(
@@ -71,6 +90,7 @@ export function generateEmbroidery(request: EmbroideryRequest): EmbroideryResult
     prepared.height,
     pxPerMm,
     settings,
+    canvas,
   );
 
   const notices = [...assessment.notices];
@@ -112,6 +132,7 @@ export function generateEmbroidery(request: EmbroideryRequest): EmbroideryResult
   };
 }
 
+export { PX_PER_MM, MAX_PIXELS, MAX_STITCHES, FILL_ANGLE_RAD };
 export { prepareArtwork } from "./preprocess";
 export { quantize } from "./quantize";
 export { planStitches } from "./stitch-plan";

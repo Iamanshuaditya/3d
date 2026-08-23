@@ -1,3 +1,5 @@
+import { context2d, domCanvasFactory, type CanvasFactory } from "./canvas";
+
 /**
  * Source-artwork preparation.
  *
@@ -74,6 +76,37 @@ function keyOutBackground(rgba: Uint8ClampedArray, width: number, height: number
   return removed > width * height * 0.02;
 }
 
+export type RasterSize = { width: number; height: number; pxPerMm: number };
+
+/**
+ * How big the effect raster should be for a placement of this physical size.
+ *
+ * Every stage of the pipeline is linear in raster area, so this single
+ * decision is what bounds the whole cost. Resolution is requested in pixels
+ * per millimetre — that is what keeps stitch scale physical — and the ceiling
+ * only bites on placements large enough to be a problem, degrading resolution
+ * rather than refusing to render.
+ *
+ * Pure, so the cost bound is testable without a canvas.
+ */
+export function rasterSize(
+  widthMm: number,
+  heightMm: number,
+  requestedPxPerMm: number,
+  maxPixels: number,
+): RasterSize {
+  const size = (pxPerMm: number) => ({
+    width: Math.max(4, Math.round(widthMm * pxPerMm)),
+    height: Math.max(4, Math.round(heightMm * pxPerMm)),
+    pxPerMm,
+  });
+
+  const requested = size(requestedPxPerMm);
+  if (requested.width * requested.height <= maxPixels) return requested;
+  const scale = Math.sqrt(maxPixels / (requested.width * requested.height));
+  return size(requestedPxPerMm * scale);
+}
+
 export function prepareArtwork(
   image: CanvasImageSource,
   options: {
@@ -82,23 +115,19 @@ export function prepareArtwork(
     pxPerMm: number;
     /** Ceiling on raster area, so a poster-sized placement cannot stall a tab. */
     maxPixels?: number;
+    /** Where canvases come from; `OffscreenCanvas` inside a worker. */
+    canvas?: CanvasFactory;
   },
 ): PreparedArtwork {
-  const maxPixels = options.maxPixels ?? 2_600_000;
-  let pxPerMm = options.pxPerMm;
-  let width = Math.max(4, Math.round(options.widthMm * pxPerMm));
-  let height = Math.max(4, Math.round(options.heightMm * pxPerMm));
-  if (width * height > maxPixels) {
-    const scale = Math.sqrt(maxPixels / (width * height));
-    pxPerMm *= scale;
-    width = Math.max(4, Math.round(options.widthMm * pxPerMm));
-    height = Math.max(4, Math.round(options.heightMm * pxPerMm));
-  }
+  const { width, height, pxPerMm } = rasterSize(
+    options.widthMm,
+    options.heightMm,
+    options.pxPerMm,
+    options.maxPixels ?? 2_600_000,
+  );
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const context = canvas.getContext("2d", { willReadFrequently: true })!;
+  const canvas = (options.canvas ?? domCanvasFactory)(width, height);
+  const context = context2d(canvas, { willReadFrequently: true });
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
   context.drawImage(image, 0, 0, width, height);

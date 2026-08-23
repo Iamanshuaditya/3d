@@ -55,6 +55,16 @@ export type ArtworkTreatment =
 
 export const PRINT_TREATMENT: ArtworkTreatment = { mode: "print" };
 
+/**
+ * A rasterised layer of the result.
+ *
+ * A canvas when the pipeline ran on the main thread, an `ImageBitmap` when it
+ * ran in a worker and the layers came back across `postMessage`. Every
+ * consumer — the Konva editor and the surface compositor — draws from these
+ * through `drawImage`, which accepts all three.
+ */
+export type EmbroideryRaster = HTMLCanvasElement | OffscreenCanvas | ImageBitmap;
+
 /** One thread colour and the stitches worked in it. */
 export type ThreadRun = {
   /** sRGB hex of the thread. */
@@ -84,11 +94,11 @@ export type EmbroideryResult = {
   heightMm: number;
   runs: ThreadRun[];
   stitchCount: number;
-  colour: HTMLCanvasElement;
-  normal: HTMLCanvasElement;
-  roughness: HTMLCanvasElement;
+  colour: EmbroideryRaster;
+  normal: EmbroideryRaster;
+  roughness: EmbroideryRaster;
   /** Coverage mask: 255 where thread lies, used to key the fabric material. */
-  mask: HTMLCanvasElement;
+  mask: EmbroideryRaster;
   /** Warnings the customer should see (photo detail loss, colour count, ...). */
   notices: string[];
 };
