@@ -1,6 +1,6 @@
 # Vortex platform architecture
 
-Status: P0 projects/assets, P1 versioned products, P2 editable templates/personalization, P3 page-aware presentation, P4 immutable server production, P5 parameterized packaging/manufacturing SVG, P6 public product APIs plus audited product publishing, and the first commerce quote boundary are implemented on `feat/vortex-platform-p0-projects`.
+Status: P0 projects/assets, P1 versioned products, P2 editable templates/semantic and bulk personalization, P3 page-aware presentation, P4 immutable server production, P5 parameterized packaging/manufacturing SVG, P6 public product APIs plus audited product publishing, and the first commerce quote boundary are implemented on `feat/vortex-platform-p0-projects`.
 
 ## Invariants
 
@@ -17,6 +17,7 @@ Status: P0 projects/assets, P1 versioned products, P2 editable templates/persona
 11. Studio Preview reads live design state. It is not an immutable production artifact.
 12. A production artifact names the exact project revision, product version, and configuration that generated it.
 13. A price quote is an immutable server-resolved snapshot; client prices, configuration IDs, and totals are never trusted.
+14. Bulk personalization materializes bound fields into ordinary `DesignDocument` variants; it never creates another renderer or design truth.
 
 ## Modular-monolith boundaries
 
@@ -75,6 +76,7 @@ The current platform stays inside the Next.js application. Domain contracts live
 | Version binding | `productVersionId`, `configurationId` | Exact-version project create/save/duplicate/preview |
 | Template catalogue | `DesignTemplateDefinition`, immutable `DesignTemplateVersion` | SQLite + checked code fixtures |
 | Personalization | explicit element binding + bounded `PersonalizationData` | Materialized into the same `DesignDocument` |
+| Bulk personalization | checked CSV mapping/report + deterministic lazy variants | Server importer; durable dataset/job API intentionally pending |
 | Template application | `TemplateService` | Exact-configuration, owner-scoped, idempotent project creation |
 | Studio presentation | `ResolvedStudioPresentation` | Page/print-area/web navigation + capability-driven layout |
 | Live Preview | Same `DesignDocument` and renderer contracts | Read-only 2D proof or existing live 3D/unfold view |
@@ -115,4 +117,4 @@ The in-memory rate limiter is a boundary, not a multi-instance production soluti
 
 ## Next boundaries
 
-The next admin step is connecting a real operator identity provider and an adapter for launching the proven onboarding jobs; no geometry tooling should move into React. The commerce successor is a small cart/order boundary that references an unexpired contract quote, exact project revision, and approved immutable production artifact without duplicating any of them. A real supplier pricing adapter must replace development estimates before checkout. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
+The next admin step is connecting a real operator identity provider and an adapter for launching the proven onboarding jobs; no geometry tooling should move into React. Bulk personalization next needs owner-scoped encrypted dataset storage and a cancellable background output lifecycle before an upload route is responsible. The commerce successor is a small cart/order boundary that references an unexpired contract quote, exact project revision, and approved immutable production artifact without duplicating any of them. A real supplier pricing adapter must replace development estimates before checkout. CFF2 remains gated by real CAD/manufacturing round-trip fixtures documented in `docs/research/CF2.md`; it is not advertised as implemented. Template artwork later adds a platform-owned asset scope rather than weakening project ownership. These extend the graph above; they do not create parallel design engines.
