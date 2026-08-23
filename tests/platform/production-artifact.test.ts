@@ -21,6 +21,7 @@ import { NotFoundError } from "@/platform/projects/errors";
 import type { ProjectOwner } from "@/platform/projects/types";
 import { ProductionPreflightError } from "@/platform/production/errors";
 import type { ProductionExporter } from "@/platform/production/exporter";
+import type { ProductionFontReader } from "@/platform/production/fonts";
 import { openVortexDatabase } from "@/server/persistence/database";
 import { SqliteProjectRepository } from "@/server/persistence/sqlite-project-repository";
 import { ProductCatalogService } from "@/server/products/product-catalog-service";
@@ -57,6 +58,7 @@ async function fixture(
     new PdfProductionExporter(),
     new SvgProductionExporter(),
   ],
+  fontRegistry?: ProductionFontReader,
 ) {
   const directory = await mkdtemp(join(tmpdir(), "vortex-production-test-"));
   const database = openVortexDatabase(":memory:");
@@ -79,6 +81,9 @@ async function fixture(
     objectStore,
     catalog,
     exporters,
+    undefined,
+    undefined,
+    fontRegistry,
   );
   t.after(async () => {
     database.close();
@@ -93,6 +98,43 @@ async function fixture(
     catalog,
   };
 }
+
+test("registered font assets keep warning until renderer provenance is pinned", async (t) => {
+  const { projects, production } = await fixture(t, undefined, {
+    async find(family, weight, style) {
+      return family.toLocaleLowerCase() === "arial" && weight === 400 && style === "normal"
+        ? {
+            id: "font-registry-test",
+            family: "Arial",
+            weight: 400,
+            style: "normal",
+            format: "ttf",
+            filename: "arial.ttf",
+            mimeType: "font/ttf",
+            byteSize: 100,
+            sha256: "a".repeat(64),
+            storageKey: "production-fonts/font-registry-test.ttf",
+            licenseName: "Test licence",
+            licenseReference: "test-only",
+            approvedBy: "test-operator",
+            createdAt: "2026-08-24T00:00:00.000Z",
+          }
+        : null;
+    },
+  });
+  const project = await projects.create(guest, "bottle-001", "Font registry boundary");
+  const saved = await projects.update(guest, project.id, {
+    expectedRevision: 1,
+    design: addText(project.design, "registered-font", "Approved but not pinned"),
+  });
+  const preflight = await production.preflight(guest, saved.id, saved.revision);
+  assert.ok(preflight.report.issues.some(
+    (issue) => issue.code === "SERVER_FONT_RENDERER_BINDING_REQUIRED" && issue.severity === "warning",
+  ));
+  assert.equal(preflight.report.issues.some(
+    (issue) => issue.code === "SERVER_FONT_APPROVAL_REQUIRED",
+  ), false);
+});
 
 function addText(document: DesignDocument, id: string, text: string) {
   const next = structuredClone(document);
@@ -487,7 +529,7 @@ test("later schemas preserve immutable PDFs while adding one SVG per revision", 
     (database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get() as {
       version: number;
     }).version,
-    14,
+    15,
   );
   assert.doesNotThrow(() => database.prepare(`
     INSERT INTO production_artifacts VALUES (

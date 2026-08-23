@@ -89,7 +89,7 @@ The exporter currently supports exact one-sheet carton structures. It is deliber
 - Generation and preflight mutations require same-origin context and separate rate-limit buckets.
 - Visual embroidery treatment fails production preflight explicitly. Vortex does not claim DST/PES or machine-ready embroidery output.
 - Generic/simulated printer profiles remain warnings until a receiving factory approves the physical workflow.
-- Editable text currently renders through host font resolution and receives `SERVER_FONT_APPROVAL_REQUIRED`. Exact licensed font assets must be pinned before unattended text production.
+- Editable text currently renders through host font resolution. An authenticated operator can register immutable private TTF/OTF assets with SHA-256 and licensing provenance, but those assets are not yet bound into the renderer and artifact provenance. Missing assets receive `SERVER_FONT_APPROVAL_REQUIRED`; registered families receive `SERVER_FONT_RENDERER_BINDING_REQUIRED`. Both warnings remain until deterministic renderer binding is proven—registration alone does not claim reproducibility.
 
 ## Export boundary and remaining limits
 

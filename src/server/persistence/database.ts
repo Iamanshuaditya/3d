@@ -1,8 +1,9 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { configuredPersistenceBackend } from "./backend";
 
-const SCHEMA_VERSION = 14;
+const SCHEMA_VERSION = 15;
 
 export type VortexDatabase = Database.Database;
 
@@ -614,6 +615,35 @@ function migrate(database: VortexDatabase) {
     })();
   }
 
+  if (current.version < 15) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE production_fonts (
+          id TEXT PRIMARY KEY,
+          family TEXT NOT NULL,
+          weight INTEGER NOT NULL CHECK (weight BETWEEN 100 AND 900 AND weight % 100 = 0),
+          style TEXT NOT NULL CHECK (style IN ('normal', 'italic')),
+          format TEXT NOT NULL CHECK (format IN ('ttf', 'otf')),
+          filename TEXT NOT NULL,
+          mime_type TEXT NOT NULL CHECK (mime_type IN ('font/ttf', 'font/otf')),
+          byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+          sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
+          storage_key TEXT NOT NULL UNIQUE,
+          license_name TEXT NOT NULL,
+          license_reference TEXT NOT NULL,
+          approved_by TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX production_fonts_family_idx
+          ON production_fonts(family, weight, style, created_at DESC, id DESC);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (15, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
   if (current.version > SCHEMA_VERSION) {
     throw new Error(
       `Vortex database schema ${current.version} is newer than this runtime (${SCHEMA_VERSION}).`,
@@ -634,6 +664,7 @@ export function openVortexDatabase(filename = defaultDatabasePath()): VortexData
 let singleton: VortexDatabase | null = null;
 
 export function getVortexDatabase(): VortexDatabase {
+  configuredPersistenceBackend();
   singleton ??= openVortexDatabase();
   return singleton;
 }

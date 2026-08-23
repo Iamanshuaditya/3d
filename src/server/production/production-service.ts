@@ -17,6 +17,7 @@ import type {
 import { ProductDomainError } from "@/platform/products/errors";
 import type { ProductCatalogReader } from "@/platform/products/types";
 import { ProductionPreflightError } from "@/platform/production/errors";
+import type { ProductionFontReader } from "@/platform/production/fonts";
 import type { ProductionExporter, ProductionAssetBytes } from "@/platform/production/exporter";
 import type { ProductionArtifactRepository } from "@/platform/production/repository";
 import type {
@@ -50,6 +51,10 @@ function logEvent(event: string, values: Record<string, unknown>) {
 
 function sha256(bytes: Uint8Array) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function primaryFontFamily(value: string) {
+  return value.split(",", 1)[0].trim().replace(/^(['"])(.*)\1$/, "$2");
 }
 
 function downloadUrl(artifactId: string) {
@@ -90,7 +95,11 @@ function withAssetChecks(
   };
 }
 
-function withServerFontCheck(report: PreflightReport, families: string[]): PreflightReport {
+function withServerFontCheck(
+  report: PreflightReport,
+  families: string[],
+  registeredFamilies: Set<string>,
+): PreflightReport {
   if (!families.length) {
     return {
       ...report,
@@ -104,14 +113,19 @@ function withServerFontCheck(report: PreflightReport, families: string[]): Prefl
       ],
     };
   }
+  const allRegistered = families.every((family) => registeredFamilies.has(family));
   return {
     ...report,
     issues: [
       ...report.issues,
       {
-        code: "SERVER_FONT_APPROVAL_REQUIRED",
+        code: allRegistered
+          ? "SERVER_FONT_RENDERER_BINDING_REQUIRED"
+          : "SERVER_FONT_APPROVAL_REQUIRED",
         severity: "warning",
-        message: `Server output uses host font resolution for ${families.join(", ")}. Bundle and approve exact font files before unattended production.`,
+        message: allRegistered
+          ? `Approved immutable font assets exist for ${families.join(", ")}, but the renderer does not yet bind exact font checksums into artifact provenance.`
+          : `Server output uses host font resolution for ${families.join(", ")}. Bundle and approve exact font files before unattended production.`,
       },
     ],
     checks: [
@@ -119,7 +133,9 @@ function withServerFontCheck(report: PreflightReport, families: string[]): Prefl
       {
         name: "Server font reproducibility",
         passed: false,
-        detail: "Text rendered successfully, but exact licensed font files are not yet pinned in a production font registry.",
+        detail: allRegistered
+          ? "Approved font assets are checksum pinned, but deterministic renderer binding and artifact provenance are still required."
+          : "Text rendered successfully, but exact licensed font files are not yet pinned in the production font registry.",
       },
     ],
   };
@@ -136,6 +152,7 @@ export class ProductionService {
     exporters: ProductionExporter[],
     private readonly clock: Clock = () => new Date().toISOString(),
     private readonly generateId: IdGenerator = () => crypto.randomUUID(),
+    private readonly fontRegistry?: ProductionFontReader,
   ) {
     this.exporters = new Map(exporters.map((exporter) => [exporter.kind, exporter]));
   }
@@ -278,9 +295,16 @@ export class ProductionService {
     const job = normalizePrintJob(product, canonicalDesign);
     const fontFamilies = [...new Set(
       Object.values(canonicalDesign.surfaces).flatMap((surface) =>
-        surface.elements.flatMap((element) => element.type === "text" ? [element.fontFamily] : []),
+        surface.elements.flatMap((element) =>
+          element.type === "text" ? [primaryFontFamily(element.fontFamily)] : []),
       ),
     )].sort();
+    const registeredFamilies = new Set<string>();
+    if (this.fontRegistry) {
+      await Promise.all(fontFamilies.map(async (family) => {
+        if (await this.fontRegistry?.find(family, 400, "normal")) registeredFamilies.add(family);
+      }));
+    }
     const report = withServerFontCheck(
       withAssetChecks(
         preflightPrintJob(job, this.clock()),
@@ -288,6 +312,7 @@ export class ProductionService {
         referencedIds.length,
       ),
       fontFamilies,
+      registeredFamilies,
     );
     return { project, projectRevision, job, report, assets: verified };
   }
