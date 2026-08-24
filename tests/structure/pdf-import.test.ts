@@ -105,6 +105,56 @@ test("vector PDF import composes graphics transforms before physical normalizati
   assert.ok(Math.abs(segment.end.x - 30 * ptToMm) < 1e-9);
 });
 
+test("named PDF die separations remain authoritative across color-space and tint operators", () => {
+  const dieline = importVectorPdfOperatorPage(
+    {
+      widthPt: 72,
+      heightPt: 72,
+      operators: [
+        { name: "setStrokeColorSpace", args: ["DieCutBlue"] },
+        { name: "setStrokeColorN", args: [1] },
+        { name: "constructPath", args: [["moveTo", "lineTo"], [0, 0, 72, 0]] },
+        { name: "stroke", args: [] },
+        { name: "setStrokeColorSpace", args: ["DieCutRed"] },
+        { name: "setStrokeColorN", args: [0.75] },
+        { name: "constructPath", args: [["moveTo", "lineTo"], [0, 36, 72, 36]] },
+        { name: "stroke", args: [] },
+        { name: "setStrokeColorSpace", args: ["Bleed"] },
+        { name: "setStrokeColorN", args: [0.5] },
+        { name: "constructPath", args: [["moveTo", "lineTo"], [0, 72, 72, 72]] },
+        { name: "stroke", args: [] },
+      ],
+    },
+    {
+      id: "spot-separations",
+      rules: [
+        { operation: "cut", colorSpace: "spot", spotName: "DieCutBlue" },
+        { operation: "crease", colorSpace: "spot", spotName: "DieCutRed" },
+        { operation: "bleed", colorSpace: "spot", spotName: "Bleed" },
+      ],
+    },
+  );
+  assert.deepEqual(
+    dieline.entities.map((entity) => entity.operation),
+    ["cut", "crease", "bleed"],
+  );
+});
+
+test("pattern color spaces fail closed instead of becoming structural authority", () => {
+  assert.throws(
+    () =>
+      importVectorPdfOperatorPage(
+        {
+          widthPt: 72,
+          heightPt: 72,
+          operators: [{ name: "setStrokeColorSpace", args: ["Pattern"] }],
+        },
+        { id: "pattern", rules: [{ operation: "cut", colorSpace: "spot", spotName: "Pattern" }] },
+      ),
+    /Pattern stroking color spaces/,
+  );
+});
+
 test("vector PDF import fails closed when structural stroke semantics are ambiguous", () => {
   assert.throws(
     () =>
