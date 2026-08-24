@@ -1,8 +1,7 @@
 import type { CanonicalDieline, Vec2 } from "./vector-domain";
-import type { StructuralPanel } from "./topology";
+import { extractCutCycles, type StructuralPanel } from "./topology";
 import {
   distanceBetweenPoints,
-  flattenVectorPath,
   pointToSegmentDistance,
   signedPolygonArea,
 } from "./vector-math";
@@ -18,14 +17,21 @@ export type FlatEquivalenceReport = Readonly<{
   maxDerivedToSourceMm: number;
   bidirectionalHausdorffMm: number;
   rmsBoundaryDistanceMm: number;
+  maxHoleHausdorffMm: number;
   sourceAreaMm2: number;
   derivedAreaMm2: number;
   areaDifferenceMm2: number;
+  sourceHoleAreaMm2: number;
+  derivedHoleAreaMm2: number;
+  holeAreaDifferenceMm2: number;
   sourcePerimeterMm: number;
   derivedPerimeterMm: number;
   perimeterDifferenceMm: number;
+  sourceHolePerimeterMm: number;
+  derivedHolePerimeterMm: number;
+  holePerimeterDifferenceMm: number;
   passesBoundaryGate: boolean;
-  passesHoleCountGate: boolean;
+  passesHoleGeometryGate: boolean;
 }>;
 
 function quantize(value: number, tolerance: number): number {
@@ -46,18 +52,13 @@ function loopSegments(loop: readonly Vec2[]): BoundarySegment[] {
   return loop.map((start, index) => ({ start, end: loop[(index + 1) % loop.length] }));
 }
 
-function sourceLoops(dieline: CanonicalDieline, operations: readonly string[]): readonly (readonly Vec2[])[] {
-  return dieline.entities
-    .filter((entity) => operations.includes(entity.operation) && entity.path.closed)
-    .map((entity) => flattenVectorPath(entity.path, dieline.tolerances.curveFlatteningMm).points)
-    .filter((points) => points.length >= 3);
-}
-
 export function derivePanelUnionBoundary(
   panels: readonly StructuralPanel[],
   toleranceMm: number,
 ): readonly BoundarySegment[] {
-  if (!Number.isFinite(toleranceMm) || toleranceMm <= 0) throw new RangeError("Boundary derivation tolerance must be finite and positive.");
+  if (!Number.isFinite(toleranceMm) || toleranceMm <= 0) {
+    throw new RangeError("Boundary derivation tolerance must be finite and positive.");
+  }
   const occurrences = new Map<string, BoundarySegment[]>();
   for (const panel of panels) {
     for (const segment of loopSegments(panel.outerBoundary)) {
@@ -93,7 +94,9 @@ function sampleSegments(segments: readonly BoundarySegment[], spacingMm: number)
 
 function nearestDistance(point: Vec2, segments: readonly BoundarySegment[]): number {
   let best = Infinity;
-  for (const segment of segments) best = Math.min(best, pointToSegmentDistance(point, segment.start, segment.end));
+  for (const segment of segments) {
+    best = Math.min(best, pointToSegmentDistance(point, segment.start, segment.end));
+  }
   return best;
 }
 
@@ -106,51 +109,126 @@ function directionalDistances(
   return sampleSegments(source, spacingMm).map((point) => nearestDistance(point, target));
 }
 
-function perimeter(segments: readonly BoundarySegment[]): number {
-  return segments.reduce((sum, segment) => sum + distanceBetweenPoints(segment.start, segment.end), 0);
+function bidirectionalHausdorff(
+  first: readonly BoundarySegment[],
+  second: readonly BoundarySegment[],
+  spacingMm: number,
+): number {
+  return Math.max(
+    ...directionalDistances(first, second, spacingMm),
+    ...directionalDistances(second, first, spacingMm),
+  );
 }
 
-function totalLoopArea(outer: readonly (readonly Vec2[])[], holes: readonly (readonly Vec2[])[]): number {
-  const outerArea = outer.reduce((sum, loop) => sum + Math.abs(signedPolygonArea(loop)), 0);
-  const holeArea = holes.reduce((sum, loop) => sum + Math.abs(signedPolygonArea(loop)), 0);
-  return outerArea - holeArea;
+function perimeter(segments: readonly BoundarySegment[]): number {
+  return segments.reduce(
+    (sum, segment) => sum + distanceBetweenPoints(segment.start, segment.end),
+    0,
+  );
+}
+
+function loopsArea(loops: readonly (readonly Vec2[])[]): number {
+  return loops.reduce((sum, loop) => sum + Math.abs(signedPolygonArea(loop)), 0);
+}
+
+function matchHoleGeometry(
+  sourceHoles: readonly (readonly Vec2[])[],
+  derivedHoles: readonly (readonly Vec2[])[],
+  spacingMm: number,
+): number {
+  if (sourceHoles.length !== derivedHoles.length) return Infinity;
+  if (sourceHoles.length === 0) return 0;
+  const available = new Set(derivedHoles.map((_, index) => index));
+  let worst = 0;
+  for (const source of sourceHoles) {
+    const sourceSegments = loopSegments(source);
+    let bestIndex = -1;
+    let bestDistance = Infinity;
+    for (const index of available) {
+      const distance = bidirectionalHausdorff(
+        sourceSegments,
+        loopSegments(derivedHoles[index]),
+        spacingMm,
+      );
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+    if (bestIndex < 0) return Infinity;
+    available.delete(bestIndex);
+    worst = Math.max(worst, bestDistance);
+  }
+  return worst;
 }
 
 export function measureFlatPanelEquivalence(
   dieline: CanonicalDieline,
   panels: readonly StructuralPanel[],
 ): FlatEquivalenceReport {
-  const outerLoops = sourceLoops(dieline, ["cut"]);
-  const sourceHoles = sourceLoops(dieline, ["window-cut"]);
-  if (outerLoops.length === 0) throw new Error("Flat equivalence requires at least one closed source cut loop.");
-  const sourceOuterSegments = outerLoops.flatMap(loopSegments);
-  const derivedOuterSegments = derivePanelUnionBoundary(panels, dieline.tolerances.topologySnapMm);
+  const cycles = extractCutCycles(dieline);
+  const outerCycles = cycles.filter((cycle) => cycle.role === "outer");
+  if (outerCycles.length !== 1) {
+    throw new Error(`Flat equivalence requires exactly one source outer cut cycle; found ${outerCycles.length}.`);
+  }
+  const sourceOuter = outerCycles[0].points;
+  const sourceHoles = cycles.filter((cycle) => cycle.role === "hole").map((cycle) => cycle.points);
+  const sourceOuterSegments = loopSegments(sourceOuter);
+  const derivedOuterSegments = derivePanelUnionBoundary(
+    panels,
+    dieline.tolerances.topologySnapMm,
+  );
   const derivedHoles = panels.flatMap((panel) => panel.holes);
   const spacing = Math.min(
     dieline.tolerances.metricSampleSpacingMm,
     Math.max(dieline.tolerances.boundaryComparisonMm / 2, 0.001),
   );
 
-  const sourceToDerived = directionalDistances(sourceOuterSegments, derivedOuterSegments, spacing);
-  const derivedToSource = directionalDistances(derivedOuterSegments, sourceOuterSegments, spacing);
+  const sourceToDerived = directionalDistances(
+    sourceOuterSegments,
+    derivedOuterSegments,
+    spacing,
+  );
+  const derivedToSource = directionalDistances(
+    derivedOuterSegments,
+    sourceOuterSegments,
+    spacing,
+  );
   const allDistances = [...sourceToDerived, ...derivedToSource];
   const maxSourceToDerivedMm = Math.max(...sourceToDerived);
   const maxDerivedToSourceMm = Math.max(...derivedToSource);
-  const bidirectionalHausdorffMm = Math.max(maxSourceToDerivedMm, maxDerivedToSourceMm);
+  const bidirectionalHausdorffMm = Math.max(
+    maxSourceToDerivedMm,
+    maxDerivedToSourceMm,
+  );
   const rmsBoundaryDistanceMm = Math.sqrt(
     allDistances.reduce((sum, value) => sum + value * value, 0) / allDistances.length,
   );
+  const maxHoleHausdorffMm = matchHoleGeometry(sourceHoles, derivedHoles, spacing);
 
-  const sourceAreaMm2 = totalLoopArea(outerLoops, sourceHoles);
+  const sourceHoleAreaMm2 = loopsArea(sourceHoles);
+  const derivedHoleAreaMm2 = loopsArea(derivedHoles);
+  const sourceAreaMm2 = Math.abs(signedPolygonArea(sourceOuter)) - sourceHoleAreaMm2;
   const derivedAreaMm2 = panels.reduce(
     (sum, panel) =>
       sum +
       Math.abs(signedPolygonArea(panel.outerBoundary)) -
-      panel.holes.reduce((holeSum, hole) => holeSum + Math.abs(signedPolygonArea(hole)), 0),
+      panel.holes.reduce(
+        (holeSum, hole) => holeSum + Math.abs(signedPolygonArea(hole)),
+        0,
+      ),
     0,
   );
   const sourcePerimeterMm = perimeter(sourceOuterSegments);
   const derivedPerimeterMm = perimeter(derivedOuterSegments);
+  const sourceHolePerimeterMm = sourceHoles.reduce(
+    (sum, loop) => sum + perimeter(loopSegments(loop)),
+    0,
+  );
+  const derivedHolePerimeterMm = derivedHoles.reduce(
+    (sum, loop) => sum + perimeter(loopSegments(loop)),
+    0,
+  );
 
   return {
     sourceOuterSegmentCount: sourceOuterSegments.length,
@@ -161,13 +239,25 @@ export function measureFlatPanelEquivalence(
     maxDerivedToSourceMm,
     bidirectionalHausdorffMm,
     rmsBoundaryDistanceMm,
+    maxHoleHausdorffMm,
     sourceAreaMm2,
     derivedAreaMm2,
     areaDifferenceMm2: Math.abs(sourceAreaMm2 - derivedAreaMm2),
+    sourceHoleAreaMm2,
+    derivedHoleAreaMm2,
+    holeAreaDifferenceMm2: Math.abs(sourceHoleAreaMm2 - derivedHoleAreaMm2),
     sourcePerimeterMm,
     derivedPerimeterMm,
     perimeterDifferenceMm: Math.abs(sourcePerimeterMm - derivedPerimeterMm),
-    passesBoundaryGate: bidirectionalHausdorffMm <= dieline.tolerances.boundaryComparisonMm,
-    passesHoleCountGate: sourceHoles.length === derivedHoles.length,
+    sourceHolePerimeterMm,
+    derivedHolePerimeterMm,
+    holePerimeterDifferenceMm: Math.abs(
+      sourceHolePerimeterMm - derivedHolePerimeterMm,
+    ),
+    passesBoundaryGate:
+      bidirectionalHausdorffMm <= dieline.tolerances.boundaryComparisonMm,
+    passesHoleGeometryGate:
+      sourceHoles.length === derivedHoles.length &&
+      maxHoleHausdorffMm <= dieline.tolerances.boundaryComparisonMm,
   };
 }
