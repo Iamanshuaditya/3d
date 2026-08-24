@@ -15,3 +15,4 @@ export * from "./structural-tree";
 export * from "./structural-quality";
 export * from "./structural-acceptance";
 export * from "./golden-lock-bottom-profile";
+export * from "./diagnostic-art";

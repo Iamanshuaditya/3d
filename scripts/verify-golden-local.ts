@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
+  createStructuralDiagnosticArtwork,
   evaluateLockBottomGoldenAcceptance,
   extractStructuralPanels,
   importVectorPdfRawAuthority,
@@ -71,6 +72,7 @@ const profiled = applyLockBottomGoldenSourceProfile(raw);
 const graph = buildPlanarGraph(profiled.topologyDieline);
 const panels = extractStructuralPanels(raw, graph);
 const inventory = inspectStructuralConstruction(raw, graph, panels);
+const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
 
 const constructionTemplate = {
   schemaVersion: 1,
@@ -135,6 +137,15 @@ const summary = {
     hingeCandidateCount: inventory.hingeCandidates.length,
     semanticsResolved: false,
   },
+  mappingEvidence: {
+    diagnosticArtwork: "golden-diagnostic-art.svg",
+    purpose: [
+      "detect mirrored or rotated sheet mapping",
+      "detect panel swaps",
+      "detect artwork jumps across intended shared creases",
+      "make flat-versus-folded orientation visually auditable",
+    ],
+  },
   verdict:
     acceptance.passed && inventory.formsTree
       ? "GEOMETRY_ACCEPTED_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
@@ -146,6 +157,7 @@ await mkdir(destination, { recursive: true });
 await Promise.all([
   writeFile(`${destination}/golden-run-summary.json`, asJson(summary)),
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
+  writeFile(`${destination}/golden-diagnostic-art.svg`, diagnosticArtwork),
   writeFile(
     `${destination}/golden-construction-inventory.json`,
     asJson({

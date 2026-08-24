@@ -45,17 +45,45 @@ roles, or closure order.
 
 ## Local outputs
 
-The runner writes four JSON files without copying the PDF:
+The runner writes local evidence without copying the PDF:
 
 - `golden-run-summary.json` - compact acceptance result and gate summary;
 - `golden-acceptance.json` - complete geometric acceptance report;
 - `golden-construction-inventory.json` - topology repairs and crease adjacency
   evidence;
 - `golden-construction-template.json` - source-locked authoring template whose
-  unresolved physical facts remain `null`.
+  unresolved physical facts remain `null`;
+- `golden-diagnostic-art.svg` - deterministic asymmetric full-sheet artwork for
+  visual mapping checks.
+
+The diagnostic SVG is deliberately not manufacturing geometry. It contains
+unequal corner markers, sheet-direction labels, two non-symmetric crossing
+lines, a grid, source hash, and a label/up-arrow for every extracted structural
+panel. When used as artwork in both flat and folded views it makes horizontal
+or vertical mirroring, 90/180 degree rotation, panel swaps, wrong chirality,
+and artwork jumps across shared creases immediately visible.
 
 The runner exits non-zero if the geometric acceptance fails or the crease
 adjacency graph no longer forms the reviewed tree.
+
+## Mapping evidence protocol
+
+For golden mapping review, use the generated `golden-diagnostic-art.svg` as the
+single full-sheet artwork source and capture at least:
+
+1. the canonical 2D flat sheet;
+2. the exact structural 3D flat pose at the same fold state;
+3. the erected body before top closure;
+4. the dust/secondary-flap state;
+5. the major closure state;
+6. the final assembled state.
+
+Keep the camera fixed while comparing structural states. A mapping PASS requires
+all panel labels and orientation arrows to remain readable with the expected
+chirality, the four corner markers to retain their identities, and continuous
+sheet features to remain continuous across every physically connected crease.
+Do not compensate for a bad UV map by rotating or mirroring individual artwork
+textures.
 
 ## Pass meaning
 
@@ -66,6 +94,5 @@ the complete product PASS.
 
 The remaining golden product gates still require evidence-backed construction
 metadata and visual/reference validation: signed folds and target angles,
-root/hierarchy, board thickness, tuck/lock/glue destinations and ordering,
-fixed-camera transition captures, and asymmetric diagnostic artwork across all
-intended outside faces.
+root/hierarchy, board thickness, tuck/lock/glue destinations and ordering, and
+fixed-camera transition captures scored against the reference behavior.
