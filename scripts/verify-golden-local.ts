@@ -1,12 +1,15 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
+import { authoredPlan, validateUnfoldPlan } from "../src/lib/configurator/unfold-plan";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
   certifyLockBottomGoldenBodyTube,
+  certifyStructuralFoldRuntime,
   classifyLockBottomGoldenGeometry,
   classifyLockBottomGoldenHinges,
+  compileLockBottomGoldenConstruction,
   createStructuralDiagnosticArtwork,
   evaluateLockBottomGoldenAcceptance,
   extractStructuralPanels,
@@ -18,14 +21,16 @@ import {
   GOLDEN_REFERENCE_UNRESOLVED,
   importVectorPdfRawAuthority,
   inspectStructuralConstruction,
+  resolveStructuralRig,
   validateGoldenReferenceEvidence,
+  type GoldenReviewedConstructionInput,
 } from "../src/lib/structure";
 
 const DEFAULT_OUTPUT_DIR = ".quality-local/golden";
 
 function usage(): never {
   console.error(
-    "Usage: npm run verify:golden-local -- <authorized-reference.pdf> [--out <local-output-dir>]",
+    "Usage: npm run verify:golden-local -- <authorized-reference.pdf> [--construction <reviewed-construction.json>] [--out <local-output-dir>]",
   );
   process.exit(2);
 }
@@ -33,13 +38,15 @@ function usage(): never {
 function parseArgs(argv: readonly string[]) {
   let pdf: string | null = null;
   let outputDir = DEFAULT_OUTPUT_DIR;
+  let constructionPath: string | null = null;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--out") {
+    if (arg === "--out" || arg === "--construction") {
       const next = argv[index + 1];
       if (!next || next.startsWith("--")) usage();
-      outputDir = next;
+      if (arg === "--out") outputDir = next;
+      else constructionPath = next;
       index += 1;
       continue;
     }
@@ -49,17 +56,53 @@ function parseArgs(argv: readonly string[]) {
   }
 
   if (!pdf) usage();
-  return { pdf, outputDir };
+  return { pdf, outputDir, constructionPath };
 }
 
 function asJson(value: unknown) {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-const { pdf, outputDir } = parseArgs(process.argv.slice(2));
+function parseReviewedConstruction(text: string): GoldenReviewedConstructionInput {
+  const parsed: unknown = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Reviewed golden construction JSON must contain one object.");
+  }
+  const value = parsed as Record<string, unknown>;
+  if (value.schemaVersion !== 1) {
+    throw new Error("Reviewed golden construction schemaVersion must be 1.");
+  }
+  if (typeof value.sourceSha256 !== "string") {
+    throw new Error("Reviewed golden construction sourceSha256 must be a string.");
+  }
+  if (typeof value.boardThicknessMm !== "number") {
+    throw new Error("Reviewed golden construction boardThicknessMm must be a number.");
+  }
+  if (value.bodyHandedness !== "negative-depth" && value.bodyHandedness !== "positive-depth") {
+    throw new Error("Reviewed golden construction bodyHandedness must be negative-depth or positive-depth.");
+  }
+  if (value.physicalTop !== "north" && value.physicalTop !== "south") {
+    throw new Error("Reviewed golden construction physicalTop must be north or south.");
+  }
+  if (!value.evidence || typeof value.evidence !== "object" || Array.isArray(value.evidence)) {
+    throw new Error("Reviewed golden construction evidence must be an object.");
+  }
+  if (!Array.isArray(value.flapHinges)) {
+    throw new Error("Reviewed golden construction flapHinges must be an array.");
+  }
+  if (!Array.isArray(value.phases)) {
+    throw new Error("Reviewed golden construction phases must be an array.");
+  }
+  return parsed as GoldenReviewedConstructionInput;
+}
+
+const { pdf, outputDir, constructionPath } = parseArgs(process.argv.slice(2));
 const bytes = new Uint8Array(await readFile(pdf));
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 const sourceName = basename(pdf);
+const reviewedInput = constructionPath
+  ? parseReviewedConstruction(await readFile(constructionPath, "utf8"))
+  : null;
 
 validateGoldenReferenceEvidence();
 
@@ -90,6 +133,24 @@ const bodyTube = certifyLockBottomGoldenBodyTube(geometryRoles, hingeRoles, "neg
 const mirroredBodyTube = certifyLockBottomGoldenBodyTube(geometryRoles, hingeRoles, "positive-depth");
 const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
 const bodyHingeByRole = new Map(bodyTube.hinges.map((hinge) => [hinge.roleId, hinge]));
+const bodyRoleIds = new Set(hingeRoles.bodyChainLeftToRight.map((role) => role.id));
+
+const reviewedPipeline = reviewedInput
+  ? (() => {
+      const compiled = compileLockBottomGoldenConstruction(
+        raw.id,
+        geometryRoles,
+        hingeRoles,
+        reviewedInput,
+      );
+      const rig = resolveStructuralRig(raw, graph, panels, compiled.construction);
+      const plan = authoredPlan([...compiled.unfold.steps], [...rig.articulatedHinges]);
+      const planErrors = validateUnfoldPlan(plan, [...rig.articulatedHinges]);
+      const runtime = certifyStructuralFoldRuntime(raw, panels, rig, 100);
+      const passed = plan.reachesFlat && plan.steps.length === 4 && planErrors.length === 0 && runtime.passed;
+      return { compiled, rig, plan, planErrors, runtime, passed };
+    })()
+  : null;
 
 const referenceBehavior = {
   schemaVersion: 1,
@@ -141,6 +202,68 @@ const constructionTemplate = {
     "final reviewed flap fold order and transition grouping",
   ],
 };
+
+const reviewedConstructionTemplate = {
+  schemaVersion: 1,
+  sourceSha256: sha256,
+  boardThicknessMm: null,
+  bodyHandedness: null,
+  physicalTop: null,
+  evidence: {
+    boardThickness: "",
+    bodyHandedness: "",
+    physicalTop: "",
+    flapConstruction: "",
+  },
+  flapHinges: hingeRoles.roles
+    .filter((role) => !bodyRoleIds.has(role.id))
+    .map((role) => ({
+      roleId: role.id,
+      candidatePanels: [role.panelAId, role.panelBId],
+      parentPanelId: null,
+      childPanelId: null,
+      assembledAngleDeg: null,
+      openAngleDeg: null,
+      isPrimary: null,
+      evidence: "",
+    })),
+  phases: [
+    {
+      phase: "final-closure",
+      hingeRoleIds: [],
+      motion: { durationMs: 575, staggerMs: 90, easing: "easeInOutCubic", hingeOrder: [] },
+    },
+    {
+      phase: "major-closure",
+      hingeRoleIds: [],
+      motion: { durationMs: 575, staggerMs: 90, easing: "easeInOutCubic", hingeOrder: [] },
+    },
+    {
+      phase: "secondary-flaps",
+      hingeRoleIds: [],
+      motion: { durationMs: 575, staggerMs: 90, easing: "easeInOutCubic", hingeOrder: [] },
+    },
+    {
+      phase: "body",
+      hingeRoleIds: hingeRoles.bodyChainLeftToRight.map((role) => role.id),
+      motion: {
+        durationMs: 575,
+        staggerMs: 90,
+        easing: "easeInOutCubic",
+        hingeOrder: hingeRoles.bodyChainLeftToRight.map((role) => role.id),
+      },
+    },
+  ],
+};
+
+const baseAccepted =
+  acceptance.passed &&
+  inventory.formsTree &&
+  geometryRoles.passed &&
+  hingeRoles.passed &&
+  bodyTube.passed &&
+  mirroredBodyTube.passed;
+const reviewedAccepted = reviewedPipeline?.passed ?? false;
 
 const summary = {
   schemaVersion: 1,
@@ -200,13 +323,35 @@ const summary = {
   },
   flat: acceptance.flat,
   gates: acceptance.gates,
-  construction: {
-    formsTree: inventory.formsTree,
-    hingeCandidateCount: inventory.hingeCandidates.length,
-    semanticHingeRoleCount: hingeRoles.roles.length,
-    bodyTubeResolved: bodyTube.passed && mirroredBodyTube.passed,
-    fullPhysicalFoldSemanticsResolved: false,
-  },
+  construction: reviewedPipeline
+    ? {
+        reviewedInputSupplied: true,
+        formsTree: inventory.formsTree,
+        hingeCandidateCount: inventory.hingeCandidates.length,
+        semanticHingeRoleCount: hingeRoles.roles.length,
+        bodyTubeResolved: true,
+        fullPhysicalFoldSemanticsResolved: true,
+        resolvedRigHingeCount: reviewedPipeline.rig.hinges.length,
+        unfoldSource: reviewedPipeline.plan.source,
+        unfoldStepCount: reviewedPipeline.plan.steps.length,
+        unfoldReachesFlat: reviewedPipeline.plan.reachesFlat,
+        unfoldValidationErrors: reviewedPipeline.planErrors,
+        runtime: reviewedPipeline.runtime,
+        modelRotationRad: reviewedPipeline.compiled.modelRotationRad,
+        physicalTop: reviewedPipeline.compiled.physicalTop,
+        bodyHandedness: reviewedPipeline.compiled.bodyHandedness,
+        passed: reviewedPipeline.passed,
+      }
+    : {
+        reviewedInputSupplied: false,
+        formsTree: inventory.formsTree,
+        hingeCandidateCount: inventory.hingeCandidates.length,
+        semanticHingeRoleCount: hingeRoles.roles.length,
+        bodyTubeResolved: bodyTube.passed && mirroredBodyTube.passed,
+        fullPhysicalFoldSemanticsResolved: false,
+        requiredInputTemplate: "golden-reviewed-construction-template.json",
+        passed: false,
+      },
   mappingEvidence: {
     diagnosticArtwork: "golden-diagnostic-art.svg",
     purpose: [
@@ -225,20 +370,18 @@ const summary = {
     easing: GOLDEN_REFERENCE_TWEEN.preferredEasing,
     unresolvedFactCount: GOLDEN_REFERENCE_UNRESOLVED.length,
   },
-  verdict:
-    acceptance.passed &&
-    inventory.formsTree &&
-    geometryRoles.passed &&
-    hingeRoles.passed &&
-    bodyTube.passed &&
-    mirroredBodyTube.passed
-      ? "BODY_TUBE_CERTIFIED_FLAP_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
-      : "FAIL",
+  verdict: !baseAccepted
+    ? "FAIL"
+    : !reviewedPipeline
+      ? "BODY_TUBE_CERTIFIED_REVIEWED_CONSTRUCTION_REQUIRED"
+      : reviewedAccepted
+        ? "REVIEWED_CONSTRUCTION_RUNTIME_CERTIFIED_VISUAL_EVIDENCE_PENDING"
+        : "FAIL",
 };
 
 const destination = resolve(outputDir);
 await mkdir(destination, { recursive: true });
-await Promise.all([
+const writes = [
   writeFile(`${destination}/golden-run-summary.json`, asJson(summary)),
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
   writeFile(`${destination}/golden-geometry-roles.json`, asJson(geometryRoles)),
@@ -254,21 +397,29 @@ await Promise.all([
       inventory,
     }),
   ),
+  writeFile(`${destination}/golden-construction-template.json`, asJson(constructionTemplate)),
   writeFile(
-    `${destination}/golden-construction-template.json`,
-    asJson(constructionTemplate),
+    `${destination}/golden-reviewed-construction-template.json`,
+    asJson(reviewedConstructionTemplate),
   ),
-]);
+];
 
+if (reviewedPipeline) {
+  writes.push(
+    writeFile(
+      `${destination}/golden-reviewed-construction.json`,
+      asJson({ input: reviewedInput, compiled: reviewedPipeline.compiled }),
+    ),
+    writeFile(`${destination}/golden-resolved-rig.json`, asJson(reviewedPipeline.rig)),
+    writeFile(
+      `${destination}/golden-unfold-plan.json`,
+      asJson({ plan: reviewedPipeline.plan, validationErrors: reviewedPipeline.planErrors }),
+    ),
+    writeFile(`${destination}/golden-runtime-certificate.json`, asJson(reviewedPipeline.runtime)),
+  );
+}
+
+await Promise.all(writes);
 console.log(asJson({ outputDir: destination, ...summary }));
 
-if (
-  !acceptance.passed ||
-  !inventory.formsTree ||
-  !geometryRoles.passed ||
-  !hingeRoles.passed ||
-  !bodyTube.passed ||
-  !mirroredBodyTube.passed
-) {
-  process.exitCode = 1;
-}
+if (!baseAccepted || (constructionPath && !reviewedAccepted)) process.exitCode = 1;
