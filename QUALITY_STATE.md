@@ -16,8 +16,9 @@ fully flattened 3D structural geometry == canonical production dieline
 
 ## Repository truth
 
-- Current post-merge baseline: `381233e81a89839a426bcd90480661be767ff8ea`.
+- Verified post-merge baseline: `381233e81a89839a426bcd90480661be767ff8ea`.
 - Structural-finalization merge: `2a957f026675e76f71828b6dd519d5c16c2944b1`.
+- Verification PR checker commit: `34ea4a85974259e98458b0e799aecc7124faa963`.
 - Golden source remains an authorized local vector PDF and is not committed.
 - Golden source SHA-256:
   `b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557`.
@@ -33,7 +34,7 @@ fully flattened 3D structural geometry == canonical production dieline
 
 ## Current verdict
 
-**STATUS: BLOCKED - ENGINE IMPLEMENTED, GOLDEN ACCEPTANCE INCOMPLETE**
+**STATUS: BLOCKED - ENGINE REGRESSION GATE PASS, GOLDEN ACCEPTANCE INCOMPLETE**
 
 This is no longer the earlier "PDF/topology not implemented" state. The
 repository now contains the canonical PDF authority path, topology extraction,
@@ -41,9 +42,10 @@ structural panel mesh generation with holes, structural acceptance metrics,
 construction authoring, structural rigging, canonical manufacturing routing,
 Studio structural rendering, finite fold motion, and camera/fold separation.
 
-The product is still not allowed to claim PASS because the supplied PDF does
-not establish all physical construction semantics and the required golden
-visual/reference evidence has not been completed.
+The engineering baseline is clean. The product is still not allowed to claim
+PASS because the supplied PDF does not establish all physical construction
+semantics and the required golden visual/reference evidence has not been
+completed.
 
 ## Verified implementation now present
 
@@ -70,6 +72,19 @@ visual/reference evidence has not been completed.
 - current-NumPy planar-geometry compatibility fixes in onboarding build and UV
   validation paths.
 
+## Clean checker evidence
+
+Two independent GitHub Actions workflows passed against verification commit
+`34ea4a85974259e98458b0e799aecc7124faa963`:
+
+- Structural Quality run `32699507367`: clean dependency setup, lint,
+  typecheck, 264/264 tests, and production build all PASS.
+- Repository CI run `32699507439`: generated-file sync, dependency setup,
+  lint, typecheck, 264/264 tests, onboarding manifest validation, and production
+  build all PASS.
+- The real checked-in GLB onboarding test that exposed the NumPy 2.5 issues now
+  passes through inspect, build, validate, and durable outputs.
+
 ## Hard-gate state
 
 | Gate | Current state |
@@ -85,7 +100,7 @@ visual/reference evidence has not been completed.
 | G9 hinge pivot / construction correctness | BLOCKED on certified golden construction metadata |
 | G10 no silent structural guesses | PASS / fail-closed |
 | G11 raster is never exact authority | PASS |
-| G12 no production-critical regression | Final clean CI/build verification pending |
+| G12 no production-critical regression | PASS - clean dual-workflow CI and production build |
 
 ## Remaining evidence blockers
 
@@ -99,48 +114,38 @@ visual/reference evidence has not been completed.
 3. Asymmetric diagnostic artwork across all intended outside faces has not yet
    been captured and scored for chirality, continuity, and seam behavior.
 4. The authorized golden PDF must be executed through the current acceptance
-   harness after the final code/CI baseline is fixed; its bytes remain local and
-   must not be committed without redistribution permission.
+   harness against this verified baseline; its bytes remain local and must not
+   be committed without redistribution permission.
 5. The golden source contains no curve coverage, so curve preservation remains
    gated by independent non-proprietary fixtures rather than this carton.
 
-## Latest checker result before this verification branch
-
-The finalization PR checker reached 263/264 tests passing. Every structural,
-mapping, rig, animation, manufacturing, Studio-authority, and camera-independence
-regression passed. The sole failure was the legacy arbitrary-GLB onboarding
-pipeline under NumPy 2.5. Two concrete compatibility defects were found:
-
-- 2D `np.cross` use in onboarding outline/simplification code; fixed before the
-  finalization merge;
-- 2D `np.cross` use in UV triangle-area validation; fixed on `main` at
-  `381233e81a89839a426bcd90480661be767ff8ea`.
-
-No failing structural-packaging assertion was present in that checker run.
-
 ## Current score
 
-The 100-point product score remains intentionally **unassigned**. Engine-level
-regressions are strong enough to replace the former implementation blockers,
-but scoring the golden fold/visual categories before their reference evidence
-exists would still be false precision.
+The 100-point product score remains intentionally **unassigned**. Engineering
+quality can now be awarded its full 10/10 from the clean checker, but assigning
+geometry/mapping/fold/visual points for the golden product before the remaining
+reference evidence exists would still be false precision.
 
 | Area | Maximum | Current |
 |---|---:|---:|
-| Geometric correctness | 30 | Awaiting final golden acceptance evidence |
+| Geometric correctness | 30 | Awaiting final authorized golden acceptance run |
 | 2D to 3D mapping | 20 | Awaiting golden diagnostic-art evidence |
 | Fold/unfold quality | 18 | BLOCKED on certified construction/reference behavior |
 | Dieline visual quality | 12 | Awaiting scored reference captures |
 | 3D visual quality | 10 | Awaiting scored reference captures |
-| Engineering quality | 10 | Final clean CI/build pending |
+| Engineering quality | 10 | **10 / 10** |
 | **Total** | **100** | **Unscored / BLOCKED** |
 
-## Immediate stop condition for this branch
+## Next work
 
-1. Run clean generated-file sync, dependency install, lint, typecheck, the full
-   test suite, onboarding manifest validation, and production build in CI.
-2. Fix any concrete regression rather than excluding or weakening the check.
-3. When the complete checker is green, update `quality-report.json` and append
-   the result to `quality-run-log.md`.
-4. Do **not** convert product status to PASS until the golden construction and
-   visual/reference blockers above are closed.
+1. Run the authorized golden PDF through
+   `scripts/inspect-golden-construction.ts` on the verified baseline and persist
+   the local acceptance report outside source control.
+2. Obtain/author evidence-backed golden construction metadata for fold signs,
+   target angles, root/hierarchy, board thickness, and closure/tuck/lock order.
+3. Capture fixed-camera stable states and transitions plus asymmetric diagnostic
+   artwork across every intended outside face.
+4. Score geometry, mapping, fold behavior, dieline visual quality, and 3D visual
+   quality against the benchmark.
+5. Do **not** convert product status to PASS until every required hard gate and
+   score threshold is satisfied.
