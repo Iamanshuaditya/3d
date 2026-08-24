@@ -3,6 +3,8 @@
   "status": "BLOCKED",
   "updatedAt": "2026-08-24",
   "scope": "structural-packaging-v2",
+  "baselineCommit": "381233e81a89839a426bcd90480661be767ff8ea",
+  "structuralFinalizationMerge": "2a957f026675e76f71828b6dd519d5c16c2944b1",
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
     "nominalDimensionsMm": [300, 150, 200],
@@ -22,40 +24,56 @@
   },
   "hardGates": {
     "G1_dimensions": "PASS_EVIDENCE_AVAILABLE",
-    "G2_flat3dEqualsSource": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
-    "G3_windowIsGeometry": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
+    "G2_flat3dEqualsSource": "PASS_ENGINE_REGRESSION_NEEDS_AUTHORIZED_GOLDEN_RUN",
+    "G3_windowIsGeometry": "PASS_ENGINE_REGRESSION_NEEDS_AUTHORIZED_GOLDEN_RUN",
     "G4_noMirroredArtwork": "PASS_REGRESSION_TESTED",
-    "G5_noCreaseArtworkJump": "PARTIAL_EVIDENCE",
-    "G6_threeDUsesProductionDieline": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
+    "G5_noCreaseArtworkJump": "PARTIAL_GOLDEN_DIAGNOSTIC_ART_PENDING",
+    "G6_threeDUsesProductionDieline": "PASS_CANONICAL_AUTHORITY_WIRED_NEEDS_AUTHORIZED_GOLDEN_RUN",
     "G7_manufacturingUsesSameGeometry": "PASS_REGRESSION_TESTED",
-    "G8_repeatedFoldNoDrift": "PASS_ENGINE_TESTS_NEED_GOLDEN_RUNTIME",
+    "G8_repeatedFoldNoDrift": "PASS_ENGINE_REGRESSION_NEEDS_GOLDEN_RUNTIME_EVIDENCE",
     "G9_hingePivotCorrect": "BLOCKED_ON_CERTIFIED_GOLDEN_CONSTRUCTION",
     "G10_noSilentUnknownGeometryGuess": "PASS_FAIL_CLOSED",
     "G11_noRasterAsExactAuthority": "PASS",
-    "G12_noProductionCriticalRegression": "PENDING_FINAL_CI"
+    "G12_noProductionCriticalRegression": "PENDING_POST_MERGE_CLEAN_CI"
   },
   "verifiedImplementation": [
     "canonical vector domain in millimetres",
-    "raw vector PDF authority import with explicit style classification",
+    "exact fail-closed SVG and DXF import",
+    "vector PDF operator import and raw PDF authority",
     "hash-locked golden topology repair profile",
-    "17-panel golden topology target",
-    "exact structural panel meshes with holes",
+    "17-panel golden topology target with 16 crease adjacencies",
+    "exact structural panel meshes with real holes",
     "canonical-sheet UV mapping and chirality regression tests",
+    "source-versus-flat structural acceptance metrics",
+    "geometry-only construction inventory that refuses to invent fold semantics",
+    "hash-locked structural hinge rig and absolute poses",
+    "zero-degree flat restoration and repeated-cycle no-drift tests",
+    "finite easing/stagger timing with rapid retargeting and reduced-motion behavior",
     "Studio structural renderer consumes canonical structural authority",
     "manufacturing geometry consumes canonical structural authority",
     "CAD-style dieline hairlines",
     "camera state independent from fold state",
-    "geometry-only construction inventory that refuses to invent fold semantics"
+    "current NumPy 2.5-compatible planar onboarding geometry and UV area calculations"
   ],
+  "lastChecker": {
+    "testsPassed": 263,
+    "testsTotal": 264,
+    "structuralFailures": 0,
+    "soleFailure": "legacy arbitrary-GLB onboarding validation used NumPy 2D np.cross",
+    "soleFailureFixCommit": "381233e81a89839a426bcd90480661be767ff8ea"
+  },
   "blockingEvidence": [
-    "authorized golden PDF must be run through the current verifier after final CI",
-    "golden construction still lacks certified parent/child directions, fold signs, target angles, board thickness and closure sequence",
-    "golden stable-state screenshots and transition captures have not been independently scored",
-    "diagnostic artwork evidence across every intended face is incomplete"
+    "authorized golden PDF must be run through the final acceptance baseline without committing proprietary bytes",
+    "golden construction still lacks certified signed fold directions, target angles, board thickness and closure/tuck/lock sequence",
+    "golden stable-state screenshots and fixed-camera transition captures have not been independently scored",
+    "asymmetric diagnostic artwork evidence across every intended outside face is incomplete"
   ],
   "ci": {
-    "workflow": ".github/workflows/structural-quality.yml",
-    "status": "PENDING_PR_RUN"
+    "workflows": [
+      ".github/workflows/ci.yml",
+      ".github/workflows/structural-quality.yml"
+    ],
+    "status": "PENDING_POST_MERGE_VERIFICATION_PR"
   },
-  "verdict": "Do not declare production-ready until the blocking evidence is closed."
+  "verdict": "Engine implementation has advanced beyond the old PDF/topology blockers, but do not declare the golden product production-ready until clean CI plus construction and visual evidence are closed."
 }
