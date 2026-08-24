@@ -36,6 +36,7 @@
     "verify:golden-structure": "tsx scripts/verify-golden-structure.ts",
     "inspect:golden-construction": "tsx scripts/inspect-golden-construction.ts",
     "verify:golden-local": "tsx scripts/verify-golden-local.ts",
+    "verify:golden-reference": "tsx scripts/verify-golden-reference-recreation.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "test": "tsx --test \"tests/**/*.test.ts\""
   },
