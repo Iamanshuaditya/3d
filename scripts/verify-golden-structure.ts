@@ -1,9 +1,8 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import {
-  evaluateGoldenStructuralAcceptance,
+  evaluateLockBottomGoldenAcceptance,
   importVectorPdfRawAuthority,
-  LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS,
 } from "../src/lib/structure";
 
 const file = process.argv[2];
@@ -30,9 +29,6 @@ const dieline = await importVectorPdfRawAuthority(bytes, {
   },
 });
 
-const report = evaluateGoldenStructuralAcceptance(
-  dieline,
-  LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS,
-);
+const report = evaluateLockBottomGoldenAcceptance(dieline);
 console.log(JSON.stringify(report, null, 2));
 if (!report.passed) process.exitCode = 1;
