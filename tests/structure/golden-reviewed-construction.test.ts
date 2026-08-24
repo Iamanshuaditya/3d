@@ -243,7 +243,7 @@ test("reviewed golden construction compiles all 17 panels and 16 exact hinge rol
   assert.equal(compiled.construction.rootPanelId, "back");
   assert.equal(compiled.construction.boardThicknessMm, 0.6);
   assert.equal(compiled.construction.hinges.length, 16);
-  assert.deepEqual(compiled.modelRotationRad, [0, 0, 0]);
+  assert.deepEqual(compiled.modelRotationRad, [Math.PI / 2, 0, 0]);
   assert.deepEqual(compiled.unfold.steps.map((step) => step.id), [
     "final-closure",
     "major-closure",

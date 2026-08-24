@@ -340,10 +340,14 @@ export function compileLockBottomGoldenConstruction(
     hinges: allHinges,
   };
 
-  // Presentation orientation is deliberately independent from physical fold
-  // semantics. The benchmark reference keeps the canonical flat sheet in the
-  // horizontal X/Z plane, so no global model rotation is applied here.
-  const modelRotationRad: readonly [number, number, number] = [0, 0, 0];
+  // Product presentation orientation is independent from fold state and camera.
+  // The certified broad body root is an upright wall in the assembled carton;
+  // the reviewed physical-top convention selects which sheet side points up.
+  const modelRotationRad: readonly [number, number, number] = [
+    reviewed.physicalTop === "north" ? Math.PI / 2 : -Math.PI / 2,
+    0,
+    0,
+  ];
 
   return {
     construction,
