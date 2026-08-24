@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
+  certifyLockBottomGoldenBodyTube,
   classifyLockBottomGoldenGeometry,
   classifyLockBottomGoldenHinges,
   createStructuralDiagnosticArtwork,
@@ -85,7 +86,10 @@ const panels = extractStructuralPanels(raw, graph);
 const inventory = inspectStructuralConstruction(raw, graph, panels);
 const geometryRoles = classifyLockBottomGoldenGeometry(raw, panels);
 const hingeRoles = classifyLockBottomGoldenHinges(geometryRoles, inventory);
+const bodyTube = certifyLockBottomGoldenBodyTube(geometryRoles, hingeRoles, "negative-depth");
+const mirroredBodyTube = certifyLockBottomGoldenBodyTube(geometryRoles, hingeRoles, "positive-depth");
 const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
+const bodyHingeByRole = new Map(bodyTube.hinges.map((hinge) => [hinge.roleId, hinge]));
 
 const referenceBehavior = {
   schemaVersion: 1,
@@ -105,34 +109,36 @@ const constructionTemplate = {
     dielineId: raw.id,
     sha256,
   },
-  rootPanelId: null,
+  rootPanelId: bodyTube.rootPanelId,
   boardThicknessMm: null,
   geometryRolesFile: "golden-geometry-roles.json",
   hingeRolesFile: "golden-hinge-roles.json",
-  hinges: hingeRoles.roles.map((role) => ({
-    id: role.id,
-    geometryRole: role.kind,
-    parentPanelId: null,
-    childPanelId: null,
-    candidatePanels: [role.panelAId, role.panelBId],
-    source: role.source,
-    assembledAngleDeg: null,
-    openAngleDeg: null,
-    isPrimary: null,
-    evidence: "GEOMETRY_PROVES_EXACT_CREASE_ROLE_AND_ADJACENCY_ONLY",
-  })),
+  bodyTubeFile: "golden-body-tube.json",
+  canonicalBodyHandedness: bodyTube.handedness,
+  hinges: hingeRoles.roles.map((role) => {
+    const bodyHinge = bodyHingeByRole.get(role.id);
+    return {
+      id: role.id,
+      geometryRole: role.kind,
+      parentPanelId: bodyHinge?.parentPanelId ?? null,
+      childPanelId: bodyHinge?.childPanelId ?? null,
+      candidatePanels: [role.panelAId, role.panelBId],
+      source: role.source,
+      assembledAngleDeg: bodyHinge?.assembledAngleDeg ?? null,
+      openAngleDeg: null,
+      isPrimary: null,
+      evidence: bodyHinge?.evidence ?? "GEOMETRY_PROVES_EXACT_CREASE_ROLE_AND_ADJACENCY_ONLY",
+    };
+  }),
   unfoldSequence: null,
   unresolvedFacts: [
-    "root panel and fixed world presentation orientation",
-    "parent/child direction for every crease",
-    "mountain/valley sign",
-    "assembled target angles",
+    "global body handedness relative to printed/exterior side (both certified body mirrors close identically)",
+    "flap parent/child direction and signed assembled angles",
     "board thickness",
-    "glue seam role (geometry identifies only a seam candidate)",
     "tuck/lock destinations",
-    "bottom lock behavior",
+    "exact bottom-lock behavior",
     "physical top-vs-bottom assignment of sheet north/south",
-    "final reviewed fold order and transition grouping",
+    "final reviewed flap fold order and transition grouping",
   ],
 };
 
@@ -181,13 +187,25 @@ const summary = {
     northDiagonalCount: hingeRoles.northDiagonalsLeftToRight.length,
     southDiagonalCount: hingeRoles.southDiagonalsLeftToRight.length,
   },
+  bodyTube: {
+    evidenceFile: "golden-body-tube.json",
+    passed: bodyTube.passed && mirroredBodyTube.passed,
+    canonicalHandedness: bodyTube.handedness,
+    mirrorAlsoPasses: mirroredBodyTube.passed,
+    rootPanelId: bodyTube.rootPanelId,
+    dimensionsMm: bodyTube.dimensionsMm,
+    closureGapMm: bodyTube.closureGapMm,
+    seamLineErrorMm: bodyTube.seamLineErrorMm,
+    resolvedBodyHingeCount: bodyTube.hinges.length,
+  },
   flat: acceptance.flat,
   gates: acceptance.gates,
   construction: {
     formsTree: inventory.formsTree,
     hingeCandidateCount: inventory.hingeCandidates.length,
     semanticHingeRoleCount: hingeRoles.roles.length,
-    physicalFoldSemanticsResolved: false,
+    bodyTubeResolved: bodyTube.passed && mirroredBodyTube.passed,
+    fullPhysicalFoldSemanticsResolved: false,
   },
   mappingEvidence: {
     diagnosticArtwork: "golden-diagnostic-art.svg",
@@ -208,8 +226,13 @@ const summary = {
     unresolvedFactCount: GOLDEN_REFERENCE_UNRESOLVED.length,
   },
   verdict:
-    acceptance.passed && inventory.formsTree && geometryRoles.passed && hingeRoles.passed
-      ? "GEOMETRY_AND_HINGE_ROLES_ACCEPTED_PHYSICAL_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
+    acceptance.passed &&
+    inventory.formsTree &&
+    geometryRoles.passed &&
+    hingeRoles.passed &&
+    bodyTube.passed &&
+    mirroredBodyTube.passed
+      ? "BODY_TUBE_CERTIFIED_FLAP_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
       : "FAIL",
 };
 
@@ -220,6 +243,7 @@ await Promise.all([
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
   writeFile(`${destination}/golden-geometry-roles.json`, asJson(geometryRoles)),
   writeFile(`${destination}/golden-hinge-roles.json`, asJson(hingeRoles)),
+  writeFile(`${destination}/golden-body-tube.json`, asJson({ canonical: bodyTube, mirror: mirroredBodyTube })),
   writeFile(`${destination}/golden-diagnostic-art.svg`, diagnosticArtwork),
   writeFile(`${destination}/golden-reference-behavior.json`, asJson(referenceBehavior)),
   writeFile(
@@ -238,6 +262,13 @@ await Promise.all([
 
 console.log(asJson({ outputDir: destination, ...summary }));
 
-if (!acceptance.passed || !inventory.formsTree || !geometryRoles.passed || !hingeRoles.passed) {
+if (
+  !acceptance.passed ||
+  !inventory.formsTree ||
+  !geometryRoles.passed ||
+  !hingeRoles.passed ||
+  !bodyTube.passed ||
+  !mirroredBodyTube.passed
+) {
   process.exitCode = 1;
 }
