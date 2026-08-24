@@ -59,20 +59,17 @@ function dieline(sha256 = LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS.sourceSha2
 
 function goldenLikePanels(): StructuralPanel[] {
   return [
-    // sheet north: six physical flap regions after the diagonal crease splits
     panel("north-1", 503, 15, 576, 94.19),
     panel("north-2", 153, 15, 226, 94.19),
     panel("north-3", 28.3, 15, 227.7, 100),
     panel("north-4", 378.3, 15, 577.7, 100),
     panel("north-5", 228.3, 25, 377.7, 100),
     panel("north-6", 578.3, 25, 727.4, 100),
-    // body strip left-to-right: seam, broad, narrow, broad-with-window, narrow
     panel("seam", 15, 100, 28, 399.4),
     panel("broad-plain", 28, 100, 228, 400),
     panel("narrow-a", 228, 100, 378, 400),
     panel("broad-window", 378, 100, 578, 400, 1),
     panel("narrow-b", 578, 100, 727.4, 400),
-    // sheet south: six flap regions
     panel("south-1", 578.3, 400, 727.4, 475),
     panel("south-2", 228.3, 400, 377.7, 475),
     panel("south-3", 378.3, 400, 577.7, 485),
@@ -106,10 +103,9 @@ test("golden geometry roles refuse a geometrically similar but unauthorised sour
   );
 });
 
-test("golden geometry roles fail closed when the reviewed 17-panel decomposition changes", () => {
-  const changed = goldenLikePanels().slice(0, -1);
-  assert.throws(
-    () => classifyLockBottomGoldenGeometry(dieline(), changed),
-    /left panels unassigned|expected 5 body-band panels/,
-  );
+test("golden geometry roles fail their reviewed gates when the 17-panel decomposition changes", () => {
+  const report = classifyLockBottomGoldenGeometry(dieline(), goldenLikePanels().slice(0, -1));
+  assert.equal(report.passed, false);
+  assert.equal(report.gates.totalPanelCount, false);
+  assert.equal(report.gates.southFlapCount, false);
 });
