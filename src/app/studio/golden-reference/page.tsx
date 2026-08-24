@@ -93,6 +93,9 @@ export default async function GoldenReferenceStudioPage({
   }
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
+  let config: ProductConfig | null = null;
+  let compilationError: string | null = null;
+
   try {
     const dieline = await importVectorPdfRawAuthority(bytes, {
       id: "cloudlab-lock-bottom-window-300x150x200",
@@ -112,111 +115,109 @@ export default async function GoldenReferenceStudioPage({
 
     const acceptance = evaluateLockBottomGoldenAcceptance(dieline);
     if (!acceptance.passed) {
-      return disabled("The configured file failed the source-locked golden geometric acceptance gates.");
+      compilationError = "The configured file failed the source-locked golden geometric acceptance gates.";
+    } else {
+      const profiled = applyLockBottomGoldenSourceProfile(dieline);
+      const graph = buildPlanarGraph(profiled.topologyDieline);
+      const panels = extractStructuralPanels(dieline, graph);
+      const inventory = inspectStructuralConstruction(dieline, graph, panels);
+      const geometryRoles = classifyLockBottomGoldenGeometry(dieline, panels);
+      const hingeRoles = classifyLockBottomGoldenHinges(geometryRoles, inventory);
+      const candidate = createGoldenReferenceRecreationCandidate(geometryRoles, hingeRoles, {
+        physicalTop,
+        closureVariant,
+        boardThicknessMm,
+      });
+      const compiled = compileLockBottomGoldenConstruction(
+        dieline.id,
+        geometryRoles,
+        hingeRoles,
+        candidate.input,
+      );
+
+      const resolvedRig = resolveStructuralRig(dieline, graph, panels, compiled.construction);
+      if (resolvedRig.hinges.length !== 16 || panels.length !== 17) {
+        compilationError = "Golden reference preflight no longer resolves the reviewed 17-panel / 16-hinge structure.";
+      } else {
+        const cartonSpec: CartonSpec = {
+          id: "golden-reference-local",
+          name: "Golden Reference Recreation",
+          width: dieline.widthMm,
+          height: dieline.heightMm,
+          boardThickness: compiled.construction.boardThicknessMm,
+          panels: [],
+          lidClosedAngle: 0,
+          lidOpenAngle: 0,
+          structural: {
+            dieline,
+            topology: LOCK_BOTTOM_WINDOW_TOPOLOGY_PROFILE,
+            construction: compiled.construction,
+          },
+          unfold: compiled.unfold,
+        };
+
+        const editorHeight = 1000;
+        const editorWidth = Math.max(1, Math.round(editorHeight * (dieline.widthMm / dieline.heightMm)));
+        config = {
+          id: "golden-reference-local",
+          configurationId: `reference:${candidate.id}:${sha256.slice(0, 12)}`,
+          name: `Golden Reference — ${candidate.id} — VISUAL RECREATION`,
+          family: "folded-carton",
+          modelUrl: "",
+          cartonSpec,
+          modelRotation: [
+            compiled.modelRotationRad[0],
+            compiled.modelRotationRad[1],
+            compiled.modelRotationRad[2],
+          ],
+          modelYOffset: 1.5,
+          shadowY: 0,
+          materialProfile: "standard",
+          editableSurfaces: [
+            {
+              id: "outside",
+              label: "Outside — canonical full sheet",
+              presentation: { kind: "continuous-web", order: 0 },
+              meshName: "STRUCTURAL_PACKAGE_ROOT",
+              editorWidth,
+              editorHeight,
+              physicalWidthCm: dieline.widthMm / 10,
+              physicalHeightCm: dieline.heightMm / 10,
+              displayUnit: "cm",
+              guides: { bleed: 0, safeArea: 0 },
+              defaultBackground: "#ffffff",
+            },
+          ],
+          camera: {
+            initial: [4.8, 4.0, 5.2],
+            target: [0, 1.5, 0],
+            minDistance: 2.2,
+            maxDistance: 12,
+            presets: [
+              { id: "fixed-reference", label: "Reference", position: [4.8, 4.0, 5.2], target: [0, 1.5, 0] },
+              { id: "front", label: "Front", position: [0, 2.2, 6.0], target: [0, 1.5, 0] },
+              { id: "side", label: "Side", position: [6.0, 2.2, 0], target: [0, 1.5, 0] },
+              { id: "top", label: "Top", position: [0, 7.0, 0.8], target: [0, 1.5, 0] },
+            ],
+          },
+        };
+      }
     }
-
-    const profiled = applyLockBottomGoldenSourceProfile(dieline);
-    const graph = buildPlanarGraph(profiled.topologyDieline);
-    const panels = extractStructuralPanels(dieline, graph);
-    const inventory = inspectStructuralConstruction(dieline, graph, panels);
-    const geometryRoles = classifyLockBottomGoldenGeometry(dieline, panels);
-    const hingeRoles = classifyLockBottomGoldenHinges(geometryRoles, inventory);
-    const candidate = createGoldenReferenceRecreationCandidate(geometryRoles, hingeRoles, {
-      physicalTop,
-      closureVariant,
-      boardThicknessMm,
-    });
-    const compiled = compileLockBottomGoldenConstruction(
-      dieline.id,
-      geometryRoles,
-      hingeRoles,
-      candidate.input,
-    );
-
-    // Resolve once on the server as a hard preflight. The client resolves the
-    // same source-locked authority again when it builds the exact Three.js tree.
-    const resolvedRig = resolveStructuralRig(dieline, graph, panels, compiled.construction);
-    if (resolvedRig.hinges.length !== 16 || panels.length !== 17) {
-      return disabled("Golden reference preflight no longer resolves the reviewed 17-panel / 16-hinge structure.");
-    }
-
-    const cartonSpec: CartonSpec = {
-      id: "golden-reference-local",
-      name: "Golden Reference Recreation",
-      width: dieline.widthMm,
-      height: dieline.heightMm,
-      boardThickness: compiled.construction.boardThicknessMm,
-      panels: [],
-      lidClosedAngle: 0,
-      lidOpenAngle: 0,
-      structural: {
-        dieline,
-        topology: LOCK_BOTTOM_WINDOW_TOPOLOGY_PROFILE,
-        construction: compiled.construction,
-      },
-      unfold: compiled.unfold,
-    };
-
-    const editorHeight = 1000;
-    const editorWidth = Math.max(1, Math.round(editorHeight * (dieline.widthMm / dieline.heightMm)));
-    const config: ProductConfig = {
-      id: "golden-reference-local",
-      configurationId: `reference:${candidate.id}:${sha256.slice(0, 12)}`,
-      name: `Golden Reference — ${candidate.id} — VISUAL RECREATION`,
-      family: "folded-carton",
-      modelUrl: "",
-      cartonSpec,
-      modelRotation: [
-        compiled.modelRotationRad[0],
-        compiled.modelRotationRad[1],
-        compiled.modelRotationRad[2],
-      ],
-      // The 300 mm body is centered around the structural origin after the
-      // fixed quarter-turn, so +1.5 scene units places its lower edge at y=0.
-      modelYOffset: 1.5,
-      shadowY: 0,
-      materialProfile: "standard",
-      editableSurfaces: [
-        {
-          id: "outside",
-          label: "Outside — canonical full sheet",
-          presentation: { kind: "continuous-web", order: 0 },
-          meshName: "STRUCTURAL_PACKAGE_ROOT",
-          editorWidth,
-          editorHeight,
-          physicalWidthCm: dieline.widthMm / 10,
-          physicalHeightCm: dieline.heightMm / 10,
-          displayUnit: "cm",
-          guides: { bleed: 0, safeArea: 0 },
-          defaultBackground: "#ffffff",
-        },
-      ],
-      camera: {
-        initial: [4.8, 4.0, 5.2],
-        target: [0, 1.5, 0],
-        minDistance: 2.2,
-        maxDistance: 12,
-        presets: [
-          { id: "fixed-reference", label: "Reference", position: [4.8, 4.0, 5.2], target: [0, 1.5, 0] },
-          { id: "front", label: "Front", position: [0, 2.2, 6.0], target: [0, 1.5, 0] },
-          { id: "side", label: "Side", position: [6.0, 2.2, 0], target: [0, 1.5, 0] },
-          { id: "top", label: "Top", position: [0, 7.0, 0.8], target: [0, 1.5, 0] },
-        ],
-      },
-    };
-
-    return (
-      <StudioShell
-        key={config.configurationId}
-        config={config}
-        presentationMode="packaging"
-        catalogue={[{ id: config.id, name: config.name }]}
-        requestedProjectId={null}
-      />
-    );
   } catch (error) {
-    return disabled(
-      `Golden reference compilation failed closed: ${error instanceof Error ? error.message : "unknown structural error"}.`,
-    );
+    compilationError = `Golden reference compilation failed closed: ${error instanceof Error ? error.message : "unknown structural error"}.`;
   }
+
+  if (!config) {
+    return disabled(compilationError ?? "Golden reference compilation did not produce a usable product configuration.");
+  }
+
+  return (
+    <StudioShell
+      key={config.configurationId}
+      config={config}
+      presentationMode="packaging"
+      catalogue={[{ id: config.id, name: config.name }]}
+      requestedProjectId={null}
+    />
+  );
 }
