@@ -33,16 +33,13 @@ jobs:
 
           topology = Path('src/lib/structure/topology.ts')
           text = topology.read_text()
-          old = '''  const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
-            if (face.signedAreaMm2 <= EPSILON) return false;
-            const probe = interiorProbe(face.points, tolerance);
-            return (
-              pointInPolygon(probe, outer.points, tolerance) &&
-              !holes.some((hole) => pointInPolygon(probe, hole.points, tolerance))
-            );
-          });
-          '''
-          new = '''  const holeEdgeKeys = new Set(
+          start_marker = '  const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {'
+          end_marker = '  const panels: StructuralPanel[] = [];'
+          start = text.find(start_marker)
+          end = text.find(end_marker, start)
+          if start < 0 or end < 0:
+              raise SystemExit('expected topology anchors not found')
+          replacement = '''  const holeEdgeKeys = new Set(
             holes.map((hole) => [...hole.edgeIds].sort().join("|")),
           );
           const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
@@ -57,14 +54,14 @@ jobs:
             const probe = interiorProbe(face.points, tolerance);
             return pointInPolygon(probe, outer.points, tolerance);
           });
+
           '''
-          if old not in text:
-              raise SystemExit('expected topology block not found')
-          topology.write_text(text.replace(old, new, 1))
+          topology.write_text(text[:start] + replacement + text[end:])
 
           test_file = Path('tests/structure/topology.test.ts')
           tests = test_file.read_text()
           anchor = 'test("individually stroked PDF-style cut edges reconstruct one outer cycle and nested window", () => {'
+          regression_name = 'test("a centered structural window does not erase its owning panel", () => {'
           regression = '''test("a centered structural window does not erase its owning panel", () => {
             const dieline: CanonicalDieline = {
               ...fixture(),
@@ -105,11 +102,11 @@ jobs:
           });
 
           '''
-          if regression.splitlines()[0] in tests:
-              raise SystemExit('centered-window regression already present')
-          if anchor not in tests:
-              raise SystemExit('topology test anchor not found')
-          test_file.write_text(tests.replace(anchor, regression + anchor, 1))
+          if regression_name not in tests:
+              if anchor not in tests:
+                  raise SystemExit('topology test anchor not found')
+              tests = tests.replace(anchor, regression + anchor, 1)
+              test_file.write_text(tests)
           PY
 
           git rm .github/workflows/golden-local-transport.yml
