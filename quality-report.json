@@ -113,7 +113,7 @@
     "EXTERNAL: converter-approved glue destination, tuck destination and hidden lock-bottom diagonal signs/angles",
     "EXTERNAL: a physical proof approved by a real converter before any printer profile leaves 'simulated-company' status",
     "EXTERNAL: the authorized raw motion recording, to replace envelope conformance with frame-by-frame comparison",
-    "EXTERNAL: Cloudflare account credentials, to convert a reproducible deploy script into an observed deployment"
+    "EXTERNAL: a paid Cloudflare Workers plan; the free plan caps script size at 3 MiB and the built Worker is 13.69 MiB"
   ],
   "verdict": "Engineering gates and the executable reference-recreation lane are green, and reference recreation is CERTIFIED at 45/50 with all ten hard gates true. Manufacturing construction certification remains false and is not obtainable from this repository: it requires converter evidence listed under blockingEvidence.",
   "defectsFoundByExecutingThisLane": [
@@ -133,5 +133,15 @@
     "hardGatesPassed": "10/10",
     "finalVerdict": "REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION",
     "evidenceLocation": "local .quality-local/ only; captures and the private source are deliberately not committed"
+  },
+  "deployment": {
+    "status": "BLOCKED_NOT_REPOSITORY_OWNED_ALONE",
+    "assetLimit": "CLEARED - pouch-002 Draco-compressed 26.41 MiB -> 5.72 MiB; no bundled asset exceeds 25 MiB",
+    "openNextBuild": "PASS",
+    "deployAttempted": true,
+    "deployResult": "REJECTED_BY_CLOUDFLARE_API code 10027: Worker exceeded the 3 MiB free-plan script limit",
+    "workerBundleSize": "handler.mjs 13.69 MiB",
+    "architecturalBlocker": "The server bundle embeds better-sqlite3 and sharp, which are native modules that cannot execute on Workers at all, plus pdfjs-dist, pdf-lib and three. Even on the 10 MiB paid plan the current bundle does not fit. Workers deployment requires replacing SQLite with D1/Hyperdrive and moving sharp-based image work off the Worker before it is viable.",
+    "note": "Cloudflare credentials WERE available and authenticated; this is not a credential blocker."
   }
 }

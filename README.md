@@ -27,7 +27,7 @@ or board facts.
 | Engineering / software | **Green** | lint, typecheck, full test suite, production build |
 | Reference recreation | **Certified** | 45/50, all 10 hard gates true, 12/12 source gates on the authorized source |
 | Manufacturing construction | **Not certified** | requires converter evidence; not obtainable from this repository |
-| Deployment | **Not demonstrated** | reproducible scripts exist; no observed deploy |
+| Deployment | **Blocked** | OpenNext build passes; Worker bundle is 13.69 MiB vs a 3 MiB free-plan cap, and embeds native modules Workers cannot run |
 | Commercial / supplier | **Not ready** | development pricing only |
 
 Current machine-readable state lives in [`quality-report.json`](quality-report.json);
@@ -127,7 +127,11 @@ These are real and mostly deliberate. See `quality-report.json` →
 - **Rate limiting and job runners are process-local** — not yet suitable for
   horizontal deployment.
 - **Pricing** is a development estimate, disabled in production by default.
-- **Cloudflare deploy** is not yet demonstrated against a real account.
+- **Cloudflare Workers deploy is blocked at the platform level.** The asset
+  limit is cleared, but the built Worker is 13.69 MiB against a 3 MiB free-plan
+  cap, and it bundles `better-sqlite3` and `sharp` — native modules that cannot
+  execute on Workers regardless of size. Viable Workers deployment needs D1 or
+  Hyperdrive instead of SQLite and image work moved off the Worker.
 - Arbitrary dielines and GLBs are **not** promised to fold automatically.
   Unknown construction semantics require reviewed authoring.
 
