@@ -1,6 +1,6 @@
 "use client";
 
-import { RotateCcw, Undo2 } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import type { ProductPresentation } from "@/lib/configurator/presentation";
 import type { UnfoldStatus } from "@/lib/configurator/unfold-state";
 
@@ -13,12 +13,15 @@ type UnfoldControlProps = {
 };
 
 /**
- * The product's structural control.
+ * Structural controls.
  *
- * Deliberately not packaging-specific: it renders whatever the plan says the
- * next stage is called, so a carton says "Open lid" then "Lay the walls flat"
- * while some future product could say "Explode" or "Flatten" from the same
- * component. Products without articulation render nothing at all.
+ * Progressive folding mirrors the benchmark contract explicitly:
+ * - Backward moves one deterministic step from assembled toward the flat sheet.
+ * - Forward reverses that same step toward the assembled package.
+ *
+ * Internally the state machine still owns only an integer stage and absolute
+ * target angles, so rapidly alternating the two buttons cannot accumulate
+ * transform drift. Simple open/close products retain their descriptive toggle.
  */
 export function UnfoldControl({
   presentation,
@@ -32,62 +35,73 @@ export function UnfoldControl({
     return null;
   }
 
-  const isToggle = presentation.mode === "open-close";
-  const primaryLabel = status.atEnd
-    ? (status.reverseLabel ?? (isToggle ? "Close" : "Fold back"))
-    : status.nextLabel;
-  const primaryAction = status.atEnd ? onPrevious : onNext;
+  if (presentation.mode === "open-close") {
+    const label = status.atEnd
+      ? (status.reverseLabel ?? "Close")
+      : (status.nextLabel ?? "Open");
+    return (
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={status.atEnd ? onPrevious : onNext}
+          data-unfold-action="primary"
+          className="rounded-lg bg-[var(--st-raised)] px-3 py-1.5 text-[13px] font-medium text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
+        >
+          {label}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center gap-1.5">
       <button
         type="button"
-        onClick={primaryAction}
-        data-unfold-action="primary"
-        className="rounded-lg bg-[var(--st-raised)] px-3 py-1.5 text-[13px] font-medium text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)]"
+        onClick={onNext}
+        disabled={status.atEnd}
+        data-unfold-action="backward"
+        aria-label={status.nextLabel ? `Backward: ${status.nextLabel}` : "Backward"}
+        title={status.nextLabel ?? "Fully unfolded"}
+        className="rounded-lg bg-[var(--st-raised)] px-3 py-1.5 text-[13px] font-medium text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)] disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {primaryLabel}
+        Backward
       </button>
 
-      {!isToggle && (
-        <>
-          <span
-            aria-live="polite"
-            data-unfold-status=""
-            className="whitespace-nowrap text-[12px] tabular-nums text-[var(--st-dim)]"
-          >
-            {status.isFlat
-              ? "Fully unfolded"
-              : `Step ${Math.min(status.stage + 1, status.stepCount)} of ${status.stepCount}`}
-          </span>
+      <button
+        type="button"
+        onClick={onPrevious}
+        disabled={status.atStart}
+        data-unfold-action="forward"
+        aria-label={status.reverseLabel ? `Forward: ${status.reverseLabel}` : "Forward"}
+        title={status.reverseLabel ?? "Already assembled"}
+        className="rounded-lg bg-[var(--st-raised)] px-3 py-1.5 text-[13px] font-medium text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Forward
+      </button>
 
-          {!status.atStart && (
-            <>
-              {!status.atEnd && (
-                <button
-                  type="button"
-                  onClick={onPrevious}
-                  data-unfold-action="previous"
-                  aria-label="Fold back one step"
-                  title="Fold back one step"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--st-dim)] transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)]"
-                >
-                  <Undo2 className="h-4 w-4" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onReset}
-                data-unfold-action="reset"
-                aria-label="Reset to assembled"
-                title="Reset to assembled"
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--st-dim)] transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)]"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            </>
-          )}
-        </>
+      <span
+        aria-live="polite"
+        data-unfold-status=""
+        className="whitespace-nowrap text-[12px] tabular-nums text-[var(--st-dim)]"
+      >
+        {status.isFlat
+          ? "Fully unfolded"
+          : status.atStart
+            ? "Assembled"
+            : `Step ${status.stage} of ${status.stepCount}`}
+      </span>
+
+      {!status.atStart && (
+        <button
+          type="button"
+          onClick={onReset}
+          data-unfold-action="reset"
+          aria-label="Reset to assembled"
+          title="Reset to assembled"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--st-dim)] transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)]"
+        >
+          <RotateCcw className="h-4 w-4" />
+        </button>
       )}
     </div>
   );
