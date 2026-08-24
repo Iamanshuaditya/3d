@@ -226,6 +226,7 @@ export function CartonModel({
     <primitive
       object={runtime.tree.root}
       position={[0, config.modelYOffset ?? 0, 0]}
+      rotation={config.modelRotation ?? [0, 0, 0]}
       onPointerDown={(e: { stopPropagation: () => void }) => {
         if (!onSurfaceClick) return;
         e.stopPropagation();
