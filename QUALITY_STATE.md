@@ -2,150 +2,182 @@
 
 ## Goal
 
-Build a structural-packaging engine in which the production vector dieline is
-the single geometric authority for the editor, manufacturing output, panel
-meshes, holes, hinge axes, flat pose, fold animation, and sheet-coordinate UVs.
-The first acceptance target is the authorized local reference named "Lock
-Bottom and top incl. window" at 300 x 150 x 200 mm.
+The production vector dieline is the single geometric authority for editor,
+manufacturing, topology, exact panel meshes, holes, hinge axes, flat pose,
+folding and global sheet-coordinate UVs.
 
-The north-star invariant is:
+Golden target:
+
+```text
+Lock Bottom and top incl. window — 300 x 150 x 200 mm
+SHA-256 b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557
+```
+
+North-star invariant:
 
 ```text
 fully flattened 3D structural geometry == canonical production dieline
 ```
 
-## Repository truth
+## Current status
 
-- Verified post-merge baseline: `381233e81a89839a426bcd90480661be767ff8ea`.
-- Structural-finalization merge: `2a957f026675e76f71828b6dd519d5c16c2944b1`.
-- Verification PR checker commit: `34ea4a85974259e98458b0e799aecc7124faa963`.
-- Golden source remains an authorized local vector PDF and is not committed.
-- Golden source SHA-256:
-  `b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557`.
-- Reviewed golden geometric evidence:
-  - cut envelope approximately `712.3996 x 470.0005 mm`;
-  - one 70-edge outer cut cycle;
-  - one 8-edge real window cycle;
-  - 24 source crease paints resolving to 16 physical crease chains;
-  - exactly four hash-locked endpoint-to-cut-span topology associations, all
-    approximately `0.01354–0.01467 mm`;
-  - 17 physical panel regions and 16 crease adjacencies forming one connected
-    tree.
+**STATUS: BLOCKED_VISUAL_REVIEW**
 
-## Current verdict
+The structural engine and executable golden reference-recreation path are now
+implemented. The product is not allowed to claim final reference PASS until the
+authorized local PDF is executed through the current verifier and the required
+six fixed-camera captures pass the independent >=45/50 visual gate.
 
-**STATUS: BLOCKED - ENGINE REGRESSION GATE PASS, GOLDEN ACCEPTANCE INCOMPLETE**
+Manufacturing/converter construction certification is a separate status and
+remains false until actual hidden construction facts are supplied.
 
-This is no longer the earlier "PDF/topology not implemented" state. The
-repository now contains the canonical PDF authority path, topology extraction,
-structural panel mesh generation with holes, structural acceptance metrics,
-construction authoring, structural rigging, canonical manufacturing routing,
-Studio structural rendering, finite fold motion, and camera/fold separation.
+## Current implementation head under check
 
-The engineering baseline is clean. The product is still not allowed to claim
-PASS because the supplied PDF does not establish all physical construction
-semantics and the required golden visual/reference evidence has not been
-completed.
+`af03f0fbd6b8a33dc5152311ca306242c4b6d6e5`
 
-## Verified implementation now present
+Temporary checker branch:
 
-- canonical vector domain in physical millimetres with retained provenance;
-- exact/fail-closed SVG and DXF import paths;
-- vector-PDF operator import and raw-PDF authority path;
-- source-hash-locked golden topology profile;
-- planar graph / panel extraction including real window ownership;
-- exact non-rectangular structural panel meshes with holes and board depth;
-- canonical sheet-coordinate UV mapping and chirality regression coverage;
-- source-versus-flat structural acceptance metrics;
-- geometry-only construction inventory that derives adjacency without
-  inventing mountain/valley, angle, root, sequence, glue, tuck, or lock facts;
-- hash-locked structural hinge rig and absolute pose evaluation;
-- zero-degree pose restoring the canonical sheet and repeated-cycle no-drift
-  regression coverage;
-- finite fold timing with absolute targets, stagger/delay/duration support,
-  reverse traversal, rapid retargeting, and reduced-motion snapping;
-- Studio structural rendering using canonical structural authority;
-- manufacturing geometry using the same canonical structural authority;
+`verify/reference-recreation-final`
+
+## Previously verified clean baseline
+
+Verification commit `34ea4a85974259e98458b0e799aecc7124faa963`:
+
+- Structural Quality run `32699507367`: lint, typecheck, 264/264 tests and
+  production build PASS.
+- Repository CI run `32699507439`: generated-file sync, lint, typecheck,
+  264/264 tests, onboarding validation and production build PASS.
+
+The new checker must re-run those gates against the latest implementation.
+
+## Implemented structural truth
+
+- canonical vector domain in physical millimetres with provenance;
+- exact/fail-closed SVG and DXF import;
+- raw PDF named-Separation authority;
+- golden source hash lock;
+- 70-edge outer cut and real 8-edge window source expectations;
+- reviewed <=0.02 mm topology-only endpoint-to-span repair profile;
+- exact 17-panel decomposition;
+- 16 stable source crease/hinge roles;
+- exact polygon structural meshes with holes and board depth;
+- global sheet-coordinate UVs;
+- exact zero-angle canonical flat restoration;
+- 200 x 150 mm rectangular body-tube certificate;
+- strict reviewed-construction compiler;
+- exact source-crease hinge hierarchy;
+- absolute target pose runtime with no cumulative rotation;
+- authored timing, delay, stagger, reverse traversal and interruption safety;
+- 100-cycle geometry-identity/no-drift certificate;
+- canonical structural renderer in Studio;
+- canonical structural manufacturing routing;
 - CAD-style dieline linework;
-- fold/unfold state no longer owns camera/orbit state;
-- Node 24 + Python 3.13 quality workflows;
-- current-NumPy planar-geometry compatibility fixes in onboarding build and UV
-  validation paths.
+- camera state independent from folding;
+- fixed model presentation rotation independent from geometry/camera/fold state.
 
-## Clean checker evidence
+## Executable reference recreation
 
-Two independent GitHub Actions workflows passed against verification commit
-`34ea4a85974259e98458b0e799aecc7124faa963`:
+The source/video evidence is now separated into two lanes.
 
-- Structural Quality run `32699507367`: clean dependency setup, lint,
-  typecheck, 264/264 tests, and production build all PASS.
-- Repository CI run `32699507439`: generated-file sync, dependency setup,
-  lint, typecheck, 264/264 tests, onboarding manifest validation, and production
-  build all PASS.
-- The real checked-in GLB onboarding test that exposed the NumPy 2.5 issues now
-  passes through inspect, build, validate, and durable outputs.
+### Reference recreation lane
 
-## Hard-gate state
+Implemented:
 
-| Gate | Current state |
-|---|---|
-| G1 dimensions | Evidence available |
-| G2 flat 3D equals source | Engine regression PASS; authorized golden run/evidence still required |
-| G3 window is real geometry | Engine regression PASS; authorized golden evidence still required |
-| G4 no mirrored artwork | Regression tested |
-| G5 no artwork jump across creases | Partial; golden diagnostic-art capture incomplete |
-| G6 3D uses production dieline | Canonical authority wired; golden run/evidence still required |
-| G7 manufacturing uses same geometry | Regression tested |
-| G8 repeated fold has no drift | Engine regression tested; golden runtime torture evidence still required |
-| G9 hinge pivot / construction correctness | BLOCKED on certified golden construction metadata |
-| G10 no silent structural guesses | PASS / fail-closed |
-| G11 raster is never exact authority | PASS |
-| G12 no production-critical regression | PASS - clean dual-workflow CI and production build |
+- reference behavior contract from the supplied recording;
+- six major reference states;
+- 450–700 ms hinge timing envelope;
+- 50–150 ms stagger envelope;
+- `easeInOutCubic`, no spring/bounce;
+- deterministic Forward/Backward absolute state traversal;
+- four explicit visual candidates:
+  - north + plain-final;
+  - north + window-final;
+  - south + plain-final;
+  - south + window-final;
+- negative-depth body handedness from the engine's printed-face exterior
+  convention;
+- hidden diagonal lock rotations held at 0deg and explicitly labelled
+  `REFERENCE_RECREATION_ONLY` rather than guessed;
+- visual stock thickness explicitly labelled as a preview estimate;
+- local one-command runtime verifier;
+- development-only private Studio route `/studio/golden-reference`;
+- six-state fixed-camera capture manifest;
+- asymmetric diagnostic-art mapping evidence;
+- 50-point visual score gate with minimum 45/50 plus all hard gates;
+- machine finalizer that can emit only
+  `REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION`.
 
-## Remaining evidence blockers
+Commands:
 
-1. The golden PDF does not encode signed fold directions, target angles,
-   definitive construction hierarchy/closure order, glue/tuck/lock
-   destinations, or board thickness. These must be explicitly authored and
-   validated from authorized construction/reference evidence rather than
-   guessed from linework.
-2. A fixed-camera golden fold recording / stable-state capture set has not been
-   independently scored against the reference behavior.
-3. Asymmetric diagnostic artwork across all intended outside faces has not yet
-   been captured and scored for chirality, continuity, and seam behavior.
-4. The authorized golden PDF must be executed through the current acceptance
-   harness against this verified baseline; its bytes remain local and must not
-   be committed without redistribution permission.
-5. The golden source contains no curve coverage, so curve preservation remains
-   gated by independent non-proprietary fixtures rather than this carton.
+```bash
+npm run verify:golden-local -- /absolute/path/to/reference.pdf
+npm run verify:golden-reference -- /absolute/path/to/reference.pdf
+VORTEX_GOLDEN_REFERENCE_PDF=/absolute/path/to/reference.pdf npm run dev
+npm run finalize:golden-reference -- reference-run-summary.json visual-review.json
+```
 
-## Current score
+### Manufacturing construction lane
 
-The 100-point product score remains intentionally **unassigned**. Engineering
-quality can now be awarded its full 10/10 from the clean checker, but assigning
-geometry/mapping/fold/visual points for the golden product before the remaining
-reference evidence exists would still be false precision.
+Still requires converter/manufacturer evidence for:
 
-| Area | Maximum | Current |
-|---|---:|---:|
-| Geometric correctness | 30 | Awaiting final authorized golden acceptance run |
-| 2D to 3D mapping | 20 | Awaiting golden diagnostic-art evidence |
-| Fold/unfold quality | 18 | BLOCKED on certified construction/reference behavior |
-| Dieline visual quality | 12 | Awaiting scored reference captures |
-| 3D visual quality | 10 | Awaiting scored reference captures |
-| Engineering quality | 10 | **10 / 10** |
-| **Total** | **100** | **Unscored / BLOCKED** |
+- actual stock/caliper thickness;
+- physical top/bottom convention as a production fact;
+- signed hidden bottom-lock diagonal folds;
+- glue destination;
+- tuck destination;
+- physical lock/assembly semantics.
 
-## Next work
+The reference-recreation lane is forbidden from upgrading those estimates into
+manufacturing truth.
 
-1. Run the authorized golden PDF through
-   `scripts/inspect-golden-construction.ts` on the verified baseline and persist
-   the local acceptance report outside source control.
-2. Obtain/author evidence-backed golden construction metadata for fold signs,
-   target angles, root/hierarchy, board thickness, and closure/tuck/lock order.
-3. Capture fixed-camera stable states and transitions plus asymmetric diagnostic
-   artwork across every intended outside face.
-4. Score geometry, mapping, fold behavior, dieline visual quality, and 3D visual
-   quality against the benchmark.
-5. Do **not** convert product status to PASS until every required hard gate and
-   score threshold is satisfied.
+## Reference recreation hard gates
+
+Final reference certification requires all six captures:
+
+1. `01-flat-2d`
+2. `02-flat-3d`
+3. `03-body-forming-50pct`
+4. `04-body-erect`
+5. `05-secondary-flaps`
+6. `06-major-and-final`
+
+and every hard gate:
+
+- flat 3D equals canonical source;
+- real window remains a void;
+- artwork chirality correct;
+- no panel swap;
+- no artwork jump across creases;
+- hinge pivots remain on source creases;
+- fixed camera throughout 3D captures;
+- Forward/Backward share the same absolute targets;
+- no spring/bounce overshoot;
+- manufacturing remains canonical structural authority.
+
+Visual score:
+
+| Category | Max |
+|---|---:|
+| Geometry alignment | 10 |
+| Mapping continuity | 10 |
+| Fold-pose match | 10 |
+| Motion match | 8 |
+| CAD visual quality | 6 |
+| Material / lighting presentation | 6 |
+| **Total** | **50** |
+
+Pass threshold: **>=45/50 plus every hard gate**.
+
+## Remaining work to issue final reference PASS
+
+1. Latest checker CI must pass on the current implementation.
+2. Execute the private authorized PDF through `verify:golden-reference`.
+3. Generate the six fixed-camera evidence captures using one candidate at a
+   time and the same asymmetric diagnostic artwork.
+4. Select the closest candidate against the supplied reference.
+5. Complete independent visual scoring >=45/50 with every hard gate true.
+6. Run `finalize:golden-reference` and persist the final local verdict.
+
+Until those external/local evidence steps are executed, reference recreation is
+**software-complete but evidence-blocked**. Manufacturing construction remains
+**converter-evidence-blocked** by design.
