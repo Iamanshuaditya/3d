@@ -12,6 +12,7 @@ export * from "./structural-authoring";
 export * from "./structural-mesh";
 export * from "./structural-rig";
 export * from "./structural-tree";
+export * from "./structural-runtime-quality";
 export * from "./structural-quality";
 export * from "./structural-acceptance";
 export * from "./golden-lock-bottom-profile";
