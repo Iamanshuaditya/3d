@@ -7,8 +7,15 @@ import {
   createStructuralDiagnosticArtwork,
   evaluateLockBottomGoldenAcceptance,
   extractStructuralPanels,
+  GOLDEN_REFERENCE_CERTAINTIES,
+  GOLDEN_REFERENCE_RECORDING,
+  GOLDEN_REFERENCE_STATES,
+  GOLDEN_REFERENCE_TRANSITIONS,
+  GOLDEN_REFERENCE_TWEEN,
+  GOLDEN_REFERENCE_UNRESOLVED,
   importVectorPdfRawAuthority,
   inspectStructuralConstruction,
+  validateGoldenReferenceEvidence,
 } from "../src/lib/structure";
 
 const DEFAULT_OUTPUT_DIR = ".quality-local/golden";
@@ -51,6 +58,8 @@ const bytes = new Uint8Array(await readFile(pdf));
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 const sourceName = basename(pdf);
 
+validateGoldenReferenceEvidence();
+
 const raw = await importVectorPdfRawAuthority(bytes, {
   id: "cloudlab-lock-bottom-window-300x150x200",
   sourceName,
@@ -73,6 +82,17 @@ const graph = buildPlanarGraph(profiled.topologyDieline);
 const panels = extractStructuralPanels(raw, graph);
 const inventory = inspectStructuralConstruction(raw, graph, panels);
 const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
+
+const referenceBehavior = {
+  schemaVersion: 1,
+  evidenceKind: "VIDEO_OBSERVATION_AND_STRONG_INFERENCE_NOT_SOURCE_CODE",
+  recording: GOLDEN_REFERENCE_RECORDING,
+  states: GOLDEN_REFERENCE_STATES,
+  transitions: GOLDEN_REFERENCE_TRANSITIONS,
+  tweenEnvelope: GOLDEN_REFERENCE_TWEEN,
+  certainties: GOLDEN_REFERENCE_CERTAINTIES,
+  unresolved: GOLDEN_REFERENCE_UNRESOLVED,
+};
 
 const constructionTemplate = {
   schemaVersion: 1,
@@ -146,6 +166,15 @@ const summary = {
       "make flat-versus-folded orientation visually auditable",
     ],
   },
+  referenceBehavior: {
+    evidenceFile: "golden-reference-behavior.json",
+    stateCount: GOLDEN_REFERENCE_STATES.length,
+    observedTransitionCount: GOLDEN_REFERENCE_TRANSITIONS.length,
+    hingeDurationEnvelopeMs: GOLDEN_REFERENCE_TWEEN.hingeDurationMs,
+    staggerEnvelopeMs: GOLDEN_REFERENCE_TWEEN.staggerMs,
+    easing: GOLDEN_REFERENCE_TWEEN.preferredEasing,
+    unresolvedFactCount: GOLDEN_REFERENCE_UNRESOLVED.length,
+  },
   verdict:
     acceptance.passed && inventory.formsTree
       ? "GEOMETRY_ACCEPTED_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
@@ -158,6 +187,7 @@ await Promise.all([
   writeFile(`${destination}/golden-run-summary.json`, asJson(summary)),
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
   writeFile(`${destination}/golden-diagnostic-art.svg`, diagnosticArtwork),
+  writeFile(`${destination}/golden-reference-behavior.json`, asJson(referenceBehavior)),
   writeFile(
     `${destination}/golden-construction-inventory.json`,
     asJson({
