@@ -52,6 +52,10 @@ temp/
 # Local Vortex platform database and object storage
 .data/
 
+# Local structural benchmark evidence. The authorized golden PDF and any
+# source-derived reports/captures stay outside source control.
+.quality-local/
+
 # Local research checkouts and generated Python caches
 experiments/uv-onboarding/repos/
 **/__pycache__/
