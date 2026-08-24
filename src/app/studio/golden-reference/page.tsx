@@ -166,7 +166,11 @@ export default async function GoldenReferenceStudioPage({
       family: "folded-carton",
       modelUrl: "",
       cartonSpec,
-      modelRotation: [...compiled.modelRotationRad],
+      modelRotation: [
+        compiled.modelRotationRad[0],
+        compiled.modelRotationRad[1],
+        compiled.modelRotationRad[2],
+      ],
       // The 300 mm body is centered around the structural origin after the
       // fixed quarter-turn, so +1.5 scene units places its lower edge at y=0.
       modelYOffset: 1.5,
