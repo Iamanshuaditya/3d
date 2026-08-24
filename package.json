@@ -77,5 +77,6 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5"
-  }
+  },
+  "type": "module"
 }

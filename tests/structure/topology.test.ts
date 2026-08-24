@@ -149,6 +149,45 @@ test("panel extraction yields two real panels and owns the window as a hole", ()
   assert.deepEqual(totalBounds, { minX: 0, minY: 0, maxX: 100, maxY: 50 });
 });
 
+test("a centered structural window does not erase its owning panel", () => {
+  const dieline: CanonicalDieline = {
+    ...fixture(),
+    id: "centered-window-single-panel",
+    widthMm: 100,
+    heightMm: 100,
+    entities: [
+      linePathEntity(
+        "outer-cut",
+        "cut",
+        [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 100, y: 100 },
+          { x: 0, y: 100 },
+        ],
+        true,
+      ),
+      linePathEntity(
+        "centered-window",
+        "window-cut",
+        [
+          { x: 40, y: 40 },
+          { x: 60, y: 40 },
+          { x: 60, y: 60 },
+          { x: 40, y: 60 },
+        ],
+        true,
+      ),
+    ],
+  };
+
+  const graph = buildPlanarGraph(dieline);
+  const panels = extractStructuralPanels(dieline, graph);
+  assert.equal(panels.length, 1);
+  assert.equal(panels[0].holes.length, 1);
+  assert.equal(panels[0].holes[0].length, 4);
+});
+
 test("individually stroked PDF-style cut edges reconstruct one outer cycle and nested window", () => {
   const dieline = segmentedFixture();
   const graph = buildPlanarGraph(dieline);

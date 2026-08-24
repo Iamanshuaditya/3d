@@ -516,14 +516,21 @@ export function extractStructuralPanels(
   // Canonical coordinates are x-right/y-down. With the predecessor half-edge
   // walk above, bounded cells have positive signed area; negative cycles are
   // the unbounded/exterior companion and must never become physical panels.
-  const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
-    if (face.signedAreaMm2 <= EPSILON) return false;
-    const probe = interiorProbe(face.points, tolerance);
-    return (
-      pointInPolygon(probe, outer.points, tolerance) &&
-      !holes.some((hole) => pointInPolygon(probe, hole.points, tolerance))
-    );
-  });
+  const holeEdgeKeys = new Set(
+  holes.map((hole) => [...hole.edgeIds].sort().join("|")),
+);
+const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
+  if (face.signedAreaMm2 <= EPSILON) return false;
+  // A panel can legitimately surround a centered window. Using one interior
+  // probe to reject faces inside holes incorrectly drops that panel whenever
+  // the probe itself lands inside the nested cutout. Reject only the face
+  // whose boundary is the actual cut-hole cycle; keep the surrounding panel
+  // and attach the hole to it below.
+  const edgeKey = [...face.edgeIds].sort().join("|");
+  if (holeEdgeKeys.has(edgeKey)) return false;
+  const probe = interiorProbe(face.points, tolerance);
+  return pointInPolygon(probe, outer.points, tolerance);
+});
 
   const panels: StructuralPanel[] = [];
   for (const face of candidateFaces) {
