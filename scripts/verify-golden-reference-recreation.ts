@@ -6,6 +6,7 @@ import {
   authoredPlan,
   validateUnfoldPlan,
 } from "../src/lib/configurator/unfold-plan";
+import type { HingeAngles } from "../src/types/unfold";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
@@ -22,7 +23,6 @@ import {
   resolveStructuralRig,
   type GoldenReferenceClosureVariant,
   type GoldenReferenceTopSide,
-  type HingeAngles,
 } from "../src/lib/structure";
 
 const DEFAULT_OUTPUT_DIR = ".quality-local/golden-reference";
