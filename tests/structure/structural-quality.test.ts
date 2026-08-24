@@ -81,13 +81,16 @@ function fixture(): CanonicalDieline {
   };
 }
 
-test("flat panel union reproduces the source outer contour and hole count", () => {
+test("flat panel union reproduces source outer contour and window geometry", () => {
   const dieline = fixture();
   const panels = extractStructuralPanels(dieline, buildPlanarGraph(dieline));
   const report = measureFlatPanelEquivalence(dieline, panels);
   assert.equal(report.sourceHoleCount, 1);
   assert.equal(report.derivedHoleCount, 1);
-  assert.equal(report.passesHoleCountGate, true);
+  assert.equal(report.passesHoleGeometryGate, true);
+  assert.ok(report.maxHoleHausdorffMm <= 1e-9);
+  assert.ok(report.holeAreaDifferenceMm2 <= 1e-9);
+  assert.ok(report.holePerimeterDifferenceMm <= 1e-9);
   assert.ok(report.bidirectionalHausdorffMm <= 1e-9);
   assert.ok(report.rmsBoundaryDistanceMm <= 1e-9);
   assert.ok(report.areaDifferenceMm2 <= 1e-9);
