@@ -212,3 +212,67 @@ results look better.
   `scripts/inspect-golden-construction.ts`, preserve the report outside source
   control, then close construction and visual-reference evidence without
   guessing missing semantics.
+
+## RUN 005 - Golden reference certification and repository truth repair
+
+- Certification executed locally at head `a6a30cc`; last dual-workflow-green
+  head at time of writing: `29d7873` (Structural Quality 32770971315,
+  Repository CI 32770971388, both `success`).
+- Authorized private source executed for the first time end to end.
+  Source SHA-256 `b6b8cda5...f557`, byte-identical to the fixture manifest.
+
+### What executing the lane found
+
+Three defects that every synthetic fixture had hidden:
+
+1. `measureFlatPanelEquivalence` reduced ~123k boundary samples with
+   `Math.max(...array)`. The V8 argument-spread limit was measured at ~111k on
+   the runner, so **both golden verifiers crashed** on any real
+   production-sized dieline. The UV round-trip gate inverted `u` the same way
+   the forward mapping did, so it was self-consistent and blind to defect 2.
+2. Structural `sheetUv` inverted `u` - correct only for the legacy builder,
+   which places panels at their final assembled positions. Structural panels
+   stay in canonical sheet coordinates, so the inversion applied the sheet flip
+   twice and **mirrored artwork on every assembled panel**.
+3. The reference-recreation candidate used `negative-depth` handedness, which
+   put the **printed face inside** the carton on every body wall and splayed
+   the flaps to a 350 x 320 mm envelope.
+
+Measured on the assembled rig, `positive-depth` is the only handedness that
+keeps the printed face exterior on all 17 panels and closes the body to exactly
+**200.0 x 150.0 x 300.0 mm**. Both fixes are regression-locked, and each new
+test was confirmed to FAIL against the old behaviour before being accepted.
+
+### Results
+
+- source acceptance gates: **12/12 PASS**;
+- runtime recreation: `REFERENCE_RECREATION_RUNTIME_PASS_NOT_MANUFACTURING_CERTIFICATION`;
+- 100-cycle runtime certificate: **PASS**, zero drift;
+- fixed-camera captures generated: **6/6**, reviewed individually;
+- visual score: **45/50** (threshold 45), all **10/10** hard gates true;
+- final verdict: `REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION`;
+- flat 3D vs source boundary delta: 4.5e-13 mm; UV round-trip 4.7e-5 mm.
+
+Score deductions were both evidence limits, not implementation defects:
+fold-pose 8/10 (diagonal lock creases held coplanar - the reference does not
+recover their signed angles) and motion 7/8 (verified against the distilled
+envelope, not frame-by-frame against the raw recording, which is not available
+locally).
+
+### Repository truth repair
+
+- Repository CI was **red** at `a6a30cc`: `.github/workflows/ci.yml` still
+  invoked `scripts/sync-agent-rules.sh` and `scripts/sync-skills.mjs` after the
+  website-cloner scaffolding that generated those files was removed. The
+  obsolete step was deleted rather than restoring dead scripts.
+- Replaced by `tests/platform/quality-record-consistency.test.ts`, which fails
+  when status, verdict, blockers, checker totals or certification fields
+  contradict one another. It runs inside `npm test`, so both workflows enforce it.
+- `quality-report.json` previously said `REFERENCE_RECREATION_CERTIFIED` while
+  its prose verdict said the same lane was `BLOCKED`, and listed four
+  already-completed internal steps as blockers. Blockers are now `EXTERNAL:`
+  tagged only.
+- Product-level result: reference recreation **CERTIFIED**; manufacturing
+  construction **not certified** and not obtainable from this repository.
+- Next action: converter evidence for caliper, glue/tuck destinations and
+  bottom-lock semantics. No code change can close those.

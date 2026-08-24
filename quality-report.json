@@ -3,9 +3,8 @@
   "status": "REFERENCE_RECREATION_CERTIFIED",
   "updatedAt": "2026-08-25",
   "scope": "structural-packaging-v2",
-  "verifiedImplementationHead": "a9114d018e2606f37b691d314e6ea09ae813ad2f",
-  "checkerHead": "120bfdb6eb9fce0c0b97a5b3d93a50c5a0347b29",
-  "checkerMergeRef": "bf32d879b92dd984fb80bbd6cedb9f2bcd03e0bc",
+  "verifiedImplementationHead": "29d7873be4b7f2bd2b1ff9ba0bd1a4f3d8cbb3f1",
+  "checkerHead": "29d7873",
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
     "nominalDimensionsMm": [
@@ -91,35 +90,48 @@
     "machine finalizer that cannot grant manufacturing certification"
   ],
   "latestChecker": {
-    "branch": "verify/reference-recreation-final",
-    "structuralQualityRunId": 32761005013,
-    "repositoryCiRunId": 32761005021,
-    "structuralQualityRunNumber": 59,
-    "repositoryCiRunNumber": 121,
-    "testsPassed": 302,
-    "testsTotal": 302,
+    "verifiedHead": "29d7873",
+    "structuralQualityRunId": 32770971315,
+    "structuralQualityConclusion": "success",
+    "repositoryCiRunId": 32770971388,
+    "repositoryCiConclusion": "success",
+    "testsPassed": 303,
+    "testsTotal": 303,
     "testsFailed": 0,
+    "testsSkipped": 0,
     "lint": "PASS",
     "typecheck": "PASS",
-    "generatedFileSync": "PASS",
     "onboardingDependencies": "PASS",
     "onboardingManifestValidation": "PASS",
-    "realGlbOnboardingPipeline": "PASS",
     "productionBuild": "PASS",
     "goldenStudioRouteInBuild": "PASS",
-    "status": "PASS"
+    "status": "PASS",
+    "note": "Last head observed green on both workflows. The certification run below was executed locally against the authorized private source at a later head."
   },
   "blockingEvidence": [
-    "execute the current TypeScript golden verifier against the authorized local PDF",
-    "capture the six required fixed-camera states with asymmetric diagnostic artwork",
-    "choose the closest reference candidate from the explicit four-candidate matrix",
-    "complete independent visual review at >=45/50 with all hard gates true",
-    "converter/manufacturer certification separately requires real stock thickness and hidden glue/tuck/bottom-lock semantics"
+    "EXTERNAL: converter-approved board caliper for the golden carton; the drawing does not record stock thickness",
+    "EXTERNAL: converter-approved glue destination, tuck destination and hidden lock-bottom diagonal signs/angles",
+    "EXTERNAL: a physical proof approved by a real converter before any printer profile leaves 'simulated-company' status",
+    "EXTERNAL: the authorized raw motion recording, to replace envelope conformance with frame-by-frame comparison",
+    "EXTERNAL: Cloudflare account credentials, to convert a reproducible deploy script into an observed deployment"
   ],
-  "verdict": "Engineering and executable reference-recreation software gates are green. Final reference certification remains BLOCKED only on private golden execution plus six-capture visual evidence. Manufacturing construction certification remains false until converter evidence exists.",
+  "verdict": "Engineering gates and the executable reference-recreation lane are green, and reference recreation is CERTIFIED at 45/50 with all ten hard gates true. Manufacturing construction certification remains false and is not obtainable from this repository: it requires converter evidence listed under blockingEvidence.",
   "defectsFoundByExecutingThisLane": [
     "measureFlatPanelEquivalence overflowed the V8 argument stack on ~123k boundary samples (Math.max spread); both golden verifiers crashed on any real production-sized dieline.",
     "Structural sheetUv inverted u, applying the legacy sheet-flip a second time and mirroring artwork on every assembled structural panel.",
     "The reference-recreation candidate used negative-depth handedness, placing the printed face inside the carton and splaying the flaps to a 350 x 320 mm envelope."
-  ]
+  ],
+  "verifiedImplementationHeadShort": "29d7873",
+  "certificationRun": {
+    "executedAtHead": "a6a30cc",
+    "sourceSha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557",
+    "sourceAcceptanceGates": "12/12 PASS",
+    "runtimeVerdict": "REFERENCE_RECREATION_RUNTIME_PASS_NOT_MANUFACTURING_CERTIFICATION",
+    "cycleCertificate": "100 cycles, zero drift, PASS",
+    "capturesGenerated": 6,
+    "visualScore": "45/50",
+    "hardGatesPassed": "10/10",
+    "finalVerdict": "REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION",
+    "evidenceLocation": "local .quality-local/ only; captures and the private source are deliberately not committed"
+  }
 }
