@@ -391,10 +391,12 @@ function arithmeticMean(points: readonly Vec2[]): Vec2 {
   return { x: sum.x / points.length, y: sum.y / points.length };
 }
 
-/** Returns a point demonstrably inside a simple polygon, even when concave. */
 function interiorProbe(points: readonly Vec2[], tolerance: number): Vec2 {
   const mean = arithmeticMean(points);
-  if (pointInPolygon(mean, points, tolerance) && !points.some((p) => distanceBetweenPoints(p, mean) <= tolerance)) {
+  if (
+    pointInPolygon(mean, points, tolerance) &&
+    !points.some((point) => distanceBetweenPoints(point, mean) <= tolerance)
+  ) {
     return mean;
   }
   const epsilon = Math.max(tolerance * 2, 1e-4);
@@ -448,11 +450,6 @@ export function buildPlanarGraph(dieline: CanonicalDieline): PlanarGraph {
   return { vertices, edges, faces };
 }
 
-/**
- * Reconstructs physical cut cycles from graph connectivity. This deliberately
- * does not require one closed source path: professional PDFs often paint every
- * die edge independently. Nested cut cycles are classified by even/odd depth.
- */
 export function extractCutCycles(
   dieline: CanonicalDieline,
   graph: PlanarGraph = buildPlanarGraph(dieline),
@@ -471,7 +468,9 @@ export function extractCutCycles(
     );
   }
 
-  const rawCycles = deduplicateFaces(traceFaces(graph.vertices, cutEdges));
+  const rawCycles = deduplicateFaces(traceFaces(graph.vertices, cutEdges)).filter(
+    (face) => face.signedAreaMm2 > EPSILON,
+  );
   if (rawCycles.length === 0) throw new Error("No closed cut cycle could be reconstructed.");
   const tolerance = dieline.tolerances.topologySnapMm;
   const records = rawCycles.map((face, index) => ({
@@ -514,7 +513,11 @@ export function extractStructuralPanels(
   const edgeById = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const tolerance = dieline.tolerances.topologySnapMm;
 
+  // Canonical coordinates are x-right/y-down. With the predecessor half-edge
+  // walk above, bounded cells have positive signed area; negative cycles are
+  // the unbounded/exterior companion and must never become physical panels.
   const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
+    if (face.signedAreaMm2 <= EPSILON) return false;
     const probe = interiorProbe(face.points, tolerance);
     return (
       pointInPolygon(probe, outer.points, tolerance) &&
@@ -524,11 +527,9 @@ export function extractStructuralPanels(
 
   const panels: StructuralPanel[] = [];
   for (const face of candidateFaces) {
-    const panelProbe = interiorProbe(face.points, tolerance);
-    const ownedHoles = holes.filter((hole) => {
-      const holeProbe = interiorProbe(hole.points, tolerance);
-      return pointInPolygon(holeProbe, face.points, tolerance) || pointInPolygon(panelProbe, hole.points, tolerance);
-    });
+    const ownedHoles = holes.filter((hole) =>
+      pointInPolygon(interiorProbe(hole.points, tolerance), face.points, tolerance),
+    );
     const creaseEdgeIds = face.edgeIds.filter((id) => {
       const operation = edgeById.get(id)?.operation;
       return operation ? isCreaseOperation(operation) : false;
@@ -547,8 +548,9 @@ export function extractStructuralPanels(
     throw new Error("No bounded structural panels were extracted from the canonical dieline.");
   }
   for (const hole of holes) {
+    const holeProbe = interiorProbe(hole.points, tolerance);
     const owners = panels.filter((panel) =>
-      pointInPolygon(interiorProbe(hole.points, tolerance), panel.outerBoundary, tolerance),
+      pointInPolygon(holeProbe, panel.outerBoundary, tolerance),
     );
     if (owners.length !== 1) {
       throw new Error(`Cut hole ${hole.id} must belong to exactly one structural panel; found ${owners.length}.`);
