@@ -43,18 +43,39 @@ two panels share a physical crease; it does **not** prove fold sign, signed
 angle, parent/child direction, root panel, board thickness, glue/tuck/lock
 roles, or closure order.
 
+## Stable geometry roles
+
+The golden source has a reviewed five-panel body band and two six-panel flap
+regions. The local runner derives stable geometry roles from exact physical
+bounds instead of depending on generated face IDs.
+
+The body strip is expected left-to-right as:
+
+```text
+seam candidate → broad plain → narrow → broad with real window → narrow
+```
+
+The remaining six panels above the body band are called `north-flap` regions
+and the six below it are called `south-flap` regions. Those are sheet-space
+names only. The classifier deliberately does **not** rename north/south as
+physical top/bottom, or the seam candidate as a glue flap, because those are
+construction semantics rather than vector facts.
+
 ## Local outputs
 
 The runner writes local evidence without copying the PDF:
 
 - `golden-run-summary.json` - compact acceptance result and gate summary;
 - `golden-acceptance.json` - complete geometric acceptance report;
+- `golden-geometry-roles.json` - source-locked body/flap geometry roles;
 - `golden-construction-inventory.json` - topology repairs and crease adjacency
   evidence;
 - `golden-construction-template.json` - source-locked authoring template whose
   unresolved physical facts remain `null`;
 - `golden-diagnostic-art.svg` - deterministic asymmetric full-sheet artwork for
-  visual mapping checks.
+  visual mapping checks;
+- `golden-reference-behavior.json` - video-observation benchmark states, motion
+  windows, timing envelope, confidence levels and explicit unknowns.
 
 The diagnostic SVG is deliberately not manufacturing geometry. It contains
 unequal corner markers, sheet-direction labels, two non-symmetric crossing
@@ -63,8 +84,9 @@ panel. When used as artwork in both flat and folded views it makes horizontal
 or vertical mirroring, 90/180 degree rotation, panel swaps, wrong chirality,
 and artwork jumps across shared creases immediately visible.
 
-The runner exits non-zero if the geometric acceptance fails or the crease
-adjacency graph no longer forms the reviewed tree.
+The runner exits non-zero if geometric acceptance fails, the crease adjacency
+graph no longer forms the reviewed tree, or the stable geometry-role contract
+no longer matches the 17-panel source.
 
 ## Mapping evidence protocol
 
@@ -89,8 +111,8 @@ textures.
 
 A successful local golden run is strong evidence for the geometric hard gates,
 including exact source authority, window geometry, flat equivalence, UV
-round-trip, and the reviewed topology profile. It is **not** permission to mark
-the complete product PASS.
+round-trip, the reviewed topology profile, and stable panel-role identification.
+It is **not** permission to mark the complete product PASS.
 
 The remaining golden product gates still require evidence-backed construction
 metadata and visual/reference validation: signed folds and target angles,

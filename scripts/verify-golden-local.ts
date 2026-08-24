@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
+  classifyLockBottomGoldenGeometry,
   createStructuralDiagnosticArtwork,
   evaluateLockBottomGoldenAcceptance,
   extractStructuralPanels,
@@ -81,6 +82,7 @@ const profiled = applyLockBottomGoldenSourceProfile(raw);
 const graph = buildPlanarGraph(profiled.topologyDieline);
 const panels = extractStructuralPanels(raw, graph);
 const inventory = inspectStructuralConstruction(raw, graph, panels);
+const geometryRoles = classifyLockBottomGoldenGeometry(raw, panels);
 const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
 
 const referenceBehavior = {
@@ -103,6 +105,7 @@ const constructionTemplate = {
   },
   rootPanelId: null,
   boardThicknessMm: null,
+  geometryRolesFile: "golden-geometry-roles.json",
   hinges: inventory.hingeCandidates.map((candidate) => ({
     id: candidate.id.replace(/^candidate-/, "hinge-"),
     parentPanelId: null,
@@ -121,7 +124,7 @@ const constructionTemplate = {
     "mountain/valley sign",
     "assembled target angles",
     "board thickness",
-    "glue seam role",
+    "glue seam role (geometry identifies only a seam candidate)",
     "tuck/lock destinations",
     "bottom lock behavior",
     "fold order and transition grouping",
@@ -150,6 +153,19 @@ const summary = {
     windowPerimeterMm: acceptance.windowPerimeterMm,
     maxUvRoundTripMm: acceptance.maxUvRoundTripMm,
   },
+  geometryRoles: {
+    evidenceFile: "golden-geometry-roles.json",
+    passed: geometryRoles.passed,
+    bodyBand: geometryRoles.bodyBand,
+    bodyPanelRolesLeftToRight: geometryRoles.bodyPanelsLeftToRight.map((role) => ({
+      panelId: role.panelId,
+      role: role.bodyRole,
+      widthMm: role.widthMm,
+      holeCount: role.holeCount,
+    })),
+    northFlapCount: geometryRoles.northFlapsLeftToRight.length,
+    southFlapCount: geometryRoles.southFlapsLeftToRight.length,
+  },
   flat: acceptance.flat,
   gates: acceptance.gates,
   construction: {
@@ -176,7 +192,7 @@ const summary = {
     unresolvedFactCount: GOLDEN_REFERENCE_UNRESOLVED.length,
   },
   verdict:
-    acceptance.passed && inventory.formsTree
+    acceptance.passed && inventory.formsTree && geometryRoles.passed
       ? "GEOMETRY_ACCEPTED_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
       : "FAIL",
 };
@@ -186,6 +202,7 @@ await mkdir(destination, { recursive: true });
 await Promise.all([
   writeFile(`${destination}/golden-run-summary.json`, asJson(summary)),
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
+  writeFile(`${destination}/golden-geometry-roles.json`, asJson(geometryRoles)),
   writeFile(`${destination}/golden-diagnostic-art.svg`, diagnosticArtwork),
   writeFile(`${destination}/golden-reference-behavior.json`, asJson(referenceBehavior)),
   writeFile(
@@ -204,4 +221,4 @@ await Promise.all([
 
 console.log(asJson({ outputDir: destination, ...summary }));
 
-if (!acceptance.passed || !inventory.formsTree) process.exitCode = 1;
+if (!acceptance.passed || !inventory.formsTree || !geometryRoles.passed) process.exitCode = 1;
