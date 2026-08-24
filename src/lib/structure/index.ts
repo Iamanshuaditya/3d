@@ -23,3 +23,4 @@ export * from "./golden-hinge-roles";
 export * from "./golden-body-tube";
 export * from "./golden-reviewed-construction";
 export * from "./golden-reference-recreation";
+export * from "./golden-visual-score";
