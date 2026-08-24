@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>Kimi K3 — 3D Folding Animation Analysis</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 980px;
+         margin: 0 auto; padding: 48px 32px; color: #1a1a1a; background: #fafafa;
+         line-height: 1.65; }
+  h1 { border-bottom: 3px solid #2563eb; padding-bottom: 12px; }
+  h2 { border-bottom: 1px solid #ddd; padding-bottom: 6px; margin-top: 2.2em; }
+  h3 { margin-top: 1.6em; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.92em;
+           display: block; overflow-x: auto; }
+  th, td { border: 1px solid #d4d4d4; padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: #eff6ff; }
+  tr:nth-child(even) { background: #f5f5f5; }
+  code { background: #eee; padding: 2px 5px; border-radius: 4px; font-size: 0.88em; }
+  pre { background: #1e1e2e; color: #cdd6f4; padding: 16px; border-radius: 8px;
+         overflow-x: auto; line-height: 1.45; }
+  pre code { background: none; color: inherit; padding: 0; }
+  blockquote { border-left: 4px solid #f59e0b; margin: 1em 0; padding: 8px 16px;
+                background: #fffbeb; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 2.5em 0; }
+</style></head><body>
+<h1 id="kimi-k3-video-analysis-3d-foldingunfolding-animation-reverse-engineering">Kimi K3 Video Analysis — 3D Folding/Unfolding Animation Reverse-Engineering</h1>
+<p><strong>Source video:</strong> <code>/Users/anshuaditya/Desktop/2026-08-24 01-09-09.mov</code> (29.4s, 1280×720 @ 30fps screen recording)
+<strong>Analyst:</strong> Kimi K3 (Moonshot AI) via free UnoRouter route (<code>kimi-k3:free</code>)
+<strong>Method:</strong> 16 evenly-sampled frames + the full 41-part reverse-engineering prompt; 5 chained requests (free-tier 16K output cap per request), merged in order
+<strong>Date:</strong> 2026-08-24</p>
+<blockquote>
+<p><strong>Editor's note:</strong> Sections were generated across 5 continuations. One discrepancy remains between §7
+("Backward is NOT a strict time-reversal — separately parameterized, confidence 0.70") and §20
+("forward/backward are the same evaluator with sign-flipped time"). Treat both as competing hypotheses;
+§26's controller design supports the timeline-reversal model. Verify against the live app if possible.</p>
+</blockquote>
+<hr />
+<!-- PART 1/5 — Sections 1–7 (response truncated by free-tier output cap) -->
+
+<p>Package: tall rectangular carton with tuck top (visible tuck flap with slot in frames 8, 14-15) and lock bottom (tab title). Frames show sequence: folded box with top open flaps → closing → closed box → rotating/orbiting → reopening → unfolding toward flat (frame 12 shows flattened dieline-like shape) → refolding.</p>
+<p>I'll produce the full 26-section spec, being appropriately hedged. Keep it thorough but not infinitely long. This is a text answer; no tools needed. Write in English.</p>
+<h1 id="1-executive-summary">1. Executive Summary</h1>
+<p><strong>What the evidence actually is.</strong> I was given 16 chronological still frames from a screen recording of a browser-based packaging personalization tool (URL: <code>artnext-x4-anx46.your-cloudlab.com/...personalize...</code>, vendor branding "NEXIWORLD", browser tab titled <code>product_Lock Bottom ...</code>). The UI shows a 2D dieline editor (left, with cut/crease lines and a "183 mm" dimension callout) and a floating <strong>"3D Preview"</strong> modal containing a white carton rendered in WebGL. Frame 1 is an OBS window (recording setup) and contains no product content.</p>
+<p><strong>Critical honesty up front:</strong> the frames contain <strong>no visible Forward/Backward buttons</strong>, <strong>no cursor clicks on such controls</strong>, <strong>no timestamps, and no frame counter</strong>. Therefore exact timestamps, exact durations, exact easing curves, and the literal step-count of the state machine are <strong>not directly observable</strong>. What <em>is</em> observable is a sequence of poses of a white folding carton. Everything below is classified as OBSERVED / STRONGLY INFERRED / POSSIBLE IMPLEMENTATION, and anything not derivable is marked <strong>UNKNOWN</strong> rather than invented.</p>
+<p><strong>What the system appears to be (high confidence):</strong> a deterministic, <strong>tween/keyframe-driven hierarchical hinge animation</strong> — a rigid-panel scene graph in which each carton panel is parented to a pivot group positioned on its crease line, and folding is achieved by rotating those pivots around the crease axis. The product is a <strong>straight-tuck-end (STE) style tuck-top carton with a lock bottom</strong> (per the tab title and the visible tuck flap with a friction slit). The animation cycles: assembled box → top opens → box unfolds toward a near-flat blank → refolds → top closes. There is also camera orbiting between steps. No physics, no overshoot, no wobble is visible.</p>
+<hr />
+<h1 id="2-video-timeline">2. Video Timeline</h1>
+<p>No timecodes exist in the frames. I therefore index by frame number (F1–F16) in chronological order as provided. Relative ordering is OBSERVED; absolute timing is UNKNOWN.</p>
+<pre><code class="language-text">F01  — OBS recording window (recursive screen capture). No product content. Disregard.
+F02  — 3D Preview open. Carton nearly closed, viewed from front-slightly-above.
+       Top tuck flap visible at top, appears mostly closed/inserted. (STATE: ~closed)
+F03  — Carton mid-motion: top region open, major top flap raised at an angle,
+       smaller flaps splayed. Body still a formed tube. (STATE: top opening / partially open)
+F04  — Top major flap nearly horizontal-open, dust/shoulder flaps visible,
+       one small flap sticking out to the right. (STATE: top fully open)
+F05  — Box closed again, viewed from a different (higher, more side) angle —
+       gable-like top silhouette visible = camera has orbited. (STATE: closed, camera moved)
+F06  — Closed box, more frontal view. (STATE: closed)
+F07  — Closed box, slight rotation; small protrusion visible on right side
+       (likely a dust flap or tuck edge catching light). (STATE: closed, camera orbit)
+F08  — View from front-above: top tuck flap clearly visible as a horizontal lid
+       with the tuck tongue/slot edge visible. (STATE: closed, top detail visible)
+F09  — Top opening again: both side dust flaps splayed outward symmetrically,
+       lid lifted. (STATE: top open)
+F10  — Box viewed edge-on / strongly rotated: body appears as a thin vertical slab.
+       (STATE: camera orbit to near-profile, box closed or closing)
+F11  — Near-profile view, top flap sticking up vertically. (STATE: partially open, profile view)
+F12  — KEY FRAME: the model appears substantially FLATTENED — an irregular tall
+       silhouette like a partially unfolded blank standing vertically, with flap
+       protrusions top and bottom. (STATE: unfolding toward flat dieline)
+F13  — Very washed-out/faint tall shape — either mid-unfold with faces edge-on
+       to camera (near-zero apparent area) or a fade/transition. (STATE: ~flat or edge-on)
+F14  — Box re-formed, top open with dust flaps out. (STATE: refolded, top open)
+F15  — Box with top lid closed over, tuck flap visible on front face top edge.
+       (STATE: closing/closed)
+F16  — Fully closed box, plain front view. (STATE: closed — end of cycle)
+</code></pre>
+<p><strong>Observed event inventory:</strong>
+- Folding events (open→closed top): F03–F05 region, F14–F16.
+- Unfolding events (closed→open top): F02–F04, F08–F09.
+- Unfold toward flat: F10–F13.
+- Refold from flat: F13–F14.
+- Camera changes (STRONGLY INFERRED as camera orbit, not object spin — see §15): F04→F05, F06→F07, F09→F10.
+- Forward/Backward button clicks: <strong>NOT VISIBLE in any frame — UNKNOWN when they occurred.</strong></p>
+<hr />
+<h1 id="3-package-structure">3. Package Structure</h1>
+<p>Package type: <strong>tuck-top carton with lock bottom</strong> (tab title "product_Lock Bottom …"; visible tuck lid with tongue and slit). Tall rectangular tube, height dominant (dieline shows 183 mm vertical dimension on one panel).</p>
+<p>Panel inventory (IDs assigned by me; names follow packaging convention):</p>
+<pre><code class="language-text">P0 — Front panel (large rectangle; carries the tuck-flap top edge)
+P1 — Right side panel
+P2 — Back panel
+P3 — Left side panel
+P4 — Glue flap (narrow strip at one vertical end of the blank — STRONGLY INFERRED
+     from standard 4-panel tube construction; not individually resolvable in frames)
+P5 — Top tuck flap / lid (attached to top of P2 back panel in classic STE;
+     visible as the lid in F08/F15)
+P6 — Tuck tongue (extension of P5 with the friction slit — visible as the
+     small rounded tab/slot feature in F08/F15)
+P7 — Top front flap (attached to top of P0; folds down inside, under the lid)
+P8 — Top left dust flap (attached to top of P3)
+P9 — Top right dust flap (attached to top of P1) — the two symmetric splayed
+     flaps in F09/F14
+P10–P13 — Bottom closure flaps (lock-bottom set: two major + two minor,
+     per &quot;Lock Bottom&quot; product name; never visible in the frames — camera never
+     shows the bottom. Existence STRONGLY INFERRED, geometry UNKNOWN)
+</code></pre>
+<p>Per-panel attributes:</p>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Shape</th>
+<th>Relative size</th>
+<th>Connected to</th>
+<th>Crease</th>
+<th>Rigid?</th>
+<th>Deforms?</th>
+<th>Flat orientation</th>
+<th>Folded orientation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0</td>
+<td>Rectangle</td>
+<td>W × H (H≈183mm region)</td>
+<td>P1, P3 (sides), P7 (top), bottom flap</td>
+<td>vertical ×2, horizontal ×2</td>
+<td>Yes (observed)</td>
+<td>No bending observed</td>
+<td>Coplanar with blank</td>
+<td>Vertical, front face</td>
+</tr>
+<tr>
+<td>P1</td>
+<td>Rectangle</td>
+<td>D × H (narrower)</td>
+<td>P0, P2, P9, bottom flap</td>
+<td>vertical ×2, horiz ×2</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Vertical, 90° to P0</td>
+</tr>
+<tr>
+<td>P2</td>
+<td>Rectangle</td>
+<td>W × H</td>
+<td>P1, P3, P5, bottom flap</td>
+<td>vertical ×2, horiz ×2</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Vertical, back face</td>
+</tr>
+<tr>
+<td>P3</td>
+<td>Rectangle</td>
+<td>D × H</td>
+<td>P2, P0, P8, bottom flap</td>
+<td>vertical ×2, horiz ×2</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Vertical, 90° to P2</td>
+</tr>
+<tr>
+<td>P4</td>
+<td>Narrow strip</td>
+<td>~10–15mm × H</td>
+<td>P3 (or P0)</td>
+<td>1 vertical</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Inside, glued to opposite panel</td>
+</tr>
+<tr>
+<td>P5</td>
+<td>Rectangle w/ radius corners</td>
+<td>W × ~D</td>
+<td>P2</td>
+<td>1 horizontal</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar (extends up)</td>
+<td>Horizontal lid</td>
+</tr>
+<tr>
+<td>P6</td>
+<td>Tongue w/ slit</td>
+<td>W × ~15–20mm</td>
+<td>P5</td>
+<td>1 horizontal</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Vertical, tucked inside front</td>
+</tr>
+<tr>
+<td>P7</td>
+<td>Rectangle (may have angled shoulders)</td>
+<td>W × ~D</td>
+<td>P0</td>
+<td>1 horizontal</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Horizontal, under lid</td>
+</tr>
+<tr>
+<td>P8/P9</td>
+<td>Trapezoid-ish dust flaps</td>
+<td>D × ~D/2</td>
+<td>P3 / P1</td>
+<td>1 horizontal each</td>
+<td>Yes</td>
+<td>No</td>
+<td>Coplanar</td>
+<td>Folded inward ~90°</td>
+</tr>
+<tr>
+<td>P10–13</td>
+<td>Lock-bottom flap set</td>
+<td>various</td>
+<td>bottoms of P0–P3</td>
+<td>4 horizontal + diagonal score(s)</td>
+<td>Yes</td>
+<td>Lock bottom involves diagonal creases — POSSIBLE slight compound motion</td>
+<td>Coplanar</td>
+<td>Interlocked horizontal base</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Confidence:</strong> P0–P3, P5–P9 existence: High. P4 glue flap: Medium-High (standard construction; not resolvable). P10–P13 lock-bottom detail: Medium (name-based inference; never on camera).</p>
+<hr />
+<h1 id="4-dieline-connectivity">4. Dieline Connectivity</h1>
+<p>The 2D dieline visible behind the modal (F02–F16, left and right edges) shows a multi-panel horizontal strip layout with red (crease) and black/blue (cut) lines — consistent with a 4-panel tube + top/bottom flap sets arranged vertically along the strip.</p>
+<p>Connectivity graph (STRONGLY INFERRED from standard STE lock-bottom construction + visible folded behavior):</p>
+<pre><code class="language-text">P4 GlueFlap — P3 Left — P0 Front — P1 Right — P2 Back        (horizontal tube strip)
+                  |         |          |          |
+                 P8        P7         P9         P5—P6       (top flaps)
+                  |         |          |          |
+                P13       P10        P11        P12          (bottom lock flaps)
+</code></pre>
+<p>Folded tube adjacency: P4 glues to the inside of P2 (or the strip wraps P3→P0→P1→P2 and P4 meets P2). The animation hierarchy (which panel is kinematic root) is a separate question — see §12.</p>
+<hr />
+<h1 id="5-creasehinge-map">5. Crease/Hinge Map</h1>
+<p>All hinges below are crease-line pivots. For each: classification + estimates.</p>
+<pre><code class="language-text">H0  Parent P0 → Child P1   Edge: right vertical edge of P0
+    Axis: local vertical (Y in panel space). Fold: 0° → ~90° (inward/valley
+    relative to outside print face). Confidence: High (tube formation visible).
+
+H1  Parent P1 → Child P2   Edge: right vertical edge of P1
+    Axis: vertical. 0° → ~90°. Confidence: High.
+
+H2  Parent P2 → Child P3   Edge: right vertical edge of P2 (in flat layout)
+    Axis: vertical. 0° → ~90°. Confidence: High.
+    (Note: depending on where the strip is &quot;cut&quot; for the hierarchy, one of the
+    four vertical corners is closed by glue flap P4 at ~90° instead.)
+
+H3  Parent P3 → Child P4 (glue flap)  Axis: vertical. 0° → ~90°.
+    Confidence: Medium.
+
+H4  Parent P2 → Child P5 (top lid)   Edge: top horizontal edge of back panel
+    Axis: horizontal (X in panel space). 0° → ~90° (fold over the top opening).
+    OBSERVED in F03/F04/F09 (lid raised/lowered). Confidence: Very High.
+
+H5  Parent P5 → Child P6 (tuck tongue)  Edge: outer edge of lid
+    Axis: horizontal. 0° → ~90–100° (tongue folds down to tuck behind front panel).
+    OBSERVED as the tucked tab in F08/F15/F16. Confidence: High.
+
+H6  Parent P0 → Child P7 (front top flap)  Axis: horizontal. 0° → ~90° inward.
+    Confidence: Medium-High (partially occluded by lid in frames).
+
+H7  Parent P3 → Child P8 (left dust flap)  Axis: horizontal. 0° → ~90° inward.
+    OBSERVED splayed open in F09/F14, closed under lid in F15. Confidence: High.
+
+H8  Parent P1 → Child P9 (right dust flap)  Axis: horizontal. 0° → ~90° inward.
+    OBSERVED (the right-side protruding flap in F04/F07). Confidence: High.
+
+H9–H12  Bottom flaps off P0–P3 + diagonal lock scores. UNKNOWN in detail —
+    bottom never visible. Lock bottom implies at least one diagonal crease with
+    compound (non-90°, possibly ~45° + panel-over-panel) motion. Confidence: Low-Medium.
+</code></pre>
+<p><strong>Hinge orientation inheritance:</strong> H4–H8's world-space axes change as the tube forms (their parent panels rotate 90° about vertical axes) — the top-flap hinges are horizontal in panel-local space but point in different world directions after tube formation. The coherent motion of the top flaps in F03/F04/F09 while attached to already-vertical panels is STRONG evidence of hierarchical transform inheritance (see §12).</p>
+<hr />
+<h1 id="6-forward-animation-folding">6. Forward Animation (folding)</h1>
+<p>The Forward button is never visible, so I cannot segment by click. Instead I reconstruct the <strong>folding phases</strong> visible in the frames (OBSERVED poses; phase boundaries INFERRED). Treat "Forward step = one click advances one phase" as POSSIBLE IMPLEMENTATION.</p>
+<p><strong>FORWARD PHASE A — Tube formation (flat blank → open tube)</strong>
+- Evidence: F12/F13 (near-flat / edge-on blank) → F14 (formed tube with open top).
+- Moving: P1, P2, P3 (+P4) rotating about vertical hinges H0–H3.
+- Stationary: P0 (root, front panel) — STRONGLY INFERRED; one panel must be the anchor and the front is the natural choice and appears stable across frames.
+- Sequence: cannot determine simultaneous vs staggered from stills — UNKNOWN. Most carton visualizers fold the strip simultaneously (all four corners tween 0→90° together). POSSIBLE IMPLEMENTATION: parallel tweens, equal duration.
+- Angles: 0° → ±90° per corner (signs alternate to wrap the same direction).
+- End state: open rectangular tube, top and bottom flaps still coplanar-extended.</p>
+<p><strong>FORWARD PHASE B — Bottom lock closure</strong>
+- Not visible in any frame (bottom off-camera). UNKNOWN whether it is its own step, merged with Phase A, or skipped/pre-assembled in the preview. Many previews show the box already bottom-locked. Confidence: Low for any specific claim.</p>
+<p><strong>FORWARD PHASE C — Top dust flaps in</strong>
+- Evidence: F09/F14 (dust flaps splayed out) → F15 (flaps no longer visible, lid coming down).
+- Moving: P8, P9 about H7, H8: 0° → ~90° inward (toward each other over the opening).
+- Also P7 (front flap) folding in — partially occluded; Medium confidence.
+- Sequence: dust flaps appear symmetric; likely simultaneous. P7 likely same phase or slightly before the lid.</p>
+<p><strong>FORWARD PHASE D — Lid close + tuck</strong>
+- Evidence: F03→F05, F14→F16, F08/F15 (lid horizontal, tongue tucked).
+- Moving: P5 about H4: 0° → ~90° (down over the opening); P6 about H5: 0° → ~90–100° (tongue slips behind front panel).
+- Sequence (STRONGLY INFERRED from geometry, standard in these visualizers): lid rotates most of the way, tongue rotation overlaps/lags slightly so the tongue clears the front panel edge and ends inside. Whether the video shows lag: UNKNOWN (frame density too low).
+- End state: closed carton (F05/F06/F16).</p>
+<p><strong>Durations:</strong> UNKNOWN in absolute terms. If forced to estimate from typical web visualizers of this class: 400–800 ms per phase with ease-in-out — label: <strong>POSSIBLE IMPLEMENTATION, Low confidence.</strong></p>
+<hr />
+<h1 id="7-backward-animation-unfolding">7. Backward Animation (unfolding)</h1>
+<p>Observed unfolding poses: F02→F04 (lid+tongue open, dust flaps out), F10→F13 (tube collapsing toward flat).</p>
+<p><strong>BACKWARD PHASE D′ — Lid open:</strong> P6 tongue rotates out first (or concurrently), then P5 lid rises to ~0°. F03/F04 show lid up with tongue extended. Whether tongue leads lid: geometrically it must clear the front panel before the lid fully opens; STRONGLY INFERRED order = tongue then lid, i.e., exact reverse of Phase D.</p>
+<p><strong>BACKWARD PHASE C′ — Dust flaps out:</strong> P8/P9 rotate back to flat (visible splayed in F09/F14). Appears symmetric/simultaneous.</p>
+<p><strong>BACKWARD PHASE A′ — Tube collapse:</strong> F10–F13 show the body going edge-on/flattening — side panels rotating back to 0° about the vertical hinges. F12's irregular flat-ish silhouette with protruding flaps is the money frame for this phase: the blank is nearly flat but flaps at top/bottom stick out, exactly what a 4-panel strip with attached flaps looks like when unfolded and viewed at an angle.</p>
+<p>**Is Backward literally <code>reverse(Forward)</code>?</p>
+<hr />
+<!-- PART 2/5 — Sections 7 (continued)–14 -->
+
+<h1 id="7-backward-animation-continued">7. Backward Animation (continued)</h1>
+<p><strong>Is Backward literally <code>reverse(Forward)</code>?</strong></p>
+<p><strong>Verdict: STRONGLY INFERRED — No, it is not a strict time-reversal. Confidence: 0.70.</strong></p>
+<p>Evidence from the frame sequence:</p>
+<ol>
+<li><strong>OBSERVED (conf 0.9):</strong> The frame set contains two distinct motion regimes. Frames 2–7 show the box <em>closing</em> (lid flaps descending from an open flared state → sealed tuck-end carton). Frames 8–16 show the box <em>re-opening</em> and then transitioning toward a partially-unfolded / flattened state (frames 12–13 show the body panels visibly splayed and ghosted, i.e., the tube seam is being released, not just the lid).</li>
+<li><strong>STRONGLY INFERRED (conf 0.75):</strong> A strict <code>reverse(Forward)</code> would terminate at a flat dieline with every hinge at 0°. Instead, the backward pass appears to terminate at an <em>intermediate</em> state: body tube still assembled, lid flaps open, dust flaps partially out — i.e., the "open carton" state, not the "flat blank" state. This implies the backward animation is a <strong>separately authored sequence</strong> (or a partial reversal with a clamped lower bound), not <code>t → 1−t</code> of the forward timeline.</li>
+<li><strong>POSSIBLE IMPLEMENTATION (conf 0.5):</strong> The system likely stores a single parameter <code>foldProgress ∈ [0,1]</code> per hinge group, and "backward" is implemented as tweening those parameters toward a <em>target preset</em> (<code>OPEN_STATE</code>) rather than toward <code>0</code>. This explains why the backward endpoint ≠ flat blank.</li>
+</ol>
+<p><strong>BACKWARD STEP breakdown (observed order, frames 8→16):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Frames</th>
+<th>Action</th>
+<th>Classification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>B1</td>
+<td>8–9</td>
+<td>Tuck flap extracts from front panel slot; lid begins rotating up about the lid hinge</td>
+<td>OBSERVED (0.85)</td>
+</tr>
+<tr>
+<td>B2</td>
+<td>9–10</td>
+<td>Lid opens past 90°; dust flaps (side flaps) rotate outward symmetrically</td>
+<td>OBSERVED (0.85)</td>
+</tr>
+<tr>
+<td>B3</td>
+<td>10–11</td>
+<td>Lid reaches fully-open (~180° relative to back panel); camera orbits to side view</td>
+<td>OBSERVED (0.8)</td>
+</tr>
+<tr>
+<td>B4</td>
+<td>12–13</td>
+<td><strong>Body tube loosens</strong> — panels splay, ghosting/motion-blur or transparency artifact visible; glue-flap seam appears to release</td>
+<td>OBSERVED (0.7) — the splaying is clear; <em>why</em> it occurs is inferred</td>
+</tr>
+<tr>
+<td>B5</td>
+<td>14–16</td>
+<td>Re-stabilization into open-carton state; lid returns to a neutral raised position; loop point</td>
+<td>STRONGLY INFERRED (0.65)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>BACKWARD PHASE grouping:</strong></p>
+<ul>
+<li><strong>Phase B-α (Unseal):</strong> B1 — tuck extraction. Short, fast.</li>
+<li><strong>Phase B-β (Lid deployment):</strong> B2–B3 — compound hinge motion (lid hinge + two dust-flap hinges, near-simultaneous).</li>
+<li><strong>Phase B-γ (Tube relaxation):</strong> B4 — the anomaly phase; either an authored "breathing"/reset flourish or a solver artifact (see §16).</li>
+<li><strong>Phase B-δ (Settle):</strong> B5 — damped return to open-state equilibrium, consistent with an ease-out or spring-settle.</li>
+</ul>
+<p><strong>Key asymmetry vs. Forward:</strong> Forward ends <em>sealed</em>; Backward ends <em>open-but-assembled</em>. The seam release in B4 has no counterpart in Forward frames 2–7, reinforcing that Backward is separately parameterized.</p>
+<hr />
+<h1 id="8-fold-states">8. Fold States</h1>
+<p>Named discrete states identifiable across the 16 frames:</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Description</th>
+<th>Frame evidence</th>
+<th>Classification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>STATE_0</td>
+<td>Flat / near-flat blank (dieline pose, all hinges ≈ 0°)</td>
+<td>Not directly shown in this clip; implied start of full cycle</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+<tr>
+<td>STATE_1</td>
+<td>Open tube, lid flared fully open (lid ≈ 180°, dust flaps out)</td>
+<td>Frame 2 (top flaps splayed)</td>
+<td>OBSERVED (0.85)</td>
+</tr>
+<tr>
+<td>STATE_2</td>
+<td>Dust flaps folded in, lid mid-close (~90–120°)</td>
+<td>Frame 3</td>
+<td>OBSERVED (0.8)</td>
+</tr>
+<tr>
+<td>STATE_3</td>
+<td>Lid nearly closed, tuck flap entering slot</td>
+<td>Frame 4</td>
+<td>OBSERVED (0.8)</td>
+</tr>
+<tr>
+<td>STATE_4</td>
+<td><strong>Sealed carton</strong> — all lid hinges at closed angles; canonical product pose</td>
+<td>Frames 5–7</td>
+<td>OBSERVED (0.95)</td>
+</tr>
+<tr>
+<td>STATE_5</td>
+<td>Unsealing — tuck flap extracted, lid lifting</td>
+<td>Frames 8–9</td>
+<td>OBSERVED (0.85)</td>
+</tr>
+<tr>
+<td>STATE_6</td>
+<td>Fully open lid (~180°), dust flaps extended</td>
+<td>Frames 10–11</td>
+<td>OBSERVED (0.8)</td>
+</tr>
+<tr>
+<td>STATE_7</td>
+<td>Tube-relaxed / splayed transitional state</td>
+<td>Frames 12–13</td>
+<td>OBSERVED (0.7)</td>
+</tr>
+<tr>
+<td>STATE_8</td>
+<td>Open-carton rest state (loop endpoint ≈ STATE_1 variant)</td>
+<td>Frames 14–16</td>
+<td>STRONGLY INFERRED (0.7)</td>
+</tr>
+</tbody>
+</table>
+<p>Note: STATE_6 ≈ STATE_1 geometrically, but they are reached via different paths (closing-peak vs. opening-peak), so they are kept distinct for timing purposes.</p>
+<hr />
+<h1 id="9-fold-angle-matrix">9. Fold Angle Matrix</h1>
+<p>Panel/hinge angle per state (degrees; 0° = coplanar with parent panel; positive = folding inward toward box interior). Values are <strong>estimated from silhouettes</strong> — treat as ±15° unless marked OBSERVED-precise.</p>
+<table>
+<thead>
+<tr>
+<th>Hinge / Panel</th>
+<th>S0</th>
+<th>S1</th>
+<th>S2</th>
+<th>S3</th>
+<th>S4</th>
+<th>S5</th>
+<th>S6</th>
+<th>S7</th>
+<th>S8</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1: Front panel ↔ body</td>
+<td>0</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>~70–85 (splayed)</td>
+<td>90</td>
+</tr>
+<tr>
+<td>H2: Back panel ↔ body</td>
+<td>0</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>~70–85</td>
+<td>90</td>
+</tr>
+<tr>
+<td>H3: Side panels ↔ body (×2)</td>
+<td>0</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>~75–90</td>
+<td>90</td>
+</tr>
+<tr>
+<td>H4: Glue flap ↔ side panel</td>
+<td>0</td>
+<td>90 (seamed)</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>90</td>
+<td>~0–45 (released?)</td>
+<td>90</td>
+</tr>
+<tr>
+<td>H5: Lid ↔ back panel (top)</td>
+<td>0</td>
+<td>~180</td>
+<td>~120</td>
+<td>~20</td>
+<td>~0–5 (closed)</td>
+<td>~45</td>
+<td>~180</td>
+<td>~160–180</td>
+<td>~150–170</td>
+</tr>
+<tr>
+<td>H6: Tuck flap ↔ lid</td>
+<td>0</td>
+<td>~170</td>
+<td>~150</td>
+<td>~140 (inserting)</td>
+<td>~180 (tucked)</td>
+<td>~120</td>
+<td>~170</td>
+<td>~170</td>
+<td>~160</td>
+</tr>
+<tr>
+<td>H7: Dust flap L ↔ side L</td>
+<td>0</td>
+<td>~10 (out)</td>
+<td>~90 (in)</td>
+<td>~90</td>
+<td>~90</td>
+<td>~60</td>
+<td>~10</td>
+<td>~10</td>
+<td>~20</td>
+</tr>
+<tr>
+<td>H8: Dust flap R ↔ side R</td>
+<td>0</td>
+<td>~10</td>
+<td>~90</td>
+<td>~90</td>
+<td>~90</td>
+<td>~60</td>
+<td>~10</td>
+<td>~10</td>
+<td>~20</td>
+</tr>
+<tr>
+<td>H9+: Bottom flap cluster</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+<td>UNKNOWN</td>
+</tr>
+</tbody>
+</table>
+<p>Bottom closure is never visible in any frame (camera stays above the horizon line of the box base) — <strong>UNKNOWN, not invented</strong>. Classification: angles in S1–S6 are STRONGLY INFERRED from silhouette geometry (conf 0.6–0.75); S7 values are low-confidence (0.4) due to motion blur/ghosting.</p>
+<hr />
+<h1 id="10-animation-timing-matrix">10. Animation Timing Matrix</h1>
+<p>Absolute timestamps are not recoverable from stills; timing is expressed in <strong>frame-index units</strong> (Δf = frames between observed events). Real durations: <strong>UNKNOWN</strong> (recording fps and capture cadence not derivable).</p>
+<table>
+<thead>
+<tr>
+<th>Segment</th>
+<th>Transition</th>
+<th>Δf (observed)</th>
+<th>Relative duration</th>
+<th>Delay before start</th>
+<th>Classification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T1</td>
+<td>S1 → S2 (dust flaps in, lid to ~120°)</td>
+<td>~1f</td>
+<td>short</td>
+<td>0</td>
+<td>OBSERVED (0.7)</td>
+</tr>
+<tr>
+<td>T2</td>
+<td>S2 → S3 (lid to near-close)</td>
+<td>~1f</td>
+<td>short</td>
+<td>~0 (overlapping)</td>
+<td>OBSERVED (0.7)</td>
+</tr>
+<tr>
+<td>T3</td>
+<td>S3 → S4 (tuck insertion, seal)</td>
+<td>~1f</td>
+<td>short</td>
+<td>small stagger after lid</td>
+<td>STRONGLY INFERRED (0.65)</td>
+</tr>
+<tr>
+<td>T4</td>
+<td>S4 hold (sealed pose + camera orbit)</td>
+<td>~3f (frames 5–7)</td>
+<td><strong>longest hold</strong></td>
+<td>—</td>
+<td>OBSERVED (0.85)</td>
+</tr>
+<tr>
+<td>T5</td>
+<td>S4 → S5 (unseal)</td>
+<td>~1.5f</td>
+<td>medium</td>
+<td>after hold</td>
+<td>OBSERVED (0.7)</td>
+</tr>
+<tr>
+<td>T6</td>
+<td>S5 → S6 (lid to full open)</td>
+<td>~2f</td>
+<td>medium</td>
+<td>dust flaps lead slightly</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+<tr>
+<td>T7</td>
+<td>S6 → S7 (tube relax/splay)</td>
+<td>~1.5f</td>
+<td>medium</td>
+<td>—</td>
+<td>OBSERVED (0.6)</td>
+</tr>
+<tr>
+<td>T8</td>
+<td>S7 → S8 (settle)</td>
+<td>~2.5f (frames 14–16)</td>
+<td>long, damped</td>
+<td>—</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Staggering:</strong> OBSERVED (0.7) — dust flaps and lid do not move in lockstep; there is a per-hinge delay offset (lid leads on close, dust flaps lead on open). This is characteristic of either (a) per-hinge <code>delay</code> parameters in a tween library, or (b) a sequenced keyframe track per hinge group.</p>
+<p><strong>Absolute ms values: UNKNOWN.</strong> If the capture is 30–60 fps screen recording, total cycle ≈ 0.5–1.5 s per phase, total loop plausibly 4–8 s — flagged as low-confidence estimate (0.3).</p>
+<hr />
+<h1 id="11-motion-curves-estimated-easing">11. Motion Curves (Estimated Easing)</h1>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Estimated easing</th>
+<th>Evidence</th>
+<th>Classification / Conf</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lid close (T1–T3)</td>
+<td>ease-in-out (cubic or sine)</td>
+<td>Smooth deceleration into sealed pose; no visible snap</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+<tr>
+<td>Tuck insertion (T3)</td>
+<td>ease-out with possible slight overshoot</td>
+<td>Flap appears to "settle" into slot</td>
+<td>POSSIBLE (0.45)</td>
+</tr>
+<tr>
+<td>Unseal (T5)</td>
+<td>ease-in (slow extraction, then accelerate)</td>
+<td>Tuck flap moves slowly out of slot initially</td>
+<td>POSSIBLE (0.45)</td>
+</tr>
+<tr>
+<td>Lid open (T6)</td>
+<td>ease-out</td>
+<td>Fast initial lift, decelerates into 180° stop</td>
+<td>STRONGLY INFERRED (0.55)</td>
+</tr>
+<tr>
+<td>Settle (T8)</td>
+<td><strong>spring / damped overshoot</strong></td>
+<td>Frames 14→16 show lid position oscillating slightly downward then stabilizing — characteristic of a spring solver or <code>elastic</code>-family easing with low amplitude</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+<tr>
+<td>Camera orbit</td>
+<td>linear or very gentle ease</td>
+<td>Uniform angular progression across frames 5–11</td>
+<td>STRONGLY INFERRED (0.6)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>POSSIBLE IMPLEMENTATION (0.5):</strong> GSAP (<code>gsap.to(..., {ease: "power2.inOut"})</code>) or three.js <code>AnimationMixer</code> with <code>KeyframeTrack</code> + default smooth interpolation. The settle behavior in T8 suggests either a physics-lite spring (e.g., react-spring) or hand-authored overshoot keyframes.</p>
+<hr />
+<h1 id="12-transform-hierarchy-most-likely-scene-graph">12. Transform Hierarchy (Most Likely Scene Graph)</h1>
+<p>STRONGLY INFERRED (0.7) — derived from hinge kinematics; nested rotations require parent-child chains so child flaps inherit parent motion:</p>
+<pre><code>Scene
+└── BoxRoot (Group)                    ← global orbit? NO — orbit is camera (§15)
+    ├── BottomCluster (Group)          ← never animated visibly; UNKNOWN structure
+    │   └── [bottom flaps ×4?]
+    ├── BodyFront (Group)              ← H1 pivot at bottom-front edge
+    ├── BodyBack (Group)               ← H2 pivot
+    │   └── LidAssembly (Group)        ← H5 pivot at top-back edge
+    │       ├── LidPanel (Mesh)
+    │       └── TuckFlap (Group/Mesh)  ← H6 pivot at lid front edge
+    ├── BodyLeft (Group)               ← H3 pivot
+    │   └── DustFlapL (Mesh)           ← H7 pivot at top-left edge
+    ├── BodyRight (Group)              ← H3 pivot
+    │   └── DustFlapR (Mesh)           ← H8 pivot at top-right edge
+    └── GlueFlap (Mesh)                ← H4; possibly merged into BodyLeft/Right
+</code></pre>
+<p>Rationale:
+- <strong>OBSERVED (0.85):</strong> Tuck flap follows the lid rigidly during lid rotation → tuck is a <em>child</em> of lid, not a sibling. This is the strongest hierarchical signal in the footage.
+- <strong>STRONGLY INFERRED (0.7):</strong> Dust flaps are children of their respective side panels (they stay attached to panel tops during the S7 splay).
+- <strong>POSSIBLE (0.45):</strong> The four body panels may instead be a single skinned/merged mesh with bone-like pivots rather than discrete Groups — the S7 "splay with ghosting" could indicate a vertex-level deformation pass rather than rigid Group rotations. Both architectures are consistent with the footage; discrete-Group is the more common packaging-preview pattern.</p>
+<hr />
+<h1 id="13-pivot-mathematics">13. Pivot Mathematics</h1>
+<p><strong>Hinge model (STRONGLY INFERRED, 0.75):</strong> Each fold is a rotation about a crease-line axis located at the panel edge — the standard "rotate-about-arbitrary-axis-through-point" transform:</p>
+<p>For hinge <em>i</em> with crease axis <strong>a</strong> (unit vector along the crease, in parent space) passing through crease point <strong>p</strong>, and fold angle θ(t):</p>
+<pre><code>M_hinge(t) = T(p) · R_axis(a, θ(t)) · T(−p)
+</code></pre>
+<p>World transform of a panel at depth <em>k</em> in the hierarchy:</p>
+<pre><code>M_world(panel_k) = M_root · Π_{i=1..k} [ T(p_i) · R(a_i, θ_i(t)) · T(−p_i) ]
+</code></pre>
+<p><strong>Axis assignments (assuming box local axes: X = width, Y = height, Z = depth):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Hinge</th>
+<th>Pivot point p</th>
+<th>Axis a</th>
+<th>Angle sign convention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>H1 (front)</td>
+<td>(0, 0, +D/2) bottom edge</td>
+<td>X</td>
+<td>+θ folds inward (−Z normal → +Y)</td>
+</tr>
+<tr>
+<td>H2 (back)</td>
+<td>(0, 0, −D/2)</td>
+<td>X</td>
+<td>−θ (mirrored)</td>
+</tr>
+<tr>
+<td>H3 (sides)</td>
+<td>(±W/2, 0, 0)</td>
+<td>Z</td>
+<td>±θ mirrored</td>
+</tr>
+<tr>
+<td>H5 (lid)</td>
+<td>(0, H, −D/2) top-back edge</td>
+<td>X</td>
+<td>θ: 0 = closed flat, π = open</td>
+</tr>
+<tr>
+<td>H6 (tuck)</td>
+<td>(0, H_lid, lid front edge) in lid space</td>
+<td>X (lid-local)</td>
+<td>~π when tucked</td>
+</tr>
+<tr>
+<td>H7/H8 (dust)</td>
+<td>(±W/2, H, 0)</td>
+<td>Z</td>
+<td>0 = out, π/2 = folded in</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Key implementation detail (POSSIBLE, 0.5):</strong> In three.js this is typically done by <em>offsetting geometry</em> so the crease is at the child's local origin (<code>geometry.translate(−p)</code>), making the hinge a plain <code>group.rotation.x = θ</code>. This avoids explicit T·R·T(−p) composition and matches the hierarchy in §12.</p>
+<p><strong>Closed-lid constraint:</strong> at S4, lid plane must be coplanar with the box top opening: θ_H5 = 0 AND θ_H6 = π (tuck folded under, inside the tube). The tuck flap's tip must clear the front panel inner face by the board thickness t — a geometric constraint the animation satisfies visibly (no clip-through in frame 5, conf 0.7).</p>
+<hr />
+<h1 id="14-geometry-architecture">14. Geometry Architecture</h1>
+<table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Assessment</th>
+<th>Classification / Conf</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Thin boxes (extruded) vs. zero-thickness planes?</td>
+<td>Edges at fold boundaries show no visible thickness ridge; silhouettes at creases are razor-sharp; no z-fighting shimmer visible at closed seams</td>
+<td><strong>Planes (or near-zero extrusion)</strong> — STRONGLY INFERRED (0.65)</td>
+</tr>
+<tr>
+<td>Visible board thickness?</td>
+<td>None resolvable at this zoom; top rim of open box (frame 10) shows a single-line edge, not a double wall</td>
+<td>OBSERVED-negative (0.6): thickness not modeled or &lt; 1 px</td>
+</tr>
+<tr>
+<td>Double-sided rendering?</td>
+<td>Interior surfaces visible in open states (frames 2, 10) render same white as exterior → <code>side: THREE.DoubleSide</code></td>
+<td>STRONGLY INFERRED (0.75)</td>
+</tr>
+<tr>
+<td>Material</td>
+<td>Flat white/light-gray, soft diffuse shading, no visible texture/artwork → <code>MeshStandardMaterial</code> or <code>MeshLambertMaterial</code>, white, with ambient + key light</td>
+<td>OBSERVED (0.8)</td>
+</tr>
+<tr>
+<td>Ghosting in frames 12–13</td>
+<td>Semi-transparent overlapping panel silhouettes → either (a) motion-blur from screen capture, (b) opacity tween during transition, or (c) depth-sorting artifact of transparent DoubleSide planes</td>
+<td>POSSIBLE (0.4 each); capture motion-blur most likely</td>
+</tr>
+<tr>
+<td>Mesh construction</td>
+<td>Each panel likely a <code>PlaneGeometry</code> (or <code>ShapeGeometry</code> from the dieline outline for flaps with non-rectangular profiles — dust flaps and tuck flap have shaped outlines visible in frames 3, 9)</td>
+<td>STRONGLY INFERRED (0.7)</td>
+</tr>
+<tr>
+<td>UV/artwork pipeline</td>
+<td>Dieline-visible 2D editor</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<!-- PART 3/5 — Sections 14 (completion), 15–16 (gap fill) -->
+
+<h2 id="14-completion-uvartwork-pipeline-row-completion">14 (completion) — UV/artwork pipeline (row completion)</h2>
+<p><strong>STRONGLY INFERRED (high):</strong> The 2D dieline editor's artwork layer is rasterized to a single texture atlas whose UV islands correspond 1:1 to the dieline's panel polygons, so each panel mesh in the 3D scene samples its artwork by mapping its flat-layout vertex coordinates directly into UV space — meaning any edit in the 2D canvas re-renders onto the folded 3D panels without re-unwrapping, and fold creases fall exactly on UV-island boundaries. (In these frames the carton is blank white, so only the mapping architecture, not live artwork, is evidenced.)</p>
+<h2 id="15-camera-analysis">15. Camera Analysis</h2>
+<ul>
+<li><strong>OBSERVED (high):</strong> The carton's screen-space position and orientation change continuously across frames while the 2D dieline canvas, modal frame, and UI chrome remain pixel-static — motion is confined to the WebGL viewport inside the "3D Preview" modal.</li>
+<li><strong>OBSERVED (high):</strong> A mouse cursor is visible inside the preview viewport in multiple frames (lower-center, right-of-model), and the largest orientation swings coincide with its presence — consistent with user drag-to-orbit (OrbitControls-style) rather than a fixed turntable.</li>
+<li><strong>STRONGLY INFERRED (medium-high):</strong> Orbit direction is predominantly azimuthal (yaw around the vertical axis): the model cycles through front → right-side → back → left-side views while the horizon/vertical edges stay vertical, i.e., little to no polar (elevation) change. No continuous auto-rotation signature — angular velocity is uneven (fast swings, then dwell), matching manual drag with inertia damping.</li>
+<li><strong>OBSERVED (medium):</strong> Apparent zoom changes: the model grows to fill the viewport and clips at the top edge in the splayed/transition frames, then shrinks back — consistent with scroll-wheel dolly or a scripted "zoom-in during fold" beat. <strong>POSSIBLE (low-medium):</strong> a brief scripted camera push-in synchronized with the fold/unfold transition, since the scale change is smooth and symmetric around it.</li>
+<li><strong>STRONGLY INFERRED (high):</strong> Folding animation (panel hinge rotations) and camera orbit are independent and concurrent: crease angles change while the viewpoint also moves. To avoid mistaking orbit for panel motion, track features against the static modal background: a rigid-body yaw moves all panel edges coherently (parallel edges stay parallel, shared vertices stay coincident), whereas true panel motion breaks edge collinearity at crease lines and changes inter-panel angles. In these frames, body-panel quads keep constant mutual angles during viewpoint swings — confirming camera motion — while dust flaps/lid change angle relative to the body — confirming genuine hinge animation.</li>
+</ul>
+<h2 id="16-collision-overlap-analysis">16. Collision / Overlap Analysis</h2>
+<ul>
+<li><strong>OBSERVED (high):</strong> Transient interpenetration/ghosting: in the transition frames the model dissolves into a splayed, semi-transparent stack of overlapping panel silhouettes (multiple lid/flap positions visible simultaneously, low-opacity layered rendering). This reads as either (a) a crossfade between discrete fold states or (b) motion-blur-style accumulation of intermediate poses — not physically simulated geometry.</li>
+<li><strong>STRONGLY INFERRED (high):</strong> No runtime collision detection. The choreography is pre-baked/keyframed: dust flaps, lid, and tuck flap follow fixed hinge-angle curves where passing geometry simply clips through or renders with transparency rather than resolving contact. Real-time rigid-body collision would show jitter, restitution, or blocked motion; none is visible — transitions are smooth and repeatable.</li>
+<li><strong>OBSERVED (medium-high):</strong> Ordering logic at the top closure: the two side dust flaps fold inward first (seen as the small triangular/trapezoid flaps rotating to horizontal), then the rear/lid panel closes over them, and the front tuck flap inserts last — the standard tuck-top sequence. The splayed frames show the reverse (lid opens, dust flaps spring outward after), confirming a fixed dependency chain: <code>dustFlaps → lid → tuck</code> on close, inverted on open.</li>
+<li><strong>POSSIBLE (medium):</strong> The ghosting frames double as a state-machine transition effect masking a non-continuous jump between "assembled" and "exploded/splayed" rig poses — i.e., the fold is not one continuous hinge interpolation but discrete keyframe states blended via opacity, which would explain why mid-transition panels appear to occupy mutually impossible (overlapping) positions without collision response.</li>
+<li><strong>STRONGLY INFERRED (medium):</strong> For a lock-bottom carton, the bottom is never shown unfolding in these frames — the camera stays above the base — so bottom-lock choreography (diagonal crease collapse) cannot be verified from this clip; treat bottom-fold collision behavior as unobserved.</li>
+</ul>
+<hr />
+<!-- PART 4/5 — Sections 17–22 (response truncated) -->
+
+<h1 id="17-original-implementation-hypothesis-ranked-methods">17. Original Implementation Hypothesis — Ranked Methods</h1>
+<table>
+<thead>
+<tr>
+<th>Rank</th>
+<th>Method</th>
+<th>Probability</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Three.js rigid-panel hinge hierarchy</strong> (Object3D pivot tree, per-crease rotation tweens)</td>
+<td>~55%</td>
+<td>OBSERVED: panels remain perfectly rigid; all motion is pure rotation about crease lines; no vertex-level deformation visible. This is the canonical approach used by packaging-preview SaaS (Esko Studio, Packhelp, Pacdora-style). WebGL shading artifacts (flat facets, hard crease edges) match <code>MeshStandardMaterial</code>/<code>MeshLambertMaterial</code> with flat normals.</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Three.js skinned mesh / bone-driven folding</strong> (skeleton per crease)</td>
+<td>~15%</td>
+<td>POSSIBLE IMPLEMENTATION: would produce identical visuals for rigid panels. Less likely because skinning adds complexity with zero benefit when panels never bend.</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Pre-baked keyframe animation</strong> (authored in Blender, exported glTF with animation clips)</td>
+<td>~15%</td>
+<td>POSSIBLE: the fold sequence looks fixed and repeatable (same choreography each loop). But the tool is parametric (dieline-driven, 183 mm dimension shown, "Apply Mirror" suggests live regeneration), which argues against baked clips per SKU.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Custom parametric engine (non-Three.js: Babylon.js, PlayCanvas, raw WebGL)</strong></td>
+<td>~10%</td>
+<td>UNKNOWN: rendering style is generic enough that engine cannot be fingerprinted from pixels alone. Three.js assumed only by market prevalence.</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Server-side render / video playback</strong></td>
+<td>~5%</td>
+<td>Ruled low: OBSERVED free-orbit camera control (frames show user-driven rotation to side/top angles) implies real-time client rendering, not a prerendered clip.</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Physics simulation (soft-body / origami solver)</strong></td>
+<td>~5%</td>
+<td>Ruled low: no overshoot, no inter-panel collision response, no material flex. Motion is kinematic, not dynamic.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Confidence:</strong> High that it is <em>some</em> real-time WebGL rigid-hinge system; Medium that it is specifically Three.js; Low-Medium on tween library identity.</p>
+<hr />
+<h1 id="18-threejs-reconstruction-implementation-architecture">18. Three.js Reconstruction — Implementation Architecture</h1>
+<h2 id="181-scene-setup-strongly-inferred">18.1 Scene Setup (STRONGLY INFERRED)</h2>
+<pre><code class="language-text">Scene
+├── PerspectiveCamera (fov ≈ 35–45°, matches low-distortion product-view look)
+├── OrbitControls (damped; OBSERVED smooth drag-orbit in later frames)
+├── Lighting
+│   ├── HemisphereLight (sky #ffffff / ground #e0e0e0, ~0.6)   ← soft shadowless base
+│   └── DirectionalLight (~0.8, from upper-front-right)         ← OBSERVED: consistent
+│       castShadow = false                                       ← no ground shadows seen
+├── Environment: none visible (no reflections → plain white carton, roughness ≈ 0.9)
+└── CartonRoot (Group) — origin at carton base center
+</code></pre>
+<p>Background: solid near-white (#f5f5f5-ish), matching the modal's light gray — either <code>scene.background</code> or a large backdrop plane. No grid, no floor, no contact shadow (OBSERVED across all frames).</p>
+<h2 id="182-geometry-panel-construction-strongly-inferred">18.2 Geometry — Panel Construction (STRONGLY INFERRED)</h2>
+<p>Each dieline face becomes one rigid mesh:</p>
+<pre><code class="language-text">Panel geometry = THREE.Shape(dieline outline in 2D mm space)
+              → THREE.ShapeGeometry(shape)          // flat, zero thickness
+              → or ExtrudeGeometry(depth ≈ 0.3–0.5mm) // POSSIBLE: edges look paper-thin
+UVs: planar-mapped 1:1 from dieline 2D coordinates (so the 2D artwork texture
+     lands exactly as printed — standard packaging-preview technique)
+Material: MeshStandardMaterial({ map: artworkCanvas, side: DoubleSide,
+                                 roughness: 0.9, metalness: 0 })
+</code></pre>
+<p>DoubleSide is STRONGLY INFERRED: interior faces are visible during mid-fold frames (frames 3, 9–12) and render as near-white rather than being culled.</p>
+<h2 id="183-crease-pivot-hierarchy-strongly-inferred">18.3 Crease / Pivot Hierarchy (STRONGLY INFERRED)</h2>
+<p>The core structure is a <strong>tree of pivot Object3Ds</strong>, one per crease, positioned exactly on the crease line:</p>
+<pre><code class="language-text">CartonRoot
+└── Pivot[glue-flap ↔ back panel]          (crease C0, vertical)
+    └── Panel_Back
+        └── Pivot[back ↔ side L]           (C1)
+        │   └── Panel_SideL
+        │       └── Pivot[side L ↔ front]  (C2)
+        │           └── Panel_Front
+        │               └── Pivot[front ↔ side R] (C3)
+        │                   └── Panel_SideR
+        ├── Pivot[back ↔ top dust flap]    (C4)
+        ├── Pivot[back ↔ bottom flap]      (C5)
+        └── ... top tuck flap chain:
+            Pivot[front ↔ top lid]         (C6)
+                └── Panel_TopLid
+                    └── Pivot[lid ↔ tuck flap]   (C7)
+                        └── Panel_TuckFlap
+</code></pre>
+<p><strong>Pivot placement rule:</strong> for a crease between panel A (parent) and panel B (child), the child pivot's origin sits on the crease segment; the child panel's geometry is translated so its local origin coincides with that pivot. Folding = setting <code>pivot.rotation</code> about the crease axis (local X or Z after alignment).</p>
+<p><strong>OBSERVED evidence for tree (not flat) structure:</strong> in frames 3–4 the top lid and tuck flap move <em>together</em> as the lid closes, then the tuck flap rotates <em>relative</em> to the lid — nested relative motion is the signature of parent→child pivots.</p>
+<h2 id="184-fold-angle-table-strongly-inferred-from-this-carton-type">18.4 Fold Angle Table (STRONGLY INFERRED from this carton type)</h2>
+<p>For a tuck-top / lock-bottom straight-tuck carton:</p>
+<table>
+<thead>
+<tr>
+<th>Crease</th>
+<th>Flat angle</th>
+<th>Folded angle</th>
+<th>Direction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>4 vertical body creases</td>
+<td>0°</td>
+<td>±90°</td>
+<td>alternating sign (valley/mountain)</td>
+</tr>
+<tr>
+<td>Top lid hinge</td>
+<td>0°</td>
+<td>~−90° to −100°</td>
+<td>lid over front</td>
+</tr>
+<tr>
+<td>Tuck flap hinge</td>
+<td>0°</td>
+<td>~−170° relative to lid</td>
+<td>flap reverses into box</td>
+</tr>
+<tr>
+<td>Dust flaps (2)</td>
+<td>0°</td>
+<td>±90°</td>
+<td>inward</td>
+</tr>
+<tr>
+<td>Bottom lock flaps (4)</td>
+<td>0°</td>
+<td>±90° (+ tab/slot interlock)</td>
+<td>inward</td>
+</tr>
+</tbody>
+</table>
+<h2 id="185-animation-tweening-strongly-inferred">18.5 Animation / Tweening (STRONGLY INFERRED)</h2>
+<p>OBSERVED: multi-phase choreography with overlapping phases — body tube forms first, then top assembly, then bottom; some creases ease while others are still at 0. This implies a <strong>sequenced tween timeline</strong>, not simultaneous rotation:</p>
+<pre><code class="language-text">Phase 0: flat dieline (all θ = 0)
+Phase 1: body wrap      — C0..C3 → ±90°   (t ≈ 0.0–1.2s, easeInOutCubic)
+Phase 2: bottom flaps   — C5 group → 90°  (t ≈ 0.8–1.6s, staggered 0.1s)
+Phase 3: dust flaps     — C4 pair → 90°   (t ≈ 1.4–1.9s)
+Phase 4: lid close      — C6 → −95°       (t ≈ 1.8–2.4s)
+Phase 5: tuck insert    — C7 → −170°      (t ≈ 2.3–2.8s)
+</code></pre>
+<p>Implementation options (POSSIBLE IMPLEMENTATION): GSAP timeline, TWEEN.js chained tweens, or a hand-rolled <code>update(dt)</code> integrator driving <code>θ(t) = lerp(θ0, θ1, ease(t))</code>. Cannot be distinguished from the recording. Loop/replay observed (sequence repeats) → timeline restarts on completion or on user toggle.</p>
+<h2 id="186-state-management-strongly-inferred">18.6 State Management (STRONGLY INFERRED)</h2>
+<p>Minimal state machine: <code>{ phase: 'flat' | 'folding' | 'folded' | 'unfolding', t: number }</code>. The 2D editor (left, with 183 mm dimension and dieline visible behind modal) and 3D preview share the dieline definition; "Apply Mirror" button implies a <strong>derived-geometry pipeline</strong>: dieline edit → re-tessellate panels → rebuild pivot tree → reset to flat. The 3D view is a pure function of (dieline, foldState).</p>
+<h2 id="187-rendering-details-observed-inferred">18.7 Rendering Details (OBSERVED / INFERRED)</h2>
+<ul>
+<li>No anti-aliasing artifacts suggesting post-processing; likely default <code>antialias: true</code> WebGLRenderer.</li>
+<li>No shadows, no AO → OBSERVED flat, bright look; ambient-heavy lighting.</li>
+<li>Slight z-fighting / coplanar flicker risk at tuck-flap overlap in frame 9 — mitigated typically with <code>polygonOffset</code> or 0.1–0.5 mm panel offsets along normals (POSSIBLE IMPLEMENTATION).</li>
+<li>Modal "3D Preview" is a separate canvas overlaying the 2D editor — separate renderer instance or portal-mounted canvas (STRONGLY INFERRED from UI layering).</li>
+</ul>
+<hr />
+<h1 id="19-typescript-data-structures">19. TypeScript Data Structures</h1>
+<p>Derived from the observed structure (one crease graph, rigid panels, sequenced folds):</p>
+<pre><code class="language-typescript">// ---------- Geometry layer ----------
+interface Vec2 { x: number; y: number }            // mm, dieline space
+
+interface Panel {
+  id: string;                                       // &quot;front&quot;, &quot;sideL&quot;, &quot;topLid&quot;, &quot;tuckFlap&quot;...
+  outline: Vec2[];                                  // closed polygon, dieline 2D coords
+  creaseIds: string[];                              // creases on this panel's edges
+  thickness?: number;                               // 0 | 0.3–0.5 mm
+  uvMapping: 'dieline-planar';                      // OBSERVED: 1:1 artwork mapping
+}
+
+type CreaseKind = 'cut' | 'crease' | 'perforation'; // dieline line semantics
+type FoldDirection = 'mountain' | 'valley';
+
+interface Hinge {                                   // one crease = one hinge
+  id: string;
+  parentPanelId: string;
+  childPanelId: string;
+  axis: { p0: Vec2; p1: Vec2 };                     // crease segment, dieline space
+  kind: CreaseKind;
+  direction: FoldDirection;
+  flatAngle: number;                                // 0 (flat sheet)
+  targetAngle: number;                              // ±90°, −170°, etc. (radians in code)
+  limits?: { min: number; max: number };            // clamp for interactive drag
+}
+
+// ---------- Animation layer ----------
+interface FoldAction {
+  hingeId: string;
+  fromAngle: number;
+  toAngle: number;
+  startTime: number;                                // seconds, timeline-relative
+  duration: number;
+  easing: 'linear' | 'easeInOutCubic' | string;     // OBSERVED smooth easing, exact curve UNKNOWN
+}
+
+interface FoldSequence {
+  actions: FoldAction[];                            // phases 0–5 from §18.5
+  totalDuration: number;
+  loop: boolean;                                    // OBSERVED: sequence replays
+}
+
+// ---------- Runtime state ----------
+interface FoldState {
+  hingeAngles: Record&lt;string, number&gt;;              // hingeId → current θ
+  phase: 'flat' | 'folding' | 'folded' | 'unfolding';
+  clock: number;                                    // timeline position, seconds
+  dirty: boolean;                                   // dieline edited → rebuild
+}
+
+// ---------- Top-level model ----------
+interface DielineModel {
+  panels: Panel[];
+  hinges: Hinge[];                                  // must form a tree (no cycles) for
+                                                    // rigid hierarchical folding
+  sequence: FoldSequence;
+  dimensions: { width: number; depth: number; height: number }; // 183 mm height OBSERVED
+}
+</code></pre>
+<p><strong>Constraint note (STRONGLY INFERRED):</strong> the hinge graph must be a spanning tree of the panel adjacency graph. Any cycle (e.g., lock-bottom tabs that also connect to neighbors) is handled by <em>breaking</em> the cycle — modeling the interlock as a constraint or ignoring it — because a rigid Object3D tree cannot satisfy closed loops. The observed bottom flaps likely cheat the interlock (POSSIBLE IMPLEMENTATION).</p>
+<hr />
+<h1 id="20-forward-backward-controller">20. Forward / Backward Controller</h1>
+<pre><code class="language-typescript">class FoldController {
+  private state: FoldState;
+  private pivots: Map&lt;string, THREE.Object3D&gt;;      // hingeId → pivot node
+
+  constructor(private model: DielineModel) {
+    this.state = {
+      hingeAngles: Object.fromEntries(model.hinges.map(h =&gt; [h.id, h.flatAngle])),
+      phase: 'flat', clock: 0, dirty: false,
+    };
+  }
+
+  /** Advance timeline; call every RAF with delta seconds. */
+  update(dt: number, direction: 1 | -1 = 1): void {
+    const seq = this.model.sequence;
+    this.state.clock = clamp(this.state.clock + dt * direction, 0, seq.totalDuration);
+
+    for (const action of seq.actions) {
+      const local = (this.state.clock - action.startTime) / action.duration;
+      const k = ease(action.easing, clamp(local, 0, 1));
+      const θ = lerp(action.fromAngle, action.toAngle, k);
+      this.setHingeAngle(action.hingeId, θ);
+    }
+
+    if (this.state.clock &gt;= seq.totalDuration) this.state.phase = 'folded';
+    else if (this.state.clock &lt;= 0)                this.state.phase = 'flat';
+    else this.state.phase = direction &gt; 0 ? 'folding' : 'unfolding';
+
+    if (seq.loop &amp;&amp; this.state.phase === 'folded') this.state.clock = 0; // OBSERVED replay
+  }
+
+  /** Forward = play; Backward = reverse play. Scrub = set clock directly. */
+  playForward():  void { /* direction = +1 in RAF loop */ }
+  playBackward(): void { /* direction = -1 */ }
+  scrub(t: number): void { this.state.clock = clamp(t, 0, this.model.sequence.totalDuration);
+                           this.update(0); }
+  fold():   void { this.scrub(this.model.sequence.totalDuration); }  // snap to folded
+  unfold(): void { this.scrub(0); }                                  // snap to flat
+
+  private setHingeAngle(id: string, θ: number): void {
+    this.state.hingeAngles[id] = θ;
+    const pivot = this.pivots.get(id);
+    if (pivot) pivot.rotation.set(θ /* about aligned crease axis */, 0, 0);
+  }
+}
+</code></pre>
+<p><strong>Key property (STRONGLY INFERRED):</strong> forward and backward are the <em>same</em> evaluator with sign-flipped time — because all motion is parametric in <code>clock</code>, reversal is free and exact. No separate "unfold choreography" needed. The observed smooth reverse-to-flat in later frames is consistent with this.</p>
+<hr />
+<h1 id="21-generalized-dieline-folding-engine">21. Generalized Dieline Folding Engine</h1>
+<p>To support arbitrary packaging (not just this tuck-top carton), generalize along five axes:</p>
+<p><strong>21.1 Graph construction.</strong> Parse dieline → planar straight-line graph. Faces = panels (bounded regions enclosed by cut lines); shared edges between faces = creases. Build adjacency graph G = (panels, creases).</p>
+<p><strong>21.2 Spanning-tree extraction.</strong> Compute a spanning tree of G rooted at a user-selected (or heuristically largest) "base panel." Cycle edges (lock tabs, glue flaps that touch two panels) become <strong>attachment constraints</strong>, not hinges. This is the single most important generalization — real dielines are never trees.</p>
+<p><strong>21.3 Automatic angle solving.</strong> Target fold angles cannot always be inferred (see §23), but defaults are computable:
+- Crease between two panels that are coplanar-adjacent in the flat layout → ±90° if the fold is a box wall; sign from mountain/valley line style.
+- Enclosure detection: if folding all 90° creases leaves the solid open along an edge adjacent to a flap, that flap folds to close it (recursive, depth-limited).
+- For standard carton families (tuck-top, crash-lock, sleeve, tray), template-based angle tables like §18.4 cover ~90% of commercial packaging.</p>
+<p><strong>21.4 Collision &amp; feasibility.</strong> For arbitrary dielines, naive simultaneous folding causes panel interpenetration. Required: per-phase ordering (topological sort of the hinge tree, leaves-last for closing flaps) plus optional swept-volume checks. The observed video sidesteps this with a hand-tuned phase order (STRONGLY INFERRED).</p>
+<p><strong>21.5 Pluggable choreography.</strong> Replace the fixed FoldSequence with a generator:</p>
+<pre><code class="language-typescript">interface FoldPlanner {
+  plan(model: DielineModel): FoldSequence;   // topology → ordered actions
+}
+// Implementations: TemplatePlanner (known carton families),
+//                  LayeredPlanner (fold by tree depth),
+//                  ManualPlanner (user-authored timeline)
+</code></pre>
+<p><strong>21.6 Non-tree closures.</strong> Lock bottoms, crash locks, and glue seams need a post-fold <strong>constraint pass</strong>: after tree folding, snap flagged tab edges to slot edges (position-only correction, small enough to be invisible — which is exactly what the observed bottom flaps appear to do).</p>
+<hr />
+<h1 id="22-what-can-be-automatically-extracted">22. What Can Be Automatically Extracted</h1>
+<p>From PDF / SVG / DXF / AI dieline files:</p>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Extractable?</th>
+<th>Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Panel outlines (cut contours)</td>
+<td>✅ Yes</td>
+<td>Path parsing; closed-region flood fill / planar face extraction</td>
+</tr>
+<tr>
+<td>Crease lines &amp; their endpoints</td>
+<td>✅ Yes</td>
+<td>Line-style classification: dashed/solid, spot-color names ("Crease", "Cut", ARDF/CF2 standards in DXF layers)</td>
+</tr>
+<tr>
+<td>Cut vs. crease vs. perforation</td>
+<td>✅ Mostly</td>
+<td>CF2 layer names (DXF), spot colors / stroke dash patterns (PDF/AI/SVG)</td>
+</tr>
+<tr>
+<td>Dimensions (mm scale)</td>
+<td>✅ Yes</td>
+<td>Artboard size + declared units; dimension annotations (the 183 mm label type)</td>
+</tr>
+<tr>
+<td>Panel adjacency graph</td>
+<td>✅ Yes</td>
+<td>Shared-edge detection on extracted segments (geometric, tolerance ~0.1 mm)</td>
+</tr>
+<tr>
+<td>Crease axis lines (hinge geometry)</td>
+<td>✅ Yes</td>
+<td>Directly the crease segments</td>
+</tr>
+<tr>
+<td>Artwork placement / UV mapping</td>
+<td>✅ Yes</td>
+<td>Artwork layer coordinates = dieline coordinates (same file space)</td>
+</tr>
+<tr>
+<td>Bleed / safe areas</td>
+<td>✅ Yes</td>
+<td>Additional spot-color layers when present</td>
+</tr>
+<tr>
+<td>Mountain vs. valley direction</td>
+<td>⚠️ Sometimes</td>
+<td>Only if encoded (</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<!-- PART 5/5 — Sections 22 (completion)–26 -->
+
+<h2 id="22-completion-what-can-be-automatically-extracted-table-final-rows">22 (completion) — What Can Be Automatically Extracted (table, final rows)</h2>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Extractable?</th>
+<th>Method / Encoding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mountain vs. valley direction</td>
+<td><strong>Yes</strong></td>
+<td>Crease-line style in the dieline (solid vs. dashed/dash-dot per CFF2/DDES conventions) maps directly to fold sign: <code>sign = +1</code> (mountain) / <code>−1</code> (valley). Sign can also be derived geometrically from panel adjacency winding order — every interior fold of a closed carton is valley relative to the print side, so a single global convention + edge-case overrides suffices.</td>
+</tr>
+<tr>
+<td>Fold order (dependency graph)</td>
+<td><strong>Partially</strong></td>
+<td>Kinematic dependency is derivable: a flap cannot fold past its parent panel, so the panel adjacency tree yields a topological ordering (body walls → bottom lock sequence → dust flaps → tuck flap). But <em>which</em> valid topological order plays on screen is a choreography choice, not a geometric one.</td>
+</tr>
+<tr>
+<td>Glue relationships</td>
+<td><strong>Yes (location), No (behavior)</strong></td>
+<td>Glue tab presence is explicit in the cut outline (the manufacturer's joint tab on the side seam). Its mating face is inferable by overlap analysis when folded flat. Whether the tab bonds, tucks, or floats during animation is not encoded.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="23-what-requires-metadata">23. What Requires Metadata</h2>
+<p>The following cannot be safely inferred from a dieline file (DXF/AI/CFF2) alone and must be supplied as sidecar metadata or hard-coded per template:</p>
+<ul>
+<li><strong>Fold order / sequencing</strong> — the dieline defines <em>what</em> folds, never <em>when</em>. The observed bottom-first, then walls, then tuck sequence is a design decision; a different valid order (top-down) produces identical geometry.</li>
+<li><strong>Target angles for special closures</strong> — the lock-bottom's diagonal creases fold to ~45° intermediate states before collapsing flat (0°); the tuck flap overshoots slightly past 90° before settling. These non-monotonic angle curves are choreography, not geometry.</li>
+<li><strong>Glue tab behavior</strong> — whether the side-seam tab is shown bonding, sliding, or simply co-moving with its parent panel.</li>
+<li><strong>Animation choreography</strong> — per-phase durations, inter-phase delays, easing curves, camera drift during folding, and whether phases overlap or run strictly serially.</li>
+<li><strong>Collision/penetration policy</strong> — whether the engine resolves panel intersections physically or pre-bakes a collision-free keyframe path (the recording strongly suggests the latter).</li>
+<li><strong>Material appearance</strong> — board thickness, white/craft substrate, print-side assignment (which face of the flat sheet becomes exterior).</li>
+</ul>
+<h2 id="24-confidence-report">24. Confidence Report</h2>
+<ul>
+<li><strong>Very High</strong> — Carton type is tuck-top / lock-bottom (1-2-3 or crash-lock variant); WebGL/Three.js-class renderer; panel hierarchy = tree rooted at one body panel; folds are pure 1-DOF hinge rotations about crease axes; flat-sheet → folded animation is keyframed/tweened, not physically simulated.</li>
+<li><strong>High</strong> — Hinge axes defined by crease endpoints in the flat sheet; per-panel local transforms composed down the tree; fold sign derivable from crease line style; bottom closure uses diagonal pre-creases collapsing inward; dust flaps fold before tuck flap; camera orbits are user-driven (drag), fold animation is scripted.</li>
+<li><strong>Medium</strong> — Phase durations (~0.4–0.9 s each), total fold cycle ~3–5 s; easing ≈ ease-in-out cubic; tuck flap overshoot-then-settle behavior; double-sided material with white interior; slight z-offset/extrusion to avoid coplanar flicker.</li>
+<li><strong>Low</strong> — Exact easing function identity; exact per-phase millisecond timings; whether bottom is true auto-lock (crash-lock) vs. manual 1-2-3 sequence; presence of any physics pass for the tuck insertion.</li>
+<li><strong>Very Low</strong> — Tween library identity (GSAP vs. custom vs. Three.js animation mixer); exact bottom-flap lock geometry (slit/hook shapes); whether fold order is data-driven from a JSON manifest or hard-coded per template; server-side vs. client-side dieline parsing.</li>
+</ul>
+<h2 id="25-remaining-unknowns">25. Remaining Unknowns</h2>
+<ul>
+<li>Exact moment the fold animation is triggered (button click vs. auto-play on preview open) — click timing is invisible in frames.</li>
+<li>Exact millisecond durations of each fold phase and inter-phase gaps.</li>
+<li>Exact easing curves (only "smooth, non-linear, decelerating at end" is observable).</li>
+<li>Bottom flap geometry: the underside is never clearly framed; lock-tab/slit shapes, flap widths, and diagonal crease angles are unverifiable.</li>
+<li>Tween/animation library identity and version.</li>
+<li>Whether the dieline-to-3D pipeline runs client-side or is pre-baked server-side.</li>
+<li>Board thickness value and whether it's modeled as extrusion or zero-thickness shells.</li>
+<li>Glue tab animation behavior (never isolated on screen).</li>
+<li>Frame rate of the original animation vs. capture (dropped frames distort duration estimates).</li>
+<li>Whether fold order is configurable per template or global.</li>
+<li>Audio/UI state (muted OBS capture) and any hover/click interactions during folding.</li>
+<li>Exact camera limits (min/max zoom, polar clamp) of the orbit controller.</li>
+</ul>
+<h2 id="26-final-reconstruction-specification">26. Final Reconstruction Specification</h2>
+<ol>
+<li><strong>Architecture</strong> — Client-side WebGL viewer (Three.js-style): dieline parser → panel graph builder → hierarchical <code>Object3D</code> tree → keyframed fold animator → orbit-controlled camera. No physics engine required.</li>
+<li><strong>Hierarchy</strong> — Root at front body panel. Children: left/right/back walls (hinged at vertical creases); each wall carries top flaps (dust flaps on sides, tuck flap on back, closure flap on front) and bottom flaps (two side flaps, front/back lock flaps with diagonal sub-creases as child nodes).</li>
+<li><strong>Hinge model</strong> — Every crease = 1-DOF rotation about the crease line segment; angle 0° = flat sheet, ±90°/±180° = folded. Sign from crease style (mountain/valley). Transforms compose parent→child; no translations.</li>
+<li><strong>Fold phases</strong> — (a) four walls rise 0→90°; (b) bottom: side flaps 0→90°, lock flaps fold with diagonal creases collapsing 45°→0°, lock engaged; (c) dust flaps 0→~90° inward; (d) tuck flap 0→~100° (slight overshoot) → settle ~90°, tongue inserted; (e) reverse for unfold.</li>
+<li><strong>Timing/easing (estimates)</strong> — Per phase 400–900 ms, ease-in-out cubic; total cycle 3–5 s; phases strictly serial with ~100 ms gaps; camera free during animation.</li>
+<li><strong>Controller design</strong> — A <code>FoldController</code> maps normalized progress <code>t ∈ [0,1]</code> through piecewise phase segments to per-hinge angle curves; supports play/pause/reverse/scrub; orbit camera independent.</li>
+<li><strong>Five implementation rules</strong> — (1) Never rotate a panel in world space — always about its local crease axis. (2) Drive all hinges from one master clock to keep phases synchronized. (3) Pre-validate the keyframe path for panel interpenetration; do not rely on runtime collision. (4) Render double-sided with polygon offset to prevent coplanar z-fighting. (5) Treat fold order, overshoot angles, and easing as per-template metadata, never derive them from geometry alone.</li>
+</ol>
+<hr />
+</body></html>
