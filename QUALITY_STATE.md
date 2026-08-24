@@ -23,32 +23,30 @@ fully flattened 3D structural geometry == canonical production dieline
 
 **STATUS: BLOCKED_VISUAL_REVIEW**
 
-The structural engine and executable golden reference-recreation path are now
-implemented. The product is not allowed to claim final reference PASS until the
-authorized local PDF is executed through the current verifier and the required
-six fixed-camera captures pass the independent >=45/50 visual gate.
+The structural engine and executable golden reference-recreation software path
+are implemented and the latest clean checker is green. Final reference PASS is
+still withheld until the authorized local PDF is executed through the current
+verifier and all six fixed-camera captures pass the >=45/50 visual gate.
 
-Manufacturing/converter construction certification is a separate status and
-remains false until actual hidden construction facts are supplied.
+Manufacturing/converter construction certification is intentionally separate
+and remains false until actual hidden construction facts are supplied.
 
-## Current implementation head under check
+## Latest independent engineering checker
 
-`af03f0fbd6b8a33dc5152311ca306242c4b6d6e5`
+The final implementation was checked through PR #15 using the merge of current
+`main` implementation `a9114d018e2606f37b691d314e6ea09ae813ad2f` and checker
+head `120bfdb6eb9fce0c0b97a5b3d93a50c5a0347b29`.
 
-Temporary checker branch:
-
-`verify/reference-recreation-final`
-
-## Previously verified clean baseline
-
-Verification commit `34ea4a85974259e98458b0e799aecc7124faa963`:
-
-- Structural Quality run `32699507367`: lint, typecheck, 264/264 tests and
-  production build PASS.
-- Repository CI run `32699507439`: generated-file sync, lint, typecheck,
-  264/264 tests, onboarding validation and production build PASS.
-
-The new checker must re-run those gates against the latest implementation.
+- Structural Quality run `32761005013` (#59): **PASS**
+- Repository CI run `32761005021` (#121): **PASS**
+- lint: **PASS**
+- TypeScript: **PASS**
+- tests: **302 / 302 PASS, 0 failed, 0 skipped**
+- real GLB onboarding pipeline: **PASS**
+- generated-file sync: **PASS**
+- onboarding manifest validation: **PASS**
+- production Next.js build: **PASS**
+- `/studio/golden-reference` included in successful production route build: **PASS**
 
 ## Implemented structural truth
 
@@ -77,33 +75,25 @@ The new checker must re-run those gates against the latest implementation.
 
 ## Executable reference recreation
 
-The source/video evidence is now separated into two lanes.
-
 ### Reference recreation lane
 
 Implemented:
 
-- reference behavior contract from the supplied recording;
-- six major reference states;
-- 450–700 ms hinge timing envelope;
-- 50–150 ms stagger envelope;
+- behavior contract from the supplied recording;
+- six reference states;
+- 450–700 ms hinge timing and 50–150 ms stagger envelope;
 - `easeInOutCubic`, no spring/bounce;
 - deterministic Forward/Backward absolute state traversal;
-- four explicit visual candidates:
-  - north + plain-final;
-  - north + window-final;
-  - south + plain-final;
-  - south + window-final;
-- negative-depth body handedness from the engine's printed-face exterior
-  convention;
-- hidden diagonal lock rotations held at 0deg and explicitly labelled
+- four explicit visual candidates: north/south x plain-final/window-final;
+- negative-depth body handedness from the printed-face exterior convention;
+- unseen diagonal lock rotations held at 0deg and explicitly labelled
   `REFERENCE_RECREATION_ONLY` rather than guessed;
-- visual stock thickness explicitly labelled as a preview estimate;
-- local one-command runtime verifier;
+- preview stock thickness explicitly labelled as a visual estimate;
+- one-command local runtime verifier;
 - development-only private Studio route `/studio/golden-reference`;
 - six-state fixed-camera capture manifest;
 - asymmetric diagnostic-art mapping evidence;
-- 50-point visual score gate with minimum 45/50 plus all hard gates;
+- 50-point visual gate with minimum 45/50 plus every hard gate;
 - machine finalizer that can emit only
   `REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION`.
 
@@ -121,18 +111,18 @@ npm run finalize:golden-reference -- reference-run-summary.json visual-review.js
 Still requires converter/manufacturer evidence for:
 
 - actual stock/caliper thickness;
-- physical top/bottom convention as a production fact;
+- physical top/bottom production convention;
 - signed hidden bottom-lock diagonal folds;
 - glue destination;
 - tuck destination;
 - physical lock/assembly semantics.
 
-The reference-recreation lane is forbidden from upgrading those estimates into
-manufacturing truth.
+A visual reference result can never upgrade these estimates into manufacturing
+truth.
 
-## Reference recreation hard gates
+## Final reference gate
 
-Final reference certification requires all six captures:
+Required captures:
 
 1. `01-flat-2d`
 2. `02-flat-3d`
@@ -141,18 +131,10 @@ Final reference certification requires all six captures:
 5. `05-secondary-flaps`
 6. `06-major-and-final`
 
-and every hard gate:
-
-- flat 3D equals canonical source;
-- real window remains a void;
-- artwork chirality correct;
-- no panel swap;
-- no artwork jump across creases;
-- hinge pivots remain on source creases;
-- fixed camera throughout 3D captures;
-- Forward/Backward share the same absolute targets;
-- no spring/bounce overshoot;
-- manufacturing remains canonical structural authority.
+All hard gates must pass: canonical flat/source equality, physical window void,
+correct chirality, no panel swap, no crease artwork jump, exact crease pivots,
+fixed camera, reversible absolute target poses, no bounce/spring, and canonical
+manufacturing authority.
 
 Visual score:
 
@@ -168,16 +150,15 @@ Visual score:
 
 Pass threshold: **>=45/50 plus every hard gate**.
 
-## Remaining work to issue final reference PASS
+## Remaining evidence to issue final reference PASS
 
-1. Latest checker CI must pass on the current implementation.
-2. Execute the private authorized PDF through `verify:golden-reference`.
-3. Generate the six fixed-camera evidence captures using one candidate at a
-   time and the same asymmetric diagnostic artwork.
-4. Select the closest candidate against the supplied reference.
-5. Complete independent visual scoring >=45/50 with every hard gate true.
-6. Run `finalize:golden-reference` and persist the final local verdict.
+1. Execute the authorized private PDF through `verify:golden-reference`.
+2. Generate the six fixed-camera captures with one candidate and the same
+   asymmetric diagnostic artwork.
+3. Select the closest of the explicit candidates against the supplied reference.
+4. Complete independent scoring >=45/50 with every hard gate true.
+5. Run `finalize:golden-reference` and persist its local verdict.
 
-Until those external/local evidence steps are executed, reference recreation is
-**software-complete but evidence-blocked**. Manufacturing construction remains
-**converter-evidence-blocked** by design.
+Engineering is **green and software-complete for reference recreation**. Final
+reference certification is **private-evidence-blocked**. Manufacturing
+construction certification is **converter-evidence-blocked** by design.
