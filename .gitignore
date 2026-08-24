@@ -60,3 +60,13 @@ temp/
 experiments/uv-onboarding/repos/
 **/__pycache__/
 *.pyc
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+!.env.example
