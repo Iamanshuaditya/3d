@@ -103,9 +103,9 @@ test("golden geometry roles refuse a geometrically similar but unauthorised sour
   );
 });
 
-test("golden geometry roles fail their reviewed gates when the 17-panel decomposition changes", () => {
-  const report = classifyLockBottomGoldenGeometry(dieline(), goldenLikePanels().slice(0, -1));
-  assert.equal(report.passed, false);
-  assert.equal(report.gates.totalPanelCount, false);
-  assert.equal(report.gates.southFlapCount, false);
+test("golden geometry roles fail closed when the reviewed 17-panel decomposition changes", () => {
+  assert.throws(
+    () => classifyLockBottomGoldenGeometry(dieline(), goldenLikePanels().slice(0, -1)),
+    /expected 17 total panels; found 16/,
+  );
 });
