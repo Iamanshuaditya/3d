@@ -17,6 +17,7 @@ const CREASE_OPERATIONS = new Set<CoreStructuralOperation>([
   "perforation",
   "half-cut",
 ]);
+const CUT_OPERATIONS = new Set<CoreStructuralOperation>(["cut", "window-cut"]);
 
 export type StructuralCreaseChain = Readonly<{
   id: string;
@@ -192,13 +193,25 @@ function sourceCreaseSegmentCount(dieline: CanonicalDieline): number {
     }, 0);
 }
 
+function sourceCutCycles(dieline: CanonicalDieline) {
+  // The source-cycle contract (e.g. 70 outer + 8 window) is about cut
+  // authority before crease intersections subdivide those edges. Build a
+  // cut-only graph for this measurement; the full graph remains authoritative
+  // for panel extraction and hinge adjacency later.
+  const cutOnly: CanonicalDieline = {
+    ...dieline,
+    entities: dieline.entities.filter((entity) =>
+      CUT_OPERATIONS.has(entity.operation as CoreStructuralOperation),
+    ),
+  };
+  return extractCutCycles(cutOnly, buildPlanarGraph(cutOnly));
+}
+
 function measureUvRoundTrip(
   panels: readonly StructuralPanel[],
   dieline: CanonicalDieline,
 ): number {
   let worst = 0;
-  // This is a geometry/UV probe thickness only. It is not manufacturing stock
-  // metadata and must never be interpreted as an authored board thickness.
   const probeThicknessMm = 1;
   for (const panel of panels) {
     const mesh = createStructuralPanelGeometry(panel, dieline, probeThicknessMm);
@@ -228,11 +241,11 @@ export function evaluateGoldenStructuralAcceptance(
   expectations: GoldenStructuralExpectations,
 ): GoldenStructuralAcceptanceReport {
   const graph = buildPlanarGraph(dieline);
-  const cycles = extractCutCycles(dieline, graph);
-  const outer = cycles.filter((cycle) => cycle.role === "outer");
-  const holes = cycles.filter((cycle) => cycle.role === "hole");
-  if (outer.length !== 1) throw new Error(`Golden acceptance requires one outer cut cycle; found ${outer.length}.`);
-  if (holes.length !== 1) throw new Error(`Golden acceptance requires one structural window; found ${holes.length}.`);
+  const sourceCycles = sourceCutCycles(dieline);
+  const outer = sourceCycles.filter((cycle) => cycle.role === "outer");
+  const holes = sourceCycles.filter((cycle) => cycle.role === "hole");
+  if (outer.length !== 1) throw new Error(`Golden acceptance requires one source outer cut cycle; found ${outer.length}.`);
+  if (holes.length !== 1) throw new Error(`Golden acceptance requires one source structural window; found ${holes.length}.`);
   const panels = extractStructuralPanels(dieline, graph);
   const flat = measureFlatPanelEquivalence(dieline, panels);
   const creaseChains = extractCreaseChains(graph);
@@ -243,17 +256,15 @@ export function evaluateGoldenStructuralAcceptance(
     (sum, point) => ({ x: sum.x + point.x / holes[0].points.length, y: sum.y + point.y / holes[0].points.length }),
     { x: 0, y: 0 },
   );
-  const windowOwnerCount = panels.filter((panel) => {
-    // A hole is owned explicitly by the panel, so matching a representative
-    // point against hole loops is safer than assuming a panel ordering.
-    return panel.holes.some((loop) => {
+  const windowOwnerCount = panels.filter((panel) =>
+    panel.holes.some((loop) => {
       const center = loop.reduce(
         (sum, point) => ({ x: sum.x + point.x / loop.length, y: sum.y + point.y / loop.length }),
         { x: 0, y: 0 },
       );
       return distanceBetweenPoints(center, windowProbe) <= dieline.tolerances.topologySnapMm;
-    });
-  }).length;
+    }),
+  ).length;
   const maxUvRoundTripMm = measureUvRoundTrip(panels, dieline);
   const creaseSegments = sourceCreaseSegmentCount(dieline);
 
