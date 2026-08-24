@@ -9,3 +9,4 @@ export * from "./import-pdf-raw";
 export * from "./topology";
 export * from "./structural-mesh";
 export * from "./structural-quality";
+export * from "./structural-acceptance";
