@@ -1,12 +1,19 @@
 import type { CartonSpec } from "@/types/carton";
 import type {
   ArticulatedHinge,
+  AuthoredUnfoldMotion,
   AuthoredUnfoldStep,
   HingeAngles,
+  HingeMotionMap,
   UnfoldPlan,
   UnfoldStep,
 } from "@/types/unfold";
 import { cartonCanFlatten, cartonHinges } from "./carton-topology";
+import {
+  DEFAULT_HINGE_DURATION_MS,
+  DEFAULT_HINGE_EASING,
+  DEFAULT_HINGE_STAGGER_MS,
+} from "./hinge-animation";
 
 /**
  * Turns an articulation graph into an ordered, dependency-aware unfolding
@@ -58,6 +65,56 @@ function poseReachesFlat(plan: Omit<UnfoldPlan, "reachesFlat">, hinges: Articula
   return hinges.every((hinge) => Math.abs((final[hinge.id] ?? 0) - hinge.flatAngleDeg) < 1e-6);
 }
 
+function finiteNonNegative(value: number, label: string): number {
+  if (!Number.isFinite(value) || value < 0) throw new RangeError(`${label} must be finite and non-negative.`);
+  return value;
+}
+
+function finitePositive(value: number, label: string): number {
+  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${label} must be finite and positive.`);
+  return value;
+}
+
+/** Expands compact authored timing into exact per-hinge timing. */
+export function resolveAuthoredStepMotion(
+  stepId: string,
+  hingeIds: readonly string[],
+  motion: AuthoredUnfoldMotion | undefined,
+): HingeMotionMap | undefined {
+  if (!motion) return undefined;
+
+  const delayMs = finiteNonNegative(motion.delayMs ?? 0, `Step "${stepId}" delayMs`);
+  const durationMs = finitePositive(
+    motion.durationMs ?? DEFAULT_HINGE_DURATION_MS,
+    `Step "${stepId}" durationMs`,
+  );
+  const staggerMs = finiteNonNegative(
+    motion.staggerMs ?? DEFAULT_HINGE_STAGGER_MS,
+    `Step "${stepId}" staggerMs`,
+  );
+  const easing = motion.easing ?? DEFAULT_HINGE_EASING;
+  if (easing !== "linear" && easing !== "easeInOutCubic") {
+    throw new Error(`Step "${stepId}" uses unsupported easing ${String(easing)}.`);
+  }
+
+  const order = motion.hingeOrder ? [...motion.hingeOrder] : [...hingeIds];
+  if (new Set(order).size !== order.length) {
+    throw new Error(`Step "${stepId}" motion hingeOrder contains duplicate hinge ids.`);
+  }
+  const expected = [...hingeIds].sort();
+  const actual = [...order].sort();
+  if (expected.length !== actual.length || expected.some((id, index) => id !== actual[index])) {
+    throw new Error(`Step "${stepId}" motion hingeOrder must contain exactly the step hingeIds.`);
+  }
+
+  return Object.fromEntries(
+    order.map((hingeId, index) => [
+      hingeId,
+      { delayMs: delayMs + staggerMs * index, durationMs, easing },
+    ]),
+  );
+}
+
 // ------------------------------------------------------------------ authored
 
 export function authoredPlan(
@@ -76,7 +133,14 @@ export function authoredPlan(
       }
       targets[hingeId] = angleFor(hinge, step.to);
     }
-    return { id: step.id, label: step.label, reverseLabel: step.reverseLabel, targets };
+    const motion = resolveAuthoredStepMotion(step.id, step.hingeIds, step.motion);
+    return {
+      id: step.id,
+      label: step.label,
+      reverseLabel: step.reverseLabel,
+      targets,
+      ...(motion ? { motion } : {}),
+    };
   });
 
   const draft = { assembled: assembledPose(hinges), steps: resolved, source: "authored" as const };
@@ -170,6 +234,13 @@ export function validateUnfoldPlan(plan: UnfoldPlan, hinges: ArticulatedHinge[])
     if (!Object.keys(step.targets).length) errors.push(`Step "${step.id}" moves no hinges.`);
     for (const hingeId of Object.keys(step.targets)) {
       if (!byId.has(hingeId)) errors.push(`Step "${step.id}" targets unknown hinge "${hingeId}".`);
+    }
+    if (step.motion) {
+      for (const [hingeId, motion] of Object.entries(step.motion)) {
+        if (!(hingeId in step.targets)) errors.push(`Step "${step.id}" times hinge "${hingeId}" but does not move it.`);
+        if (!Number.isFinite(motion.delayMs) || motion.delayMs < 0) errors.push(`Step "${step.id}" has invalid delay for "${hingeId}".`);
+        if (!Number.isFinite(motion.durationMs) || motion.durationMs <= 0) errors.push(`Step "${step.id}" has invalid duration for "${hingeId}".`);
+      }
     }
   }
 

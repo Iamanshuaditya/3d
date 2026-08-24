@@ -3,12 +3,43 @@
  *
  * A product's *structural* state is a set of hinge angles — never one global
  * scalar. Everything that moves (a carton lid, a flap, a future authored GLB
- * node) is described by the same three types so the UI, the animation loop and
- * the tests share one vocabulary.
+ * node) is described by the same types so the UI, animation loop and tests
+ * share one vocabulary.
  */
 
 /** Absolute rotation, in degrees, keyed by hinge id. */
 export type HingeAngles = Readonly<Record<string, number>>;
+
+export type HingeEasing = "linear" | "easeInOutCubic";
+
+/** Resolved timing for one hinge inside one structural transition. */
+export type HingeMotion = Readonly<{
+  delayMs: number;
+  durationMs: number;
+  easing: HingeEasing;
+}>;
+
+export type HingeMotionMap = Readonly<Record<string, HingeMotion>>;
+
+/**
+ * Compact authored timing. `hingeOrder` controls the stagger order; omitted
+ * hinges use the step's `hingeIds` order. Forward/backward share the same data
+ * and the runtime mirrors the delays when traversing backward.
+ */
+export type AuthoredUnfoldMotion = Readonly<{
+  delayMs?: number;
+  durationMs?: number;
+  staggerMs?: number;
+  easing?: HingeEasing;
+  hingeOrder?: readonly string[];
+}>;
+
+/** Metadata attached to a target pose for the animation runtime. */
+export type UnfoldTransitionSignal = Readonly<{
+  revision: number;
+  direction: "forward" | "backward";
+  motion?: HingeMotionMap;
+}>;
 
 /** One rotational joint in a product's articulation graph. */
 export type ArticulatedHinge = {
@@ -38,6 +69,8 @@ export type UnfoldStep = {
   /** Label for undoing this step, when it reads better than "Back". */
   reverseLabel?: string;
   targets: HingeAngles;
+  /** Optional authored motion for the hinges changed by this step. */
+  motion?: HingeMotionMap;
 };
 
 export type UnfoldPlan = {
@@ -69,6 +102,8 @@ export type AuthoredUnfoldStep = {
    *  number      an explicit angle in degrees
    */
   to: "flat" | "open" | "assembled" | number;
+  /** Optional timing/stagger authored for this physical construction step. */
+  motion?: AuthoredUnfoldMotion;
 };
 
 export type UnfoldSpec = {
