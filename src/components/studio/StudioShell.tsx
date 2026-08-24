@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
@@ -8,12 +8,7 @@ import type { ProductPresentationMode } from "@/platform/products/types";
 import { resolveStudioPresentation } from "@/platform/presentation/resolve-studio-presentation";
 import { useCustomizer } from "@/lib/configurator/use-customizer";
 import { useUnfold } from "@/lib/configurator/use-unfold";
-import {
-  defaultCameraPreset,
-  dielineCameraPreset,
-  resolveProductPresentation,
-} from "@/lib/configurator/presentation";
-import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
+import { resolveProductPresentation } from "@/lib/configurator/presentation";
 import { UnfoldControl } from "@/components/configurator/UnfoldControl";
 import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
@@ -106,37 +101,12 @@ export function StudioShell({
       ? presentation.plan
       : null;
   const unfold = useUnfold(unfoldPlan);
+
+  // Fold/unfold owns structural transforms only. Camera state remains entirely
+  // user-controlled; reaching the flat dieline must never reset an orbit,
+  // distance, target, or FOV chosen by the user. `pendingPreset` stays here for
+  // explicit camera actions, not structural state transitions.
   const [pendingPreset, setPendingPreset] = useState<CameraPreset | null>(null);
-  const wasFlatRef = useRef(false);
-  const movedCameraRef = useRef(false);
-
-  /**
-   * Reaching the flat pose is the moment a carton's 3D view and its 2D dieline
-   * show the same thing, so the camera moves to say so — and moves back when
-   * the product folds up again.
-   *
-   * Only cartons get that: their flat pose IS the printed sheet, at a known
-   * size. An articulated GLB folds flat too, but into a flat-packed product
-   * rather than a dieline, and the runtime does not know its flat extent — so
-   * it keeps the product camera, and the restore is skipped rather than
-   * yanking a view the customer may have orbited themselves.
-   */
-  useEffect(() => {
-    const isFlat = Boolean(unfold.status?.isFlat);
-    if (isFlat === wasFlatRef.current) return;
-    wasFlatRef.current = isFlat;
-
-    if (isFlat) {
-      const spec = resolveCartonSpec(config);
-      if (!spec) return;
-      movedCameraRef.current = true;
-      setPendingPreset(dielineCameraPreset(config, spec.width, spec.height));
-      return;
-    }
-    if (!movedCameraRef.current) return;
-    movedCameraRef.current = false;
-    setPendingPreset(defaultCameraPreset(config));
-  }, [config, unfold.status?.isFlat]);
 
   const surface = c.activeSurface;
   const formatPhysical = (centimetres: number) =>

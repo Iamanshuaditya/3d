@@ -21,6 +21,16 @@ def _font(size: int):
 PALETTE = [(198, 40, 90), (30, 110 , 160), (35, 140, 90), (170, 110, 30)]
 
 
+def _cross2(a: np.ndarray, b: np.ndarray):
+    """2D cross-product determinant with NumPy broadcasting support.
+
+    NumPy 2.5 requires ``np.cross`` inputs to be 3D vectors. These onboarding
+    routines are intentionally planar, so compute the scalar z-component
+    directly instead of padding geometry to a fake third dimension.
+    """
+    return a[..., 0] * b[..., 1] - a[..., 1] * b[..., 0]
+
+
 def diagnostic_texture(region: dict, out: Path, color) -> None:
     w, h = region["canvasPx"]["width"], region["canvasPx"]["height"]
     img = Image.new("RGB", (w, h), (242, 240, 236))
@@ -165,7 +175,7 @@ def _rdp(points: np.ndarray, eps: float) -> np.ndarray:
         if seg_len < 1e-9:
             d = np.linalg.norm(points[a + 1:b] - points[a], axis=1)
         else:
-            d = np.abs(np.cross(seg, points[a] - points[a + 1:b])) / seg_len
+            d = np.abs(_cross2(seg, points[a] - points[a + 1:b])) / seg_len
         i = int(np.argmax(d))
         if d[i] > eps:
             keep[a + 1 + i] = True
@@ -247,7 +257,7 @@ def region_outline_paths(glb_scene, mesh_name: str, w: int, h: int,
         def half(pts):
             out = []
             for pt in pts:
-                while len(out) >= 2 and np.cross(out[-1] - out[-2], pt - out[-2]) <= 0:
+                while len(out) >= 2 and _cross2(out[-1] - out[-2], pt - out[-2]) <= 0:
                     out.pop()
                 out.append(pt)
             return out
