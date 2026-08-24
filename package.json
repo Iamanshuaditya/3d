@@ -33,6 +33,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "validate:pdf": "node scripts/validate-production-pdf.mjs",
+    "verify:golden-structure": "tsx scripts/verify-golden-structure.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "test": "tsx --test \"tests/**/*.test.ts\""
   },
