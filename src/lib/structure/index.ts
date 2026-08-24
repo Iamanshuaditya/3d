@@ -7,6 +7,7 @@ export * from "./import-dxf";
 export * from "./import-pdf";
 export * from "./import-pdf-raw";
 export * from "./topology";
+export * from "./topology-profile";
 export * from "./structural-mesh";
 export * from "./structural-rig";
 export * from "./structural-tree";
