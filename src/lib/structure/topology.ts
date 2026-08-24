@@ -46,6 +46,15 @@ export type PlanarGraph = Readonly<{
   faces: readonly PlanarFace[];
 }>;
 
+export type CutCycle = Readonly<{
+  id: string;
+  edgeIds: readonly string[];
+  points: readonly Vec2[];
+  areaMm2: number;
+  nestingDepth: number;
+  role: "outer" | "hole" | "island";
+}>;
+
 export type StructuralPanel = Readonly<{
   id: string;
   faceId: string;
@@ -76,6 +85,19 @@ function isCoreOperation(value: string): value is CoreStructuralOperation {
   return TOPOLOGY_OPERATIONS.has(value as CoreStructuralOperation);
 }
 
+function isCutOperation(operation: CoreStructuralOperation): boolean {
+  return operation === "cut" || operation === "window-cut";
+}
+
+function isCreaseOperation(operation: CoreStructuralOperation): boolean {
+  return (
+    operation === "crease" ||
+    operation === "score" ||
+    operation === "perforation" ||
+    operation === "half-cut"
+  );
+}
+
 function cross(a: Vec2, b: Vec2): number {
   return a.x * b.y - a.y * b.x;
 }
@@ -102,22 +124,19 @@ function segmentIntersection(
   b0: Vec2,
   b1: Vec2,
   epsilon: number,
-): { aT: number; bT: number; point: Vec2 } | null {
+): { aT: number; bT: number } | null {
   const r = subtract(a1, a0);
   const s = subtract(b1, b0);
   const denominator = cross(r, s);
   const qMinusP = subtract(b0, a0);
-  if (Math.abs(denominator) <= epsilon) {
-    // Collinear overlaps are intentionally rejected by validation below. Point
-    // intersections are already represented by endpoint snapping.
-    return null;
-  }
+  if (Math.abs(denominator) <= epsilon) return null;
   const aT = cross(qMinusP, s) / denominator;
   const bT = cross(qMinusP, r) / denominator;
   if (aT < -epsilon || aT > 1 + epsilon || bT < -epsilon || bT > 1 + epsilon) return null;
-  const clampedA = Math.max(0, Math.min(1, aT));
-  const clampedB = Math.max(0, Math.min(1, bT));
-  return { aT: clampedA, bT: clampedB, point: lerp(a0, a1, clampedA) };
+  return {
+    aT: Math.max(0, Math.min(1, aT)),
+    bT: Math.max(0, Math.min(1, bT)),
+  };
 }
 
 function operationForTopology(entity: StructuralEntity): CoreStructuralOperation | null {
@@ -169,7 +188,13 @@ function splitAtIntersections(spans: MutableSpan[], toleranceMm: number): void {
     for (let second = first + 1; second < spans.length; second += 1) {
       const a = spans[first];
       const b = spans[second];
-      const intersection = segmentIntersection(a.start, a.end, b.start, b.end, toleranceMm * 1e-6);
+      const intersection = segmentIntersection(
+        a.start,
+        a.end,
+        b.start,
+        b.end,
+        toleranceMm * 1e-6,
+      );
       if (!intersection) continue;
       addSplit(a, intersection.aT, parameterEpsilon);
       addSplit(b, intersection.bT, parameterEpsilon);
@@ -203,9 +228,7 @@ class VertexIndex {
     const vertex: PlanarVertex = { id: `v${this.vertices.length}`, point: { ...point } };
     this.vertices.push(vertex);
     const key = this.key(point);
-    const bucket = this.buckets.get(key) ?? [];
-    bucket.push(vertex);
-    this.buckets.set(key, bucket);
+    this.buckets.set(key, [...(this.buckets.get(key) ?? []), vertex]);
     return vertex;
   }
 
@@ -264,8 +287,9 @@ function traceFaces(vertices: readonly PlanarVertex[], edges: readonly PlanarEdg
   const outgoing = new Map<string, HalfEdge[]>();
 
   for (const edge of edges) {
-    const a = byId.get(edge.a)!;
-    const b = byId.get(edge.b)!;
+    const a = byId.get(edge.a);
+    const b = byId.get(edge.b);
+    if (!a || !b) throw new Error(`Planar edge ${edge.id} references a missing vertex.`);
     const ab: HalfEdge = {
       edge,
       from: edge.a,
@@ -307,12 +331,13 @@ function traceFaces(vertices: readonly PlanarVertex[], edges: readonly PlanarEdg
           (candidate) => candidate.edge.id === current.edge.id && candidate.to === current.from,
         );
         if (reverseIndex < 0 || atTarget.length === 0) break;
-        // Taking the predecessor of the reverse half-edge walks the face on
-        // the left in mathematical coordinates. The sign is handled below;
-        // y-down source coordinates do not change the graph invariant.
         const nextIndex = (reverseIndex - 1 + atTarget.length) % atTarget.length;
         current = atTarget[nextIndex];
-        if (current.edge.id === start.edge.id && current.from === start.from && current.to === start.to) {
+        if (
+          current.edge.id === start.edge.id &&
+          current.from === start.from &&
+          current.to === start.to
+        ) {
           const points = vertexIds.map((id) => byId.get(id)!.point);
           const area = signedPolygonArea(points);
           if (Math.abs(area) > EPSILON) {
@@ -358,24 +383,39 @@ function pointInPolygon(point: Vec2, polygon: readonly Vec2[], tolerance: number
   return inside;
 }
 
-function centroid(points: readonly Vec2[]): Vec2 {
-  let x = 0;
-  let y = 0;
-  for (const point of points) {
-    x += point.x;
-    y += point.y;
-  }
-  return { x: x / points.length, y: y / points.length };
+function arithmeticMean(points: readonly Vec2[]): Vec2 {
+  const sum = points.reduce(
+    (accumulator, point) => ({ x: accumulator.x + point.x, y: accumulator.y + point.y }),
+    { x: 0, y: 0 },
+  );
+  return { x: sum.x / points.length, y: sum.y / points.length };
 }
 
-function pathLoops(
-  dieline: CanonicalDieline,
-  operations: readonly string[],
-): readonly (readonly Vec2[])[] {
-  return dieline.entities
-    .filter((entity) => operations.includes(entity.operation) && entity.path.closed)
-    .map((entity) => flattenVectorPath(entity.path, dieline.tolerances.curveFlatteningMm).points)
-    .filter((points) => points.length >= 3);
+/** Returns a point demonstrably inside a simple polygon, even when concave. */
+function interiorProbe(points: readonly Vec2[], tolerance: number): Vec2 {
+  const mean = arithmeticMean(points);
+  if (pointInPolygon(mean, points, tolerance) && !points.some((p) => distanceBetweenPoints(p, mean) <= tolerance)) {
+    return mean;
+  }
+  const epsilon = Math.max(tolerance * 2, 1e-4);
+  for (let index = 0; index < points.length; index += 1) {
+    const a = points[index];
+    const b = points[(index + 1) % points.length];
+    const midpoint = lerp(a, b, 0.5);
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= EPSILON) continue;
+    const normal = { x: -dy / length, y: dx / length };
+    for (const sign of [-1, 1]) {
+      const candidate = {
+        x: midpoint.x + normal.x * epsilon * sign,
+        y: midpoint.y + normal.y * epsilon * sign,
+      };
+      if (pointInPolygon(candidate, points, tolerance)) return candidate;
+    }
+  }
+  throw new Error("Could not derive an interior probe for a structural polygon.");
 }
 
 function polygonBounds(points: readonly Vec2[]) {
@@ -390,6 +430,16 @@ function polygonBounds(points: readonly Vec2[]) {
   );
 }
 
+function deduplicateFaces(faces: readonly PlanarFace[]): PlanarFace[] {
+  const unique = new Map<string, PlanarFace>();
+  for (const face of faces) {
+    const key = [...face.edgeIds].sort().join("|");
+    const existing = unique.get(key);
+    if (!existing || face.signedAreaMm2 > existing.signedAreaMm2) unique.set(key, face);
+  }
+  return [...unique.values()];
+}
+
 export function buildPlanarGraph(dieline: CanonicalDieline): PlanarGraph {
   const spans = collectSpans(dieline);
   splitAtIntersections(spans, dieline.tolerances.topologySnapMm);
@@ -398,49 +448,111 @@ export function buildPlanarGraph(dieline: CanonicalDieline): PlanarGraph {
   return { vertices, edges, faces };
 }
 
+/**
+ * Reconstructs physical cut cycles from graph connectivity. This deliberately
+ * does not require one closed source path: professional PDFs often paint every
+ * die edge independently. Nested cut cycles are classified by even/odd depth.
+ */
+export function extractCutCycles(
+  dieline: CanonicalDieline,
+  graph: PlanarGraph = buildPlanarGraph(dieline),
+): readonly CutCycle[] {
+  const cutEdges = graph.edges.filter((edge) => isCutOperation(edge.operation));
+  if (cutEdges.length === 0) throw new Error("Structural topology contains no cut edges.");
+  const incident = new Map<string, number>();
+  for (const edge of cutEdges) {
+    incident.set(edge.a, (incident.get(edge.a) ?? 0) + 1);
+    incident.set(edge.b, (incident.get(edge.b) ?? 0) + 1);
+  }
+  const openVertices = [...incident.entries()].filter(([, degree]) => degree !== 2);
+  if (openVertices.length > 0) {
+    throw new Error(
+      `Cut topology is not a closed 2-regular contour at ${openVertices.length} vertex/vertices; explicit reviewed topology repair is required.`,
+    );
+  }
+
+  const rawCycles = deduplicateFaces(traceFaces(graph.vertices, cutEdges));
+  if (rawCycles.length === 0) throw new Error("No closed cut cycle could be reconstructed.");
+  const tolerance = dieline.tolerances.topologySnapMm;
+  const records = rawCycles.map((face, index) => ({
+    face,
+    index,
+    probe: interiorProbe(face.points, tolerance),
+  }));
+
+  return records.map(({ face, index, probe }) => {
+    const nestingDepth = records.filter(
+      (candidate) =>
+        candidate.index !== index &&
+        Math.abs(candidate.face.signedAreaMm2) > Math.abs(face.signedAreaMm2) + EPSILON &&
+        pointInPolygon(probe, candidate.face.points, tolerance),
+    ).length;
+    return {
+      id: `cut-cycle-${index + 1}`,
+      edgeIds: [...face.edgeIds],
+      points: [...face.points],
+      areaMm2: Math.abs(face.signedAreaMm2),
+      nestingDepth,
+      role: nestingDepth === 0 ? "outer" : nestingDepth % 2 === 1 ? "hole" : "island",
+    } satisfies CutCycle;
+  });
+}
+
 export function extractStructuralPanels(
   dieline: CanonicalDieline,
   graph: PlanarGraph = buildPlanarGraph(dieline),
 ): readonly StructuralPanel[] {
-  const outerLoops = pathLoops(dieline, ["cut"]);
-  if (outerLoops.length === 0) throw new Error("Structural panel extraction requires at least one closed cut loop.");
-  const windowLoops = pathLoops(dieline, ["window-cut"]);
+  const cycles = extractCutCycles(dieline, graph);
+  const outerCycles = cycles.filter((cycle) => cycle.role === "outer");
+  if (outerCycles.length !== 1) {
+    throw new Error(
+      `One-sheet structural panel extraction requires exactly one outer cut cycle; found ${outerCycles.length}.`,
+    );
+  }
+  const outer = outerCycles[0];
+  const holes = cycles.filter((cycle) => cycle.role === "hole");
   const edgeById = new Map(graph.edges.map((edge) => [edge.id, edge]));
   const tolerance = dieline.tolerances.topologySnapMm;
 
-  const candidateFaces = graph.faces.filter((face) => {
-    const probe = centroid(face.points);
-    const insideOuter = outerLoops.some((loop) => pointInPolygon(probe, loop, tolerance));
-    const insideWindow = windowLoops.some((loop) => pointInPolygon(probe, loop, tolerance));
-    return insideOuter && !insideWindow;
+  const candidateFaces = deduplicateFaces(graph.faces).filter((face) => {
+    const probe = interiorProbe(face.points, tolerance);
+    return (
+      pointInPolygon(probe, outer.points, tolerance) &&
+      !holes.some((hole) => pointInPolygon(probe, hole.points, tolerance))
+    );
   });
 
-  // The directed walk produces the exterior companion cycle as well. Deduplicate
-  // geometrically identical faces using the sorted undirected edge set.
-  const unique = new Map<string, PlanarFace>();
-  for (const face of candidateFaces) {
-    const key = [...face.edgeIds].sort().join("|");
-    const existing = unique.get(key);
-    if (!existing || Math.abs(face.signedAreaMm2) < Math.abs(existing.signedAreaMm2)) unique.set(key, face);
-  }
-
   const panels: StructuralPanel[] = [];
-  for (const face of unique.values()) {
-    const holes = windowLoops.filter((hole) => pointInPolygon(centroid(hole), face.points, tolerance));
+  for (const face of candidateFaces) {
+    const panelProbe = interiorProbe(face.points, tolerance);
+    const ownedHoles = holes.filter((hole) => {
+      const holeProbe = interiorProbe(hole.points, tolerance);
+      return pointInPolygon(holeProbe, face.points, tolerance) || pointInPolygon(panelProbe, hole.points, tolerance);
+    });
     const creaseEdgeIds = face.edgeIds.filter((id) => {
       const operation = edgeById.get(id)?.operation;
-      return operation === "crease" || operation === "score" || operation === "perforation" || operation === "half-cut";
+      return operation ? isCreaseOperation(operation) : false;
     });
     panels.push({
       id: `panel-${panels.length + 1}`,
       faceId: face.id,
       outerBoundary: [...face.points],
-      holes: holes.map((hole) => [...hole]),
+      holes: ownedHoles.map((hole) => [...hole.points]),
       creaseEdgeIds,
       bounds: polygonBounds(face.points),
     });
   }
 
-  if (panels.length === 0) throw new Error("No bounded structural panels were extracted from the canonical dieline.");
+  if (panels.length === 0) {
+    throw new Error("No bounded structural panels were extracted from the canonical dieline.");
+  }
+  for (const hole of holes) {
+    const owners = panels.filter((panel) =>
+      pointInPolygon(interiorProbe(hole.points, tolerance), panel.outerBoundary, tolerance),
+    );
+    if (owners.length !== 1) {
+      throw new Error(`Cut hole ${hole.id} must belong to exactly one structural panel; found ${owners.length}.`);
+    }
+  }
   return panels;
 }
