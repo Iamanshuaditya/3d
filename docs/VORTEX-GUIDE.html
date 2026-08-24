@@ -1,0 +1,1617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vortex Field Manual</title>
+<meta name="description" content="A first-principles guide to the Vortex packaging engine: what every part does, why it exists, and how it fits together.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Palette is the source file's own spot separations.
+   DieCutBlue = cut = an invariant, a hard edge.
+   DieCutRed  = crease = where the thing bends, an estimate.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ground:      #EEF1F5;
+  --sheet:       #FFFFFF;
+  --sheet-sunk:  #F5F7FA;
+  --ink:         #141A21;
+  --ink-soft:    #3D4753;
+  --slate:       #5A6572;
+  --rule:        #D3DAE3;
+  --rule-soft:   #E4E9EF;
+  --cut:         #1D4ED8;
+  --cut-wash:    #EBF0FE;
+  --crease:      #DC2626;
+  --crease-wash: #FDEDEC;
+  --good:        #0F766E;
+  --warn:        #A16207;
+  --shadow:      0 1px 2px rgba(20,26,33,.05), 0 8px 24px -12px rgba(20,26,33,.16);
+
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --pad: clamp(1.15rem, 4vw, 2.5rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #0E1319;
+    --sheet:       #161C24;
+    --sheet-sunk:  #1B2029;
+    --ink:         #E6EBF2;
+    --ink-soft:    #B7C1CE;
+    --slate:       #8A96A6;
+    --rule:        #2A323D;
+    --rule-soft:   #222932;
+    --cut:         #7BA3FF;
+    --cut-wash:    #16233D;
+    --crease:      #FF8A7E;
+    --crease-wash: #37201E;
+    --good:        #4DBFA9;
+    --warn:        #D6A94A;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #0E1319;
+  --sheet:       #161C24;
+  --sheet-sunk:  #1B2029;
+  --ink:         #E6EBF2;
+  --ink-soft:    #B7C1CE;
+  --slate:       #8A96A6;
+  --rule:        #2A323D;
+  --rule-soft:   #222932;
+  --cut:         #7BA3FF;
+  --cut-wash:    #16233D;
+  --crease:      #FF8A7E;
+  --crease-wash: #37201E;
+  --good:        #4DBFA9;
+  --warn:        #D6A94A;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 10px 28px -14px rgba(0,0,0,.7);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 2rem; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Shell ─────────────────────────────────────────────────── */
+.shell { display: grid; grid-template-columns: 1fr; }
+@media (min-width: 1080px) {
+  .shell { grid-template-columns: 268px minmax(0,1fr); align-items: start; }
+}
+
+/* ── Drawing register (index) ──────────────────────────────── */
+.register {
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet);
+  padding: var(--pad);
+}
+@media (min-width: 1080px) {
+  .register {
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    border-bottom: 0; border-right: 1px solid var(--rule);
+  }
+}
+.register__mark {
+  font-family: var(--mono); font-size: .68rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--slate); margin: 0 0 .35rem;
+}
+.register__name {
+  font-family: var(--display); font-weight: 700; font-size: 1.35rem;
+  letter-spacing: -.015em; margin: 0 0 1.4rem; color: var(--ink);
+}
+.register nav ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; }
+.register nav a {
+  display: grid; grid-template-columns: 2.3rem 1fr; gap: .5rem;
+  padding: .34rem .4rem; border-radius: 3px; text-decoration: none;
+  color: var(--ink-soft); font-family: var(--display); font-size: .845rem;
+  font-weight: 500; line-height: 1.35;
+}
+.register nav a span { font-family: var(--mono); font-size: .72rem; color: var(--slate); font-weight: 400; }
+.register nav a:hover { background: var(--cut-wash); color: var(--cut); }
+.register nav a:hover span { color: var(--cut); }
+.register nav a:focus-visible { outline: 2px solid var(--cut); outline-offset: 1px; }
+
+/* ── Content column ────────────────────────────────────────── */
+main { padding: 0 var(--pad) 6rem; min-width: 0; }
+.col { max-width: var(--measure); margin-inline: auto; }
+.wide { max-width: 100ch; margin-inline: auto; }
+
+/* ── Masthead ──────────────────────────────────────────────── */
+.masthead { padding: clamp(2.5rem,7vw,5rem) 0 2.5rem; border-bottom: 2px solid var(--ink); margin-bottom: 2.5rem; }
+.masthead h1 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(2.4rem, 7vw, 4.1rem); line-height: 1.02;
+  letter-spacing: -.035em; margin: .6rem 0 .9rem; text-wrap: balance;
+}
+.masthead .lede { font-size: clamp(1.05rem,2.4vw,1.24rem); color: var(--ink-soft); margin: 0 0 1.8rem; max-width: 62ch; }
+.eyebrow {
+  font-family: var(--mono); font-size: .7rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--cut); margin: 0;
+}
+
+/* ── Figures strip ─────────────────────────────────────────── */
+/* Five figures: sized so they hold one row on the measured column, and the
+   container carries the sheet colour so a wrapped orphan leaves no grey block. */
+.figures { display: grid; grid-template-columns: repeat(auto-fit,minmax(104px,1fr)); gap: 1px; background: var(--sheet); border: 1px solid var(--rule); }
+.figures div + div { box-shadow: -1px 0 0 var(--rule); }
+.figures div { background: var(--sheet); padding: .85rem .95rem; }
+.figures dt { font-family: var(--mono); font-size: .66rem; letter-spacing: .13em; text-transform: uppercase; color: var(--slate); margin: 0 0 .3rem; }
+.figures dd { margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.3rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+
+/* ── Sections ──────────────────────────────────────────────── */
+section { padding: 3.2rem 0 0; }
+section > .col > h2, section > .wide > h2 {
+  font-family: var(--display); font-weight: 700;
+  font-size: clamp(1.5rem,3.6vw,2.05rem); letter-spacing: -.025em;
+  line-height: 1.15; margin: .5rem 0 1rem; text-wrap: balance;
+}
+h3 {
+  font-family: var(--display); font-weight: 600; font-size: 1.12rem;
+  letter-spacing: -.012em; margin: 2.1rem 0 .6rem; text-wrap: balance;
+}
+h4 { font-family: var(--display); font-weight: 600; font-size: .96rem; margin: 1.5rem 0 .4rem; }
+p { margin: 0 0 1.05rem; }
+a { color: var(--cut); }
+.sec-mark { font-family: var(--mono); font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: var(--slate); display: block; }
+hr.sheet-edge { border: 0; border-top: 1px solid var(--rule); margin: 3.4rem 0 0; }
+
+/* ── The cut / crease device ───────────────────────────────── */
+/* Solid blue = a cut = an invariant that must not be violated.  */
+/* Dashed red = a crease = where the design bends: an estimate.  */
+.cut-rule, .crease-rule {
+  padding: 1rem 1.15rem; margin: 1.5rem 0; border-radius: 0 3px 3px 0;
+  font-size: .95rem;
+}
+.cut-rule { border-left: 3px solid var(--cut); background: var(--cut-wash); }
+.crease-rule { border-left: 3px dashed var(--crease); background: var(--crease-wash); }
+.cut-rule > :last-child, .crease-rule > :last-child { margin-bottom: 0; }
+.cut-rule b, .crease-rule b { font-family: var(--display); font-weight: 600; }
+.cut-rule b { color: var(--cut); }
+.crease-rule b { color: var(--crease); }
+
+/* ── Plain-language lead ───────────────────────────────────── */
+.plain {
+  font-size: 1.03rem; color: var(--ink-soft);
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+  padding: 1.1rem 0; margin: 0 0 1.6rem;
+}
+.plain::before {
+  content: "In plain terms"; display: block; font-family: var(--mono);
+  font-size: .66rem; letter-spacing: .17em; text-transform: uppercase;
+  color: var(--slate); margin-bottom: .5rem;
+}
+.plain p:last-child { margin-bottom: 0; }
+
+/* ── Code & dimensions ─────────────────────────────────────── */
+code { font-family: var(--mono); font-size: .87em; background: var(--sheet-sunk); padding: .12em .38em; border-radius: 3px; border: 1px solid var(--rule-soft); }
+pre {
+  font-family: var(--mono); font-size: .8rem; line-height: 1.62;
+  background: var(--sheet); color: var(--ink); border: 1px solid var(--rule);
+  border-left: 3px solid var(--cut); padding: 1rem 1.15rem;
+  overflow-x: auto; margin: 1.3rem 0; border-radius: 0 3px 3px 0;
+}
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.dim { font-family: var(--mono); font-size: .84em; color: var(--cut); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── Tables ────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin: 1.4rem 0; border: 1px solid var(--rule); background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: .875rem; min-width: 480px; }
+th, td { text-align: left; padding: .62rem .85rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+thead th {
+  font-family: var(--mono); font-size: .66rem; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--slate); background: var(--sheet-sunk);
+  border-bottom: 1px solid var(--rule); font-weight: 500; white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: 0; }
+td code { font-size: .82em; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ── Status chips ──────────────────────────────────────────── */
+.chip {
+  display: inline-block; font-family: var(--mono); font-size: .66rem;
+  letter-spacing: .07em; text-transform: uppercase; padding: .16rem .48rem;
+  border-radius: 2px; border: 1px solid currentColor; white-space: nowrap;
+}
+.chip--ok { color: var(--good); }
+.chip--warn { color: var(--warn); }
+.chip--block { color: var(--crease); }
+
+/* ── Lists ─────────────────────────────────────────────────── */
+ul, ol { margin: 0 0 1.05rem; padding-left: 1.3rem; }
+li { margin-bottom: .42rem; }
+li::marker { color: var(--slate); }
+dl.defs { margin: 1.2rem 0; display: grid; gap: 0; }
+dl.defs > div { padding: .8rem 0; border-top: 1px solid var(--rule-soft); display: grid; gap: .2rem; }
+dl.defs dt { font-family: var(--display); font-weight: 600; font-size: .95rem; }
+dl.defs dd { margin: 0; color: var(--ink-soft); font-size: .95rem; }
+
+/* ── Numbered pipeline (a real sequence) ───────────────────── */
+.stage { display: grid; grid-template-columns: 3rem 1fr; gap: 1.1rem; padding: 1.35rem 0; border-top: 1px solid var(--rule); }
+.stage:last-of-type { border-bottom: 1px solid var(--rule); }
+.stage__n { font-family: var(--mono); font-size: .95rem; font-weight: 600; color: var(--cut); padding-top: .12rem; font-variant-numeric: tabular-nums; }
+.stage h4 { margin: 0 0 .35rem; font-size: 1.02rem; }
+.stage p { margin: 0 0 .5rem; font-size: .96rem; }
+.stage p:last-child { margin-bottom: 0; }
+.stage .file { font-family: var(--mono); font-size: .74rem; color: var(--slate); }
+
+/* ── Diagram plates ────────────────────────────────────────── */
+.plate { margin: 2rem 0; border: 1px solid var(--rule); background: var(--sheet); box-shadow: var(--shadow); }
+.plate__body { padding: 1.4rem 1.2rem; overflow-x: auto; }
+.plate svg { display: block; margin-inline: auto; max-width: 100%; height: auto; }
+.plate__cap {
+  border-top: 1px solid var(--rule); padding: .7rem 1.2rem;
+  font-family: var(--mono); font-size: .7rem; color: var(--slate);
+  letter-spacing: .04em;
+}
+.svg-ink { fill: var(--ink); }
+.svg-label { font-family: "IBM Plex Mono", monospace; font-size: 10px; fill: var(--slate); }
+.svg-title { font-family: "Archivo", sans-serif; font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+
+footer { border-top: 2px solid var(--ink); margin-top: 4rem; padding: 1.8rem 0 0; font-size: .85rem; color: var(--slate); font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<aside class="register">
+  <p class="register__mark">Field manual</p>
+  <p class="register__name">Vortex</p>
+  <nav aria-label="Contents">
+    <ol>
+      <li><a href="#idea"><span>00</span>The one idea</a></li>
+      <li><a href="#problem"><span>01</span>What it solves</a></li>
+      <li><a href="#dieline"><span>02</span>What a dieline is</a></li>
+      <li><a href="#pipeline"><span>03</span>The pipeline</a></li>
+      <li><a href="#engines"><span>04</span>The engines</a></li>
+      <li><a href="#structural"><span>05</span>Structural engine</a></li>
+      <li><a href="#folding"><span>06</span>Folding runtime</a></li>
+      <li><a href="#artwork"><span>07</span>Artwork &amp; chirality</a></li>
+      <li><a href="#print"><span>08</span>Print engine</a></li>
+      <li><a href="#embroidery"><span>09</span>Embroidery engine</a></li>
+      <li><a href="#platform"><span>10</span>The platform</a></li>
+      <li><a href="#onboarding"><span>11</span>Onboarding</a></li>
+      <li><a href="#golden"><span>12</span>Golden reference</a></li>
+      <li><a href="#map"><span>13</span>Repo map</a></li>
+      <li><a href="#commands"><span>14</span>Commands</a></li>
+      <li><a href="#quality"><span>15</span>Quality system</a></li>
+      <li><a href="#limits"><span>16</span>Known limits</a></li>
+      <li><a href="#glossary"><span>17</span>Glossary</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main>
+
+<header class="masthead">
+  <div class="col">
+    <p class="eyebrow">Packaging engine &middot; field manual</p>
+    <h1>How Vortex turns a flat sheet into a folding box</h1>
+    <p class="lede">
+      A first-principles guide to every engine, core and moving part in this
+      repository — written twice over, once for someone who has never opened
+      the code and once for someone about to change it.
+    </p>
+    <dl class="figures">
+      <div><dt>App code</dt><dd class="num">~38k</dd></div>
+      <div><dt>Tests</dt><dd class="num">307</dd></div>
+      <div><dt>API routes</dt><dd class="num">47</dd></div>
+      <div><dt>Panels</dt><dd class="num">17</dd></div>
+      <div><dt>Hinges</dt><dd class="num">16</dd></div>
+    </dl>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="idea">
+  <div class="col">
+    <span class="sec-mark">00 — Start here</span>
+    <h2>There is only one idea in this codebase</h2>
+
+    <div class="plain">
+      <p>
+        A cardboard box starts life as one flat sheet of board with cut lines
+        and fold lines printed on it. That flat sheet is called a
+        <b>dieline</b>. Everything Vortex does comes from a single stubborn
+        rule: <b>the dieline is the truth, and nothing is allowed to disagree
+        with it.</b>
+      </p>
+    </div>
+
+    <p>
+      Most 3D product configurators cheat. Someone draws a flat dieline for the
+      printer, and separately someone models a nice-looking box in 3D software.
+      Two files, two sources of truth. They drift. The 3D preview shows a box
+      that is 2&nbsp;mm taller than the one the factory will actually make, or
+      the artwork lands 5&nbsp;mm off the fold, and nobody notices until a
+      pallet of misprinted cartons arrives.
+    </p>
+
+    <p>
+      Vortex refuses to have two files. The production dieline is imported once
+      and becomes <em>the</em> geometric authority. The 2D editor draws on it.
+      The 3D model is built from it. The folding motion pivots on its actual
+      crease lines. The print-ready PDF is generated from it. There is no second
+      shape anywhere in the system that could drift.
+    </p>
+
+    <div class="cut-rule">
+      <p><b>The north-star invariant.</b> Stated in the repo as a literal
+      equation, and enforced by automated gates:</p>
+      <pre><code>fully flattened 3D structural geometry == canonical production dieline</code></pre>
+      <p style="margin-top:.7rem">
+        Unfold the 3D box completely and you must get back the exact sheet you
+        imported — not approximately, but to measured tolerance. On the
+        reference carton the boundary difference is
+        <span class="dim">4.5 &times; 10⁻¹³ mm</span>.
+      </p>
+    </div>
+
+    <p>
+      Hold onto that one sentence and the rest of this document is just
+      detail. Every engine below exists either to <em>establish</em> that
+      invariant, to <em>exploit</em> it, or to <em>prove</em> it still holds.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="problem">
+  <div class="col">
+    <span class="sec-mark">01 — Motivation</span>
+    <h2>What this actually solves</h2>
+
+    <div class="plain">
+      <p>
+        A customer wants to put their logo on a box and see what it will look
+        like before paying for ten thousand of them. That sounds simple. It is
+        not, because the box is a physical object with real dimensions and the
+        printer needs a file that is correct to a fraction of a millimetre.
+      </p>
+    </div>
+
+    <p>There are four hard problems stacked on top of each other:</p>
+
+    <dl class="defs">
+      <div>
+        <dt>Reading the factory's file</dt>
+        <dd>Real dielines arrive as PDF, SVG or DXF drawn by CAD software.
+        Cut lines and fold lines are distinguished only by <em>spot colour
+        names</em> — in the reference file, <code>DieCutBlue</code> means cut
+        and <code>DieCutRed</code> means crease. Nothing labels them
+        semantically. You have to know the convention and read it exactly.</dd>
+      </div>
+      <div>
+        <dt>Understanding the shape</dt>
+        <dd>A pile of line segments is not a box. Something has to work out
+        that these particular lines enclose 17 separate panels, that this
+        8-sided hole is a window, and that these 16 crease chains are the
+        hinges those panels rotate around.</dd>
+      </div>
+      <div>
+        <dt>Folding it correctly</dt>
+        <dd>Which panel is the floor? Which way does each flap fold? A carton
+        that folds the wrong way is not a carton. Some of this is provable from
+        geometry; some of it genuinely is not, and the system has to be honest
+        about which is which.</dd>
+      </div>
+      <div>
+        <dt>Printing it correctly</dt>
+        <dd>The final file needs real bleed, real resolution, a colour profile
+        the press understands, and technical layers the die-cutter reads. A
+        screenshot of a 3D model is worthless here.</dd>
+      </div>
+    </dl>
+
+    <div class="crease-rule">
+      <p><b>Where it bends.</b> The third problem is the one that cannot be
+      fully solved from a drawing. A flat sheet does not record its own board
+      thickness, which flap tucks into which, or where the glue goes. Vortex's
+      answer is not to guess — it is to <em>refuse</em> to guess, label every
+      estimate as an estimate, and keep manufacturing certification as a
+      separate gate that only a real converter can sign off.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="dieline">
+  <div class="wide">
+    <span class="sec-mark">02 — First principles</span>
+    <h2>What a dieline is, precisely</h2>
+  </div>
+  <div class="col">
+    <div class="plain">
+      <p>
+        Take a cereal box and carefully pull it apart at the glue. Flatten it.
+        What you are holding is a dieline: one continuous piece of board, with
+        knife cuts around the outside and pressed grooves where it folds.
+      </p>
+    </div>
+
+    <p>
+      In file form, a dieline is a set of vector paths carrying two meanings:
+    </p>
+
+    <ul>
+      <li><b>Cut</b> — the knife goes all the way through. The outer boundary
+      of the sheet, plus any holes such as a display window.</li>
+      <li><b>Crease</b> — a blunt rule presses a groove so the board folds
+      cleanly without cracking. It does not cut through.</li>
+    </ul>
+
+    <p>
+      The reference carton this repository is built around is a
+      <em>lock-bottom carton with a window</em>, nominally
+      <span class="dim">300 &times; 150 &times; 200 mm</span>. Its flat sheet
+      measures <span class="dim">742.4 &times; 500.003 mm</span> and decomposes
+      into 17 panels joined by 16 crease chains.
+    </p>
+  </div>
+
+  <div class="wide">
+    <div class="plate">
+      <div class="plate__body">
+        <svg viewBox="0 0 720 300" role="img" aria-label="Schematic of the reference dieline: a central body band of five panels with flaps above and below, and a window in one broad panel.">
+          <!-- north flaps -->
+          <g fill="none" stroke="var(--cut)" stroke-width="1.6">
+            <path d="M60 30 h110 v58 h-110 Z"/>
+            <path d="M170 30 h120 v58 h-120 Z"/>
+            <path d="M290 30 h150 v58 h-150 Z"/>
+            <path d="M440 30 h120 v58 h-120 Z"/>
+          </g>
+          <!-- body band -->
+          <g fill="none" stroke="var(--cut)" stroke-width="2.2">
+            <path d="M30 88 h530 v124 h-530 Z"/>
+          </g>
+          <!-- body creases (vertical) -->
+          <g fill="none" stroke="var(--crease)" stroke-width="1.4" stroke-dasharray="7 5">
+            <path d="M60 88 v124"/><path d="M170 88 v124"/>
+            <path d="M290 88 v124"/><path d="M440 88 v124"/>
+          </g>
+          <!-- horizontal creases -->
+          <g fill="none" stroke="var(--crease)" stroke-width="1.4" stroke-dasharray="7 5">
+            <path d="M60 88 h500"/><path d="M60 212 h500"/>
+          </g>
+          <!-- south flaps -->
+          <g fill="none" stroke="var(--cut)" stroke-width="1.6">
+            <path d="M60 212 h110 v58 h-110 Z"/>
+            <path d="M170 212 h120 v58 h-120 Z"/>
+            <path d="M290 212 h150 v58 h-150 Z"/>
+            <path d="M440 212 h120 v58 h-120 Z"/>
+          </g>
+          <!-- window -->
+          <rect x="322" y="112" width="86" height="76" rx="8" fill="none" stroke="var(--cut)" stroke-width="2.2"/>
+          <text class="svg-label" x="365" y="155" text-anchor="middle">window</text>
+          <!-- labels -->
+          <text class="svg-label" x="45"  y="155" text-anchor="middle">seam</text>
+          <text class="svg-label" x="115" y="155" text-anchor="middle">broad</text>
+          <text class="svg-label" x="230" y="155" text-anchor="middle">narrow</text>
+          <text class="svg-label" x="500" y="155" text-anchor="middle">narrow</text>
+          <text class="svg-label" x="300" y="20"  text-anchor="middle">north flaps</text>
+          <text class="svg-label" x="300" y="288" text-anchor="middle">south flaps</text>
+          <text class="svg-title" x="600" y="120">— cut</text>
+          <path d="M560 116 h32" stroke="var(--cut)" stroke-width="2.2" fill="none"/>
+          <text class="svg-title" x="600" y="146">— crease</text>
+          <path d="M560 142 h32" stroke="var(--crease)" stroke-width="1.6" stroke-dasharray="7 5" fill="none"/>
+        </svg>
+      </div>
+      <p class="plate__cap">
+        Schematic only — proportions simplified. The real sheet has chamfered
+        flap corners and an 8-edge window. Solid = cut, dashed = crease.
+      </p>
+    </div>
+  </div>
+
+  <div class="col">
+    <h3>Why the middle row matters</h3>
+    <p>
+      The five panels across the middle are the <b>body band</b>. Fold them at
+      the four vertical creases and they close into a rectangular tube — the
+      walls of the box. The narrow panel at the far left is the <b>seam</b>,
+      the flap that glues to the opposite wall to hold the tube shut. The flaps
+      above and below become the top and the lock-bottom.
+    </p>
+    <p>
+      Two of the body panels are <em>broad</em> <span class="dim">200 mm</span>
+      and two are <em>narrow</em> <span class="dim">150 mm</span>, giving a
+      <span class="dim">200 &times; 150 mm</span> cross-section, and the band is
+      <span class="dim">300 mm</span> tall. That is exactly the product's
+      nominal <span class="dim">300 &times; 150 &times; 200 mm</span> — and the
+      engine verifies the assembled model closes to those numbers rather than
+      trusting the filename.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="pipeline">
+  <div class="col">
+    <span class="sec-mark">03 — The sequence</span>
+    <h2>From file to folding box, in seven stages</h2>
+
+    <div class="plain">
+      <p>
+        This is the one part of the system that genuinely is a sequence: each
+        stage can only run because the one before it succeeded. Everything else
+        in this manual is reference material you can read in any order.
+      </p>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">01</div>
+      <div>
+        <h4>Import — read the file exactly</h4>
+        <p>A PDF, SVG or DXF is parsed into a <b>canonical dieline</b>: paths in
+        real millimetres, each tagged cut or crease by its spot-colour name,
+        each keeping a record of exactly which source entity it came from.</p>
+        <p class="file">src/lib/structure/import-pdf-raw.ts &middot; import-svg.ts &middot; import-dxf.ts</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">02</div>
+      <div>
+        <h4>Topology — turn lines into a graph</h4>
+        <p>Line segments become a planar graph of vertices and edges.
+        Endpoints that nearly meet are snapped — but only within a hard
+        <span class="dim">0.02 mm</span> budget, and every repair is recorded.
+        On the reference file exactly four repairs occur, the largest
+        <span class="dim">0.0147 mm</span>.</p>
+        <p class="file">src/lib/structure/topology.ts</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">03</div>
+      <div>
+        <h4>Panels — find the enclosed faces</h4>
+        <p>Walking that graph finds the closed regions: 17 panels, one of which
+        owns an 8-edge window as a genuine hole rather than a painted-on
+        rectangle.</p>
+        <p class="file">src/lib/structure/topology.ts &rarr; extractStructuralPanels</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">04</div>
+      <div>
+        <h4>Meshes — give the panels thickness</h4>
+        <p>Each panel is triangulated into a solid slab with a printed outer
+        face, an unprinted inner face and a visible board edge, still expressed
+        in sheet millimetres. Holes stay holes.</p>
+        <p class="file">src/lib/structure/structural-mesh.ts</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">05</div>
+      <div>
+        <h4>Rig — build the hinge hierarchy</h4>
+        <p>One panel is chosen as the root. Every other panel is attached to a
+        parent through a hinge whose axis <em>is</em> a real source crease line.
+        The result is a tree: 17 panels, 16 hinges, no cycles, everything
+        reachable.</p>
+        <p class="file">src/lib/structure/structural-rig.ts &middot; structural-tree.ts</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">06</div>
+      <div>
+        <h4>Fold — drive it with absolute angles</h4>
+        <p>Folding writes an absolute target angle onto every hinge. Zero
+        degrees is an exact identity matrix, so the flat pose restores the
+        original sheet coordinates perfectly, however many times you fold.</p>
+        <p class="file">src/lib/configurator/unfold-plan.ts &middot; hinge-animation.ts</p>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="stage__n">07</div>
+      <div>
+        <h4>Output — print and manufacture</h4>
+        <p>The same canonical geometry produces the production PDF and the
+        manufacturing SVG, with the cut and crease linework as real technical
+        separations.</p>
+        <p class="file">src/lib/print/ &middot; src/server/production/</p>
+      </div>
+    </div>
+
+    <div class="cut-rule" style="margin-top:1.8rem">
+      <p><b>Fail closed.</b> Every stage refuses to continue on bad input rather
+      than producing a plausible-looking wrong answer. An unclassified stroke,
+      a non-manifold boundary or a hinge that does not resolve to a real source
+      crease is an error, not a warning.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="engines">
+  <div class="wide">
+    <span class="sec-mark">04 — Overview</span>
+    <h2>The engines, and what each one owns</h2>
+  </div>
+  <div class="col">
+    <div class="plain">
+      <p>
+        "Engine" here means a self-contained body of logic with one
+        responsibility and a clear boundary. Six of them, plus a platform that
+        stores and serves everything.
+      </p>
+    </div>
+  </div>
+  <div class="wide">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Engine</th><th>Lives in</th><th>Size</th><th>Owns</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Structural</b></td>
+            <td><code>src/lib/structure</code></td>
+            <td class="num">~10.4k</td>
+            <td>Vector domain, import, topology, panels, meshes, hinge rig, and every geometric quality gate. The heart of the system.</td>
+          </tr>
+          <tr>
+            <td><b>Configurator</b></td>
+            <td><code>src/lib/configurator</code></td>
+            <td class="num">~5.9k</td>
+            <td>Product definitions, the fold plan and its timing, the legacy carton builder, pouch geometry, and the editor state machine.</td>
+          </tr>
+          <tr>
+            <td><b>Print</b></td>
+            <td><code>src/lib/print</code></td>
+            <td class="num">~1.5k</td>
+            <td>Printer profiles, preflight checks, artwork rasterisation, PDF/X-4 and manufacturing SVG export.</td>
+          </tr>
+          <tr>
+            <td><b>Embroidery</b></td>
+            <td><code>src/lib/embroidery</code></td>
+            <td class="num">~1.7k</td>
+            <td>Turns an uploaded image into simulated stitches and the normal/roughness maps that make fabric look stitched.</td>
+          </tr>
+          <tr>
+            <td><b>Platform</b></td>
+            <td><code>src/server</code> + <code>src/platform</code></td>
+            <td class="num">~10.3k</td>
+            <td>Identity, projects, immutable versioning, storage, templates, bulk personalisation, pricing, production, operators.</td>
+          </tr>
+          <tr>
+            <td><b>Onboarding</b></td>
+            <td><code>product-onboarding</code></td>
+            <td class="num">Python</td>
+            <td>Converts an arbitrary 3D model (GLB) into a customisable product with named regions and UVs.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="col">
+    <h3>How they layer</h3>
+    <p>
+      Dependencies run one way. The structural engine knows nothing about
+      React, the database or products — it is pure geometry. The configurator
+      depends on structure. The UI depends on the configurator. The platform
+      depends on none of them for its own correctness.
+    </p>
+    <div class="cut-rule">
+      <p><b>Import direction is a rule, not a habit.</b>
+      <code>src/lib/structure</code> must never import from
+      <code>src/lib/configurator</code>. The reverse is fine. This keeps the
+      geometry engine testable in isolation and prevents a dependency cycle —
+      it is why the shared fold-capture module lives on the configurator side.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="structural">
+  <div class="wide">
+    <span class="sec-mark">05 — Core</span>
+    <h2>The structural engine, layer by layer</h2>
+  </div>
+  <div class="col">
+    <div class="plain">
+      <p>
+        This is the part that reads the factory's drawing and works out what
+        shape it describes. If you only read one section, read this one — 28
+        files and roughly ten thousand lines, all of it in service of not
+        guessing.
+      </p>
+    </div>
+
+    <h3>The vector domain</h3>
+    <p>
+      Everything starts with a shared vocabulary. A <code>CanonicalDieline</code>
+      is millimetres, <code>x-right-y-down</code>, with a source record and an
+      explicit tolerance set. Nothing downstream is allowed to invent its own
+      units or its own idea of "close enough".
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tolerance</th><th>Value</th><th>Governs</th></tr></thead>
+        <tbody>
+          <tr><td><code>coordinateEpsilonMm</code></td><td class="num">1e-9</td><td>Floating-point equality only — never geometric repair</td></tr>
+          <tr><td><code>topologySnapMm</code></td><td class="num">0.01</td><td>Maximum endpoint repair distance</td></tr>
+          <tr><td><code>curveFlatteningMm</code></td><td class="num">0.05</td><td>Curve-to-polyline chord deviation</td></tr>
+          <tr><td><code>boundaryComparisonMm</code></td><td class="num">0.05</td><td>Accepted source-vs-derived boundary deviation</td></tr>
+          <tr><td><code>metricSampleSpacingMm</code></td><td class="num">0.05</td><td>Spacing between measurement samples</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Import: three formats, one rule</h3>
+    <p>
+      SVG, DXF and PDF each get a dedicated importer — and the PDF path has two
+      variants. The ordinary one reads a normal vector PDF. The
+      <em>raw authority</em> one reads the page's content stream directly to
+      recover named spot-colour separations, because that is the only place the
+      cut/crease distinction actually lives.
+    </p>
+    <p>
+      On the reference file the importer sees <code>DieCutBlue</code> painted 78
+      times (cut), <code>DieCutRed</code> 24 times (crease), and
+      <code>DieCutGreen</code> once — a presentation band that is explicitly
+      ignored rather than silently treated as geometry.
+    </p>
+
+    <div class="cut-rule">
+      <p><b>No inference.</b> A stroke with no explicit structural
+      classification is an error. The importer will not decide that a thin blue
+      line is "probably" a cut. If the file does not say, the import fails.</p>
+    </div>
+
+    <h3>Topology: from soup to structure</h3>
+    <p>
+      CAD files are rarely perfectly closed. Lines that should meet miss by
+      microns. <code>topology.ts</code> splits paths at intersections, welds
+      near-coincident endpoints, and builds a planar graph — then walks it to
+      find enclosed faces.
+    </p>
+    <p>
+      The repair budget is deliberately tiny and fully audited. The reference
+      profile records exactly four endpoint-to-span repairs with a maximum of
+      <span class="dim">0.0147 mm</span>, and the manifest carries an explicit
+      warning that roughly <span class="dim">0.3 mm</span> source details are
+      real evidence and must not be smoothed away.
+    </p>
+
+    <h3>Meshes and the three faces</h3>
+    <p>
+      Each panel becomes a slab. The geometry carries three material groups in
+      a fixed order, and that order is load-bearing — group 0 is what the
+      customer's artwork lands on:
+    </p>
+    <pre><code>group 0  printed outside   (top face,   normal +Y)
+group 1  inner board       (bottom face, normal -Y)
+group 2  exposed cut edge  (the board's visible thickness)</code></pre>
+
+    <h3>The rig: a tree, not a pile</h3>
+    <p>
+      A folding carton is a kinematic tree. One root panel stays put; every
+      other panel hangs off a parent through exactly one hinge. The rig
+      validates this hard: 16 hinges for 17 panels, no panel with two parents,
+      no cycles, every panel reachable from the root, and every hinge resolving
+      to real source crease addresses.
+    </p>
+  </div>
+
+  <div class="wide">
+    <div class="plate">
+      <div class="plate__body">
+        <svg viewBox="0 0 680 250" role="img" aria-label="Hinge tree. The root panel-2 links left to the seam panel-1 and right along the body chain through panel-4, panel-9 and panel-12. Each body panel carries a north and south flap, and four of those flaps carry a diagonal lock sub-flap.">
+          <defs>
+            <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3.5" orient="auto">
+              <path d="M0 0 L7 3.5 L0 7 z" fill="var(--slate)"/>
+            </marker>
+          </defs>
+
+          <!-- body chain: solid = geometry-proven -->
+          <g stroke="var(--cut)" stroke-width="1.5" fill="none" marker-end="url(#ar)">
+            <path d="M158 54 H128"/>
+            <path d="M262 54 H292"/>
+            <path d="M392 54 H422"/>
+            <path d="M522 54 H552"/>
+          </g>
+          <!-- flap links: dashed = reviewed input -->
+          <g stroke="var(--crease)" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#ar)">
+            <path d="M210 68 V124"/>
+            <path d="M340 68 V124"/>
+            <path d="M470 68 V124"/>
+            <path d="M600 68 V124"/>
+          </g>
+
+          <!-- chain nodes -->
+          <rect x="34" y="40" width="92" height="28" rx="3" fill="var(--sheet-sunk)" stroke="var(--rule)"/>
+          <text class="svg-label" x="80" y="58" text-anchor="middle">panel-1 seam</text>
+
+          <rect x="158" y="38" width="104" height="32" rx="3" fill="var(--cut-wash)" stroke="var(--cut)" stroke-width="1.8"/>
+          <text class="svg-title" x="210" y="58" text-anchor="middle">panel-2 root</text>
+
+          <rect x="294" y="40" width="92" height="28" rx="3" fill="var(--sheet-sunk)" stroke="var(--rule)"/>
+          <text class="svg-label" x="340" y="58" text-anchor="middle">panel-4</text>
+
+          <rect x="424" y="40" width="92" height="28" rx="3" fill="var(--sheet-sunk)" stroke="var(--rule)"/>
+          <text class="svg-label" x="470" y="58" text-anchor="middle">panel-9 ▣</text>
+
+          <rect x="554" y="40" width="92" height="28" rx="3" fill="var(--sheet-sunk)" stroke="var(--rule)"/>
+          <text class="svg-label" x="600" y="58" text-anchor="middle">panel-12</text>
+
+          <!-- flap groups -->
+          <g fill="none" stroke="var(--crease)" stroke-dasharray="4 3">
+            <rect x="164" y="124" width="92" height="26" rx="3"/>
+            <rect x="294" y="124" width="92" height="26" rx="3"/>
+            <rect x="424" y="124" width="92" height="26" rx="3"/>
+            <rect x="554" y="124" width="92" height="26" rx="3"/>
+          </g>
+          <g class="svg-label" text-anchor="middle">
+            <text x="210" y="141">N + S flaps</text>
+            <text x="340" y="141">N + S flaps</text>
+            <text x="470" y="141">N + S flaps</text>
+            <text x="600" y="141">N + S flaps</text>
+          </g>
+
+          <!-- diagonal sub-flaps -->
+          <g stroke="var(--crease)" stroke-width="1.3" fill="none" stroke-dasharray="4 3" marker-end="url(#ar)">
+            <path d="M210 150 V176"/>
+            <path d="M470 150 V176"/>
+          </g>
+          <g fill="none" stroke="var(--crease)" stroke-dasharray="4 3">
+            <rect x="152" y="176" width="116" height="24" rx="3"/>
+            <rect x="412" y="176" width="116" height="24" rx="3"/>
+          </g>
+          <text class="svg-label" x="210" y="192" text-anchor="middle">2 diagonal locks</text>
+          <text class="svg-label" x="470" y="192" text-anchor="middle">2 diagonal locks</text>
+
+          <!-- legend: its own row, clear of the diagonal-lock boxes above -->
+          <path d="M34 216 h26" stroke="var(--cut)" stroke-width="1.5" fill="none"/>
+          <text class="svg-label" x="68" y="220">body chain — geometry-proven</text>
+          <path d="M262 216 h26" stroke="var(--crease)" stroke-width="1.3" stroke-dasharray="4 3" fill="none"/>
+          <text class="svg-label" x="296" y="220">flap — reviewed input required</text>
+          <text class="svg-label" x="34" y="240">▣ owns the window hole · 17 panels · 4 body + 12 flap hinges · 1 root</text>
+        </svg>
+      </div>
+      <p class="plate__cap">
+        The certified hinge hierarchy. Twelve flap hinges hang off the four body
+        panels; the body chain itself is geometry-proven.
+      </p>
+    </div>
+  </div>
+
+  <div class="col">
+    <h3>The quality gates</h3>
+    <p>
+      <code>structural-acceptance.ts</code> runs twelve source-locked gates
+      against the real file. All twelve must pass or the pipeline stops:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Gate</th><th>Checks</th></tr></thead>
+        <tbody>
+          <tr><td><code>sourceSha256</code></td><td>The file is byte-identical to the approved reference</td></tr>
+          <tr><td><code>outerEnvelope</code></td><td>Sheet size matches the recorded envelope</td></tr>
+          <tr><td><code>outerEdgeCount</code></td><td>The outer cut has exactly 70 source segments</td></tr>
+          <tr><td><code>windowEdgeCount</code></td><td>The window has exactly 8 edges</td></tr>
+          <tr><td><code>creaseSourceSegmentCount</code></td><td>24 crease segments present</td></tr>
+          <tr><td><code>creaseChainCount</code></td><td>Those resolve to 16 connected chains</td></tr>
+          <tr><td><code>windowArea</code> / <code>windowPerimeter</code></td><td>Window measurements match the source</td></tr>
+          <tr><td><code>windowOwnership</code></td><td>Exactly one panel owns the hole</td></tr>
+          <tr><td><code>flatBoundary</code></td><td>Panel union reproduces the source outline</td></tr>
+          <tr><td><code>flatHoleGeometry</code></td><td>Holes reproduce the source holes</td></tr>
+          <tr><td><code>uvRoundTrip</code></td><td>Texture coordinates invert back to sheet position</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="folding">
+  <div class="col">
+    <span class="sec-mark">06 — Motion</span>
+    <h2>How the box actually folds</h2>
+
+    <div class="plain">
+      <p>
+        Animating a folding box is deceptively hard. The naive approach — nudge
+        each hinge a bit every frame — drifts. Fold and unfold a hundred times
+        and the box no longer closes. Vortex solves this by never using
+        relative motion at all.
+      </p>
+    </div>
+
+    <h3>Absolute angles, always</h3>
+    <p>
+      Every hinge has an <em>absolute</em> target angle. The runtime writes
+      that angle onto the hinge matrix directly. It never adds a delta to the
+      current rotation. Zero degrees writes an exact identity matrix, so the
+      flat pose is bit-for-bit the original sheet, not an approximation that
+      accumulates error.
+    </p>
+    <p>
+      This single decision gives three properties for free: rapid clicking
+      cannot corrupt the pose, Forward and Backward traverse the same states in
+      opposite directions, and a hundred fold cycles leave zero drift.
+    </p>
+
+    <h3>Four phases, assembled to flat</h3>
+    <p>
+      The fold is authored as four ordered phases. Reading them backwards gives
+      you assembly; forwards gives you flattening.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Phase</th><th>Moves</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><code>final-closure</code></td><td>The last visible flap that closes the box</td></tr>
+          <tr><td class="num">2</td><td><code>major-closure</code></td><td>The main top flaps</td></tr>
+          <tr><td class="num">3</td><td><code>secondary-flaps</code></td><td>Dust flaps and the bottom lock</td></tr>
+          <tr><td class="num">4</td><td><code>body</code></td><td>The four body-tube hinges — the walls lay flat last</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Timing that came from measurement</h3>
+    <p>
+      The motion envelope is not a designer's guess. It was measured from
+      reference material and is enforced by the compiler — a phase outside these
+      bounds throws rather than rendering:
+    </p>
+    <pre><code>duration   450–700 ms per hinge
+stagger     50–150 ms between hinges in a phase
+easing     easeInOutCubic   (no spring, no bounce, no overshoot)</code></pre>
+
+    <div class="cut-rule">
+      <p><b>Camera independence.</b> Fold logic never touches camera or orbit
+      state. A product may declare a fixed presentation rotation, but that lives
+      outside the hinge tree entirely. This is checked by a dedicated test —
+      <code>tests/unfold/camera-independence.test.ts</code>.</p>
+    </div>
+
+    <h3>The 100-cycle certificate</h3>
+    <p>
+      <code>structural-runtime-quality.ts</code> runs the model through a
+      hundred assembled-to-flat cycles and asserts that geometry was never
+      rebuilt, every matrix stayed finite, hinge matrices returned to exact
+      identity at flat, and the flat world pose did not drift. On the reference
+      carton both drift measurements come back at exactly zero.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="artwork">
+  <div class="col">
+    <span class="sec-mark">07 — Mapping</span>
+    <h2>Artwork, and the mirror that hid for months</h2>
+
+    <div class="plain">
+      <p>
+        Getting a logo onto a 3D box means deciding, for every point on the
+        model, which pixel of the flat artwork belongs there. Get the direction
+        wrong and every logo comes out backwards — while the geometry, the
+        normals and the tests all still look perfectly fine.
+      </p>
+    </div>
+
+    <h3>Global sheet coordinates</h3>
+    <p>
+      Because panels stay in canonical sheet coordinates, texture mapping is
+      almost trivial: a point's texture coordinate is just its position on the
+      sheet, normalised. Artwork therefore flows continuously across creases by
+      construction — there is no per-panel atlas to misalign.
+    </p>
+    <pre><code>u = x / sheetWidth
+v = 1 - y / sheetHeight     // sheet y runs down, texture v runs up</code></pre>
+
+    <h3>The bug that was invisible</h3>
+    <p>
+      For a long time <code>u</code> was written as <code>1 - x / width</code>.
+      That inversion is genuinely correct for the <em>legacy</em> carton
+      builder, which places each panel at its final position on the assembled
+      box — there, the physical act of flipping the printed sheet over before
+      folding is already baked into the geometry, and the texture has to
+      compensate.
+    </p>
+    <p>
+      Structural panels are different: they never move from their sheet
+      position. Applying the same inversion flipped the sheet a
+      <em>second</em> time, mirroring artwork on every assembled panel. Worse,
+      the UV round-trip gate inverted <code>u</code> exactly the same way, so it
+      was self-consistent and completely blind to the defect.
+    </p>
+
+    <div class="crease-rule">
+      <p><b>How it was caught.</b> Not by reasoning — by measuring. The assembled
+      rig was walked panel by panel, comparing the winding of each printed
+      triangle in texture space against its winding as seen from outside the
+      box. All 17 panels came back mirrored. The fix is locked by
+      <code>tests/structure/structural-chirality.test.ts</code>, which was
+      confirmed to fail against the old behaviour before being accepted.</p>
+    </div>
+
+    <h3>Handedness: which way the tube closes</h3>
+    <p>
+      A related question has the same flavour. The body tube can close two ways
+      — the walls can rotate toward positive or negative depth. Both produce a
+      geometrically valid rectangular tube, so geometry alone cannot choose.
+    </p>
+    <p>
+      Measurement can. Only one option puts the printed face on the
+      <em>outside</em> of the carton, and the difference is dramatic:
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Handedness</th><th>Assembled size</th><th>Printed face outside</th></tr></thead>
+        <tbody>
+          <tr><td><code>negative-depth</code></td><td class="num">350 &times; 320 &times; 300 mm</td><td>12 of 17</td></tr>
+          <tr><td><code>positive-depth</code></td><td class="num">200.0 &times; 150.0 &times; 300.0 mm</td><td><b>17 of 17</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Positive-depth closes to exactly the nominal carton with every panel
+      printed-side-out. Negative-depth does not even close the box — the flaps
+      splay outward. The decision is now recorded with that measurement as its
+      stated evidence.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="print">
+  <div class="col">
+    <span class="sec-mark">08 — Output</span>
+    <h2>The print engine</h2>
+
+    <div class="plain">
+      <p>
+        The file that goes to the factory is not a picture of the 3D model. It
+        is a physical-size document generated from the same geometry, with the
+        artwork placed at real resolution and the cut and crease lines carried
+        as technical layers the die-cutter reads.
+      </p>
+    </div>
+
+    <h3>Printer profiles</h3>
+    <p>
+      Each product references a reusable <code>PrinterProfile</code> that
+      controls the PDF standard and output condition, render resolution,
+      minimum acceptable image PPI, a raster-memory ceiling, and the exact
+      naming, spot colours, line weights and overprint behaviour of the cut and
+      crease separations.
+    </p>
+    <p>
+      Two ship today. <code>pdfx4-srgb-packaging-v1</code> is a generic
+      colour-managed PDF/X-4 handoff embedding the official sRGB2014 ICC
+      profile. <code>vortex-carton-works-coated-offset-v1</code> is a simulated
+      converter contract that proves the reusable path — 3&nbsp;mm bleed, 300
+      PPI rendering, 250 PPI minimum placed-image resolution, overprinting
+      <code>CutContour</code> and <code>Crease</code> separations.
+    </p>
+
+    <h3>Preflight blocks bad jobs</h3>
+    <p><code>preflightPrintJob</code> refuses to export when it finds:</p>
+    <ul>
+      <li>a design belonging to a different product</li>
+      <li>invalid or missing physical dimensions</li>
+      <li>a dieline with no cut paths</li>
+      <li>an image whose true pixel dimensions are unknown</li>
+      <li>an image below the profile's minimum effective PPI</li>
+      <li>a render job that would exceed the raster-memory limit</li>
+    </ul>
+
+    <div class="crease-rule">
+      <p><b>Honest about what it is not.</b> A generic colour-managed file is
+      not a substitute for a converter's press-specific approval. The simulated
+      profile stays explicitly marked <code>simulated-company</code> until a
+      real converter signs off a physical proof.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="embroidery">
+  <div class="col">
+    <span class="sec-mark">09 — Materials</span>
+    <h2>The embroidery engine</h2>
+
+    <div class="plain">
+      <p>
+        For fabric products — a t-shirt, say — a flat printed logo looks wrong.
+        Real embroidery has thread direction, height and sheen. This engine
+        fakes all three convincingly, entirely in the browser.
+      </p>
+    </div>
+
+    <p>The chain is <em>image &rarr; stitches &rarr; material maps</em>:</p>
+    <ol>
+      <li><b>Preprocess</b> — decode and bound the artwork.</li>
+      <li><b>Quantize</b> — reduce to a small thread palette, since real
+      embroidery uses a limited number of thread colours.</li>
+      <li><b>Distance transform</b> — an exact Euclidean distance field
+      (<code>edt.ts</code>) derives shape interiors and stitch direction.</li>
+      <li><b>Plan stitches</b> — lay out a stitch field with direction and
+      density.</li>
+      <li><b>Render maps</b> — emit normal and roughness maps so light catches
+      the thread the way it would on real cloth.</li>
+    </ol>
+
+    <p>
+      Resolution is tiered: <span class="dim">2.8 px/mm</span> for interactive
+      preview, <span class="dim">8 px/mm</span> for full quality — roughly three
+      pixels across a <span class="dim">0.4 mm</span> thread, the point at which
+      strands stop aliasing into mush. Heavy work runs in a Web Worker so the
+      interface never stalls.
+    </p>
+
+    <div class="cut-rule">
+      <p><b>Privacy by construction.</b> The customer's image is read and never
+      written, and never leaves the device. The module knows nothing about
+      React, three.js, or which surface the result lands on.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="platform">
+  <div class="col">
+    <span class="sec-mark">10 — Platform</span>
+    <h2>Storing, serving and protecting the work</h2>
+
+    <div class="plain">
+      <p>
+        The engines above are pure computation. The platform is everything that
+        remembers: who you are, what you designed, which version of the product
+        you designed it against, and what exactly was sent to the printer.
+      </p>
+    </div>
+
+    <h3>The central contract</h3>
+    <p>
+      A <code>DesignDocument</code> is the only source of truth for a customer's
+      design. The 2D editor mutates it; the 3D preview, thumbnails, bulk
+      personalisation and production output all <em>derive</em> from it. There
+      is no parallel render model.
+    </p>
+
+    <h3>Immutability everywhere</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Rule</th><th>Why it matters</th></tr></thead>
+        <tbody>
+          <tr><td>Published product and template versions never change in place</td><td>A design made last year still resolves against the product as it was then</td></tr>
+          <tr><td>Every save creates a new revision via compare-and-swap</td><td>Two tabs cannot silently overwrite each other</td></tr>
+          <tr><td>Production binds project + revision + product version + configuration</td><td>An export is reproducible; it names exactly what it was made from</td></tr>
+          <tr><td>All authoritative inputs are re-resolved server-side</td><td>The browser cannot talk the server into a different price or size</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Identity, including guests</h3>
+    <p>
+      A customer is either an authenticated user (Better Auth session) or a
+      signed guest carried in an HMAC-signed, <code>HttpOnly</code>,
+      <code>SameSite=Lax</code> cookie. Both resolve to a
+      <code>ProjectOwner</code>. When a guest signs up, their work is claimed
+      atomically: both identities must arrive on the same request, it is
+      same-origin and rate-limit protected, it goes through a claim ledger, and
+      the guest cookie is cleared on success.
+    </p>
+
+    <div class="cut-rule">
+      <p><b>Knowing a UUID is not authorisation.</b> Owner-scoped reads always
+      include the owner type and ID. Guessing a project id gets you nothing.</p>
+    </div>
+
+    <h3>What the platform contains</h3>
+    <dl class="defs">
+      <div><dt>Projects</dt><dd>Designs, revisions, uploaded assets, previews, duplication.</dd></div>
+      <div><dt>Products</dt><dd>Catalogue, immutable versions, configuration resolution, drafts with validate/publish/audit.</dd></div>
+      <div><dt>Templates</dt><dd>Reusable starting designs with their own drafts, assets and publishing flow.</dd></div>
+      <div><dt>Personalisation</dt><dd>Bulk jobs driven by datasets — hundreds of name-variant designs from one template.</dd></div>
+      <div><dt>Production</dt><dd>Preflight, PDF and SVG exporters, artifact storage, a registered production-font boundary.</dd></div>
+      <div><dt>Pricing</dt><dd>A provider boundary with server-resolved immutable quotes.</dd></div>
+      <div><dt>Onboarding</dt><dd>Bounded GLB ingestion jobs for adding new products.</dd></div>
+      <div><dt>Operators</dt><dd>Staff control plane with server-resolved permissions.</dd></div>
+      <div><dt>Storage</dt><dd>Private object store — local filesystem or S3/R2 — behind one interface.</dd></div>
+    </dl>
+
+    <p>
+      Persistence is SQLite at schema v16, defaulting to
+      <code>.data/vortex.sqlite</code>. There are 47 API route handlers under
+      <code>/api/v1</code>. Public DTOs never contain storage keys, filesystem
+      paths, provider internals or credentials.
+    </p>
+
+    <div class="crease-rule">
+      <p><b>Deployment limits, stated plainly.</b> The rate limiter and job
+      runners are in-process. Horizontal deployment needs a shared rate limiter
+      and an external worker. <code>VORTEX_DATABASE=postgresql</code> fails
+      closed until the PostgreSQL repositories are complete — the schema is
+      documented, but SQLite is the only runnable adapter today.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="onboarding">
+  <div class="col">
+    <span class="sec-mark">11 — Ingestion</span>
+    <h2>Turning any 3D model into a product</h2>
+
+    <div class="plain">
+      <p>
+        Not every product is a folding carton. A mug, a camera, a t-shirt
+        arrives as an ordinary 3D model with no idea which part of it is
+        printable. This Python pipeline works that out.
+      </p>
+    </div>
+
+    <p>
+      <code>product-onboarding/</code> converts an arbitrary GLB into a
+      customisation-ready product: named region meshes, a customisation UV,
+      per-region customer canvases, structured metadata, print templates and
+      automated validation — consumed unchanged by the same configurator at
+      <code>/studio?product=&lt;id&gt;</code>.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Stage</th><th>Module</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td>inspect</td><td><code>inspector.py</code></td><td>Capability report: geometry, UVs, materials, shape class</td></tr>
+          <tr><td>build</td><td><code>build.py</code></td><td>Manifest &rarr; surgical GLB edit &rarr; <code>regions.json</code></td></tr>
+          <tr><td>strategies</td><td><code>strategies.py</code></td><td>Mapping strategy: wrap, planar, or reuse existing UVs</td></tr>
+          <tr><td>assets</td><td><code>assets.py</code></td><td>Emits <code>product.json</code>, templates, diagnostics, cameras</td></tr>
+          <tr><td>validate</td><td><code>validate_math.py</code></td><td>Render-free validation — including chirality</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      It is proven on four materially different products: a multi-part vintage
+      camera (18 nodes), an AI-scanned pouch needing face-level region carving,
+      a garment with an embroidery-capable panel, and an articulated counter
+      display with an authored hinge graph that folds flat in three stages.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="golden">
+  <div class="col">
+    <span class="sec-mark">12 — Proof</span>
+    <h2>The golden reference, and what certified means</h2>
+
+    <div class="plain">
+      <p>
+        Claiming the engine works is easy. The golden reference is how the
+        claim gets tested: one real, licensed production dieline from a real
+        converter, locked by checksum, that the whole pipeline must reproduce.
+      </p>
+    </div>
+
+    <p>
+      The reference is a lock-bottom carton with a window, identified by
+      SHA-256 <code>b6b8cda5…f557</code>. The file itself is
+      <em>not</em> in the repository — it is licensed material. What is
+      committed is a manifest recording its hash, page boxes, separation names,
+      paint counts and expected geometry, so the engine can verify it is
+      looking at exactly the approved file.
+    </p>
+
+    <h3>Two lanes, deliberately separate</h3>
+    <dl class="defs">
+      <div>
+        <dt>Reference recreation <span class="chip chip--ok">certified</span></dt>
+        <dd>Does the software faithfully reproduce what the reference shows?
+        This is answerable from the file plus visual evidence.</dd>
+      </div>
+      <div>
+        <dt>Manufacturing construction <span class="chip chip--block">blocked by design</span></dt>
+        <dd>Is this how the carton is actually built in a factory? This needs
+        converter data the drawing does not contain, and no amount of visual
+        checking can substitute.</dd>
+      </div>
+    </dl>
+
+    <h3>The gates</h3>
+    <p>
+      Certification requires six fixed-camera captures — flat 2D, flat 3D,
+      mid-fold, body erect, secondary flaps, and a major/final closure pair —
+      plus ten hard gates and a score of at least 45 out of 50.
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Category</th><th>Score</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td>Geometry alignment</td><td class="num">10 / 10</td><td>Flat 3D equals source to <span class="dim">4.5e-13 mm</span>; body closes to exactly <span class="dim">200.0 × 150.0 × 300.0 mm</span></td></tr>
+          <tr><td>Mapping continuity</td><td class="num">10 / 10</td><td>Correct chirality, printed face exterior on all 17 panels, no crease jumps</td></tr>
+          <tr><td>Fold-pose match</td><td class="num">8 / 10</td><td>Diagonal lock creases held flat — the reference does not recover their signed angles</td></tr>
+          <tr><td>Motion match</td><td class="num">7 / 8</td><td>Verified against the distilled envelope, not frame-by-frame against the raw recording</td></tr>
+          <tr><td>CAD visual quality</td><td class="num">6 / 6</td><td>Exact polygons, real board depth, true window void</td></tr>
+          <tr><td>Material / lighting</td><td class="num">4 / 6</td><td>Deterministic harness lighting; no image-based lighting or contact shadows</td></tr>
+          <tr><td><b>Total</b></td><td class="num"><b>45 / 50</b></td><td>Threshold is 45</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>The finalizer emits exactly one verdict string, and it is careful:</p>
+    <pre><code>REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION</code></pre>
+
+    <div class="crease-rule">
+      <p><b>Both deductions are evidence limits, not implementation defects.</b>
+      The original reference screenshots are recorded by hash in the fixture
+      manifest but marked untracked and not redistributed, so motion could only
+      be checked against the distilled envelope. The score sits exactly at the
+      threshold — worth knowing rather than glossing over.</p>
+    </div>
+
+    <h3>What executing this lane actually found</h3>
+    <p>
+      The certification path had never been run end-to-end against the real
+      file. Doing so surfaced three defects that every synthetic test fixture
+      had hidden:
+    </p>
+    <ol>
+      <li>The boundary comparison reduced ~123,000 samples with
+      <code>Math.max(...array)</code>, overflowing the JavaScript engine's
+      argument stack at around 111,000 — so both verifiers <em>crashed</em> on
+      any real production-sized dieline.</li>
+      <li>The UV inversion described in §07, mirroring artwork on every
+      assembled panel.</li>
+      <li>The handedness choice, putting the printed face inside the box and
+      leaving the flaps splayed open.</li>
+    </ol>
+    <p>
+      All three are now regression-locked, and each new test was confirmed to
+      fail against the old behaviour before being accepted — a test that cannot
+      fail proves nothing.
+    </p>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="map">
+  <div class="wide">
+    <span class="sec-mark">13 — Orientation</span>
+    <h2>Every directory, and what lives there</h2>
+  </div>
+  <div class="wide">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Path</th><th>Contains</th></tr></thead>
+        <tbody>
+          <tr><td><code>src/app/</code></td><td>Next.js routes. Pages for studio, designs, templates, admin, sign-in; 47 API handlers under <code>api/v1</code>.</td></tr>
+          <tr><td><code>src/components/configurator/</code></td><td>The 3D viewer, carton/pouch/product models, unfold controls.</td></tr>
+          <tr><td><code>src/components/studio/</code></td><td>The editor shell, design canvas, capture stage.</td></tr>
+          <tr><td><code>src/lib/structure/</code></td><td><b>The structural engine.</b> Vector domain, importers, topology, meshes, rig, acceptance gates, golden-reference modules.</td></tr>
+          <tr><td><code>src/lib/configurator/</code></td><td>Product configs, unfold plan and timing, carton and pouch geometry, editor state, generated product JSON.</td></tr>
+          <tr><td><code>src/lib/print/</code></td><td>Printer profiles, preflight, artwork rendering, PDF/X-4 and SVG export, ICC handling.</td></tr>
+          <tr><td><code>src/lib/embroidery/</code></td><td>Stitch simulation and material-map generation, plus its Web Worker.</td></tr>
+          <tr><td><code>src/lib/projects/</code></td><td>Client-side project session: autosave, revisions, asset upload.</td></tr>
+          <tr><td><code>src/platform/</code></td><td>Pure domain types and repository interfaces — no implementations.</td></tr>
+          <tr><td><code>src/server/</code></td><td>Implementations: auth, persistence, products, projects, templates, personalisation, production, pricing, storage, operators, onboarding.</td></tr>
+          <tr><td><code>src/types/</code></td><td>Shared contracts: configurator, carton, unfold, design, embroidery.</td></tr>
+          <tr><td><code>tests/</code></td><td>307 tests — <code>structure/</code> 26 files, <code>platform/</code> 21, <code>unfold/</code> 9, <code>embroidery/</code> 3.</td></tr>
+          <tr><td><code>scripts/</code></td><td>Golden verification and capture tooling, GLB inspection and validation, production PDF checks.</td></tr>
+          <tr><td><code>fixtures/</code></td><td>Reference manifests. Private source files are deliberately excluded.</td></tr>
+          <tr><td><code>product-onboarding/</code></td><td>The Python GLB ingestion pipeline and its onboarded products.</td></tr>
+          <tr><td><code>docs/structural-engine/</code></td><td>Engine contracts, quality gates, golden reference protocol.</td></tr>
+          <tr><td><code>docs/platform/</code></td><td>Architecture, API, storage, production, PostgreSQL target, milestones.</td></tr>
+          <tr><td><code>cloudflare/</code>, <code>wrangler.jsonc</code></td><td>Cloudflare Workers deployment via OpenNext.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="commands">
+  <div class="col">
+    <span class="sec-mark">14 — Operation</span>
+    <h2>Running it</h2>
+
+    <h3>Everyday</h3>
+    <pre><code>npm run dev          # development server
+npm run build        # production build
+npm run lint         # ESLint
+npm run typecheck    # tsc --noEmit
+npm test             # 307 tests
+npm run check        # lint + typecheck + test + build</code></pre>
+
+    <h3>Structural verification</h3>
+    <p>These need the authorized reference PDF, supplied locally:</p>
+    <pre><code>npm run verify:golden-local     -- &lt;reference.pdf&gt;   # 12 source gates
+npm run verify:golden-reference -- &lt;reference.pdf&gt;   # runtime recreation
+npm run capture:golden-reference                     # six fixed-camera states
+npm run finalize:golden-reference -- &lt;run-summary&gt; &lt;visual-review&gt;</code></pre>
+
+    <h3>The private preview route</h3>
+    <pre><code>VORTEX_GOLDEN_REFERENCE_PDF=/absolute/path/to/reference.pdf npm run dev
+# then open /studio/golden-reference</code></pre>
+    <p>
+      This route is disabled in production by construction, because it consumes
+      licensed benchmark evidence from a local path.
+    </p>
+
+    <div class="crease-rule">
+      <p><b>Node version.</b> CI runs Node 24 and <code>package.json</code>
+      requires <code>&gt;=24</code>. Running on an older Node works for most
+      things but will warn, and native modules compiled for one major version
+      will not load on another — <code>npm rebuild better-sqlite3</code> after
+      switching.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="quality">
+  <div class="col">
+    <span class="sec-mark">15 — Assurance</span>
+    <h2>How the project knows it still works</h2>
+
+    <div class="plain">
+      <p>
+        Tests here are not a formality. Several of them exist specifically
+        because something passed review, passed CI, and was still wrong.
+      </p>
+    </div>
+
+    <p>Two GitHub workflows run on every push, both on Node 24:</p>
+    <pre><code>lint → typecheck → test → build</code></pre>
+
+    <p>
+      <code>quality-report.json</code> and <code>QUALITY_STATE.md</code> record
+      the certification state in machine- and human-readable form. Both carry a
+      rule that matters:
+    </p>
+
+    <div class="cut-rule">
+      <p><b>CI success alone must never turn the report into a PASS.</b> Green
+      tests prove the code does what the tests say. They do not prove the
+      product matches a physical reference — that needs the private source
+      executed and the visual evidence reviewed.</p>
+    </div>
+
+    <h3>Tests worth knowing about</h3>
+    <dl class="defs">
+      <div><dt><code>structural-chirality.test.ts</code></dt><dd>Artwork reads correctly and the printed face is outside, on every assembled panel.</dd></div>
+      <div><dt><code>structural-quality.test.ts</code></dt><dd>Includes a production-sized boundary fixture that would overflow the argument stack under the old reduction.</dd></div>
+      <div><dt><code>carton-chirality.test.ts</code></dt><dd>The legacy builder's equivalent — the two engines have different geometry conventions and each needs its own proof.</dd></div>
+      <div><dt><code>camera-independence.test.ts</code></dt><dd>Fold state never touches camera state.</dd></div>
+      <div><dt><code>structural-runtime-quality.test.ts</code></dt><dd>The 100-cycle no-drift certificate.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="limits">
+  <div class="col">
+    <span class="sec-mark">16 — Honesty</span>
+    <h2>What this system does not do</h2>
+
+    <div class="plain">
+      <p>
+        A guide that only lists strengths is marketing. These are the real
+        edges, and most of them are deliberate.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Limit</th><th>Status</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td>Manufacturing certification</td><td><span class="chip chip--block">by design</span></td><td>Board caliper, glue and tuck destinations, and hidden lock mechanics need converter data. The system refuses to invent them.</td></tr>
+          <tr><td>Lock-bottom diagonals</td><td><span class="chip chip--warn">estimate</span></td><td>Held flat at 0°; the reference does not recover their independent signed angles.</td></tr>
+          <tr><td>Board thickness</td><td><span class="chip chip--warn">estimate</span></td><td><span class="dim">0.6 mm</span>, explicitly labelled a visual preview value, not measured caliper.</td></tr>
+          <tr><td>PostgreSQL</td><td><span class="chip chip--block">fails closed</span></td><td>Schema documented; SQLite is the only runnable adapter.</td></tr>
+          <tr><td>Horizontal scaling</td><td><span class="chip chip--warn">in-process</span></td><td>Rate limiter and job runners are in-process boundaries.</td></tr>
+          <tr><td>Pricing</td><td><span class="chip chip--warn">development</span></td><td>Estimate provider; disabled in production by default until real supplier pricing exists.</td></tr>
+          <tr><td>Cloudflare deploy</td><td><span class="chip chip--block">blocked</span></td><td><code>pouch-002-customizable.glb</code> is <span class="dim">26.41 MiB</span> against the <span class="dim">25 MiB</span> Workers asset limit. Does not affect CI or <code>next build</code>.</td></tr>
+          <tr><td>Golden preview artwork</td><td><span class="chip chip--warn">not persisted</span></td><td>Built from a local non-catalogue source, so uploads live in the browser tab only.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<hr class="sheet-edge">
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<section id="glossary">
+  <div class="col">
+    <span class="sec-mark">17 — Vocabulary</span>
+    <h2>Glossary</h2>
+
+    <dl class="defs">
+      <div><dt>Dieline</dt><dd>The flat plan of a package: cut lines, fold lines, and the panels between them.</dd></div>
+      <div><dt>Panel</dt><dd>One enclosed region of the sheet — a wall, a flap, a tab.</dd></div>
+      <div><dt>Crease</dt><dd>A pressed groove that lets board fold cleanly without cracking. Not a cut.</dd></div>
+      <div><dt>Hinge</dt><dd>The software counterpart of a crease: a rotation axis joining a parent panel to a child.</dd></div>
+      <div><dt>Body band / tube</dt><dd>The row of panels that closes into the four walls of the carton.</dd></div>
+      <div><dt>Seam</dt><dd>The narrow flap glued to the opposite wall to hold the tube shut.</dd></div>
+      <div><dt>Lock bottom</dt><dd>A base that interlocks as it folds, so it holds without glue.</dd></div>
+      <div><dt>Spot colour / separation</dt><dd>A named ink channel. Here they carry meaning: <code>DieCutBlue</code> = cut, <code>DieCutRed</code> = crease.</dd></div>
+      <div><dt>Chirality</dt><dd>Handedness — whether a shape or a mapping is mirrored. The reason logos come out backwards.</dd></div>
+      <div><dt>UV</dt><dd>A texture coordinate: which pixel of the flat artwork belongs at this point on the 3D surface.</dd></div>
+      <div><dt>Bleed</dt><dd>Artwork extended past the trim line so a slight cutting error leaves no white edge.</dd></div>
+      <div><dt>PPI</dt><dd>Pixels per inch at final printed size — the real measure of whether an image is sharp enough.</dd></div>
+      <div><dt>PDF/X-4</dt><dd>A print-exchange PDF standard with strict colour-management rules.</dd></div>
+      <div><dt>ICC profile</dt><dd>A colour description telling the press how to reproduce the file's colours.</dd></div>
+      <div><dt>GLB</dt><dd>A single-file 3D model format used for non-carton products.</dd></div>
+      <div><dt>Manifold</dt><dd>A surface that closes properly, with every edge used by the expected number of faces.</dd></div>
+      <div><dt>Fail closed</dt><dd>On uncertainty, stop with an error rather than continue with a guess.</dd></div>
+    </dl>
+
+    <footer>
+      Vortex field manual &middot; generated from the repository at
+      <code>docs/VORTEX-GUIDE.html</code> &middot; figures verified against the
+      source at time of writing.
+    </footer>
+  </div>
+</section>
+
+</main>
+</div>
+</body>
+</html>
