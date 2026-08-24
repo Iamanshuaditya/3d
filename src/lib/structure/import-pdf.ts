@@ -236,7 +236,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(path, p1, p2, p3);
+        cubic(state, p1, p2, p3);
         break;
       }
       case "curveTo2": {
@@ -253,7 +253,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(path, state.current, p2, p3);
+        cubic(state, state.current, p2, p3);
         break;
       }
       case "curveTo3": {
@@ -270,7 +270,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(path, p1, p3, p3);
+        cubic(state, p1, p3, p3);
         break;
       }
       case "rectangle": {
@@ -345,9 +345,6 @@ function styleForColorSpace(
   if (normalized === "pattern") {
     throw new Error("Pattern stroking color spaces are not certified as structural authority.");
   }
-  // A named resource such as DieCutBlue/DieCutRed/Bleed is treated as a spot
-  // identity only because the import contract still requires an explicit rule
-  // for that exact name before a stroked path can become structural geometry.
   return { ...previous, colorSpace: "spot", components: [1], spotName: name.replace(/^\//, "") };
 }
 
