@@ -5,6 +5,7 @@ import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
   classifyLockBottomGoldenGeometry,
+  classifyLockBottomGoldenHinges,
   createStructuralDiagnosticArtwork,
   evaluateLockBottomGoldenAcceptance,
   extractStructuralPanels,
@@ -83,6 +84,7 @@ const graph = buildPlanarGraph(profiled.topologyDieline);
 const panels = extractStructuralPanels(raw, graph);
 const inventory = inspectStructuralConstruction(raw, graph, panels);
 const geometryRoles = classifyLockBottomGoldenGeometry(raw, panels);
+const hingeRoles = classifyLockBottomGoldenHinges(geometryRoles, inventory);
 const diagnosticArtwork = createStructuralDiagnosticArtwork(raw, panels);
 
 const referenceBehavior = {
@@ -106,20 +108,22 @@ const constructionTemplate = {
   rootPanelId: null,
   boardThicknessMm: null,
   geometryRolesFile: "golden-geometry-roles.json",
-  hinges: inventory.hingeCandidates.map((candidate) => ({
-    id: candidate.id.replace(/^candidate-/, "hinge-"),
+  hingeRolesFile: "golden-hinge-roles.json",
+  hinges: hingeRoles.roles.map((role) => ({
+    id: role.id,
+    geometryRole: role.kind,
     parentPanelId: null,
     childPanelId: null,
-    candidatePanels: [candidate.panelAId, candidate.panelBId],
-    source: candidate.source,
+    candidatePanels: [role.panelAId, role.panelBId],
+    source: role.source,
     assembledAngleDeg: null,
     openAngleDeg: null,
     isPrimary: null,
-    evidence: "GEOMETRY_PROVES_ADJACENCY_ONLY",
+    evidence: "GEOMETRY_PROVES_EXACT_CREASE_ROLE_AND_ADJACENCY_ONLY",
   })),
   unfoldSequence: null,
   unresolvedFacts: [
-    "root panel",
+    "root panel and fixed world presentation orientation",
     "parent/child direction for every crease",
     "mountain/valley sign",
     "assembled target angles",
@@ -127,7 +131,8 @@ const constructionTemplate = {
     "glue seam role (geometry identifies only a seam candidate)",
     "tuck/lock destinations",
     "bottom lock behavior",
-    "fold order and transition grouping",
+    "physical top-vs-bottom assignment of sheet north/south",
+    "final reviewed fold order and transition grouping",
   ],
 };
 
@@ -166,12 +171,23 @@ const summary = {
     northFlapCount: geometryRoles.northFlapsLeftToRight.length,
     southFlapCount: geometryRoles.southFlapsLeftToRight.length,
   },
+  hingeRoles: {
+    evidenceFile: "golden-hinge-roles.json",
+    passed: hingeRoles.passed,
+    total: hingeRoles.roles.length,
+    bodyChainCount: hingeRoles.bodyChainLeftToRight.length,
+    northBaseCount: hingeRoles.northBaseLeftToRight.length,
+    southBaseCount: hingeRoles.southBaseLeftToRight.length,
+    northDiagonalCount: hingeRoles.northDiagonalsLeftToRight.length,
+    southDiagonalCount: hingeRoles.southDiagonalsLeftToRight.length,
+  },
   flat: acceptance.flat,
   gates: acceptance.gates,
   construction: {
     formsTree: inventory.formsTree,
     hingeCandidateCount: inventory.hingeCandidates.length,
-    semanticsResolved: false,
+    semanticHingeRoleCount: hingeRoles.roles.length,
+    physicalFoldSemanticsResolved: false,
   },
   mappingEvidence: {
     diagnosticArtwork: "golden-diagnostic-art.svg",
@@ -192,8 +208,8 @@ const summary = {
     unresolvedFactCount: GOLDEN_REFERENCE_UNRESOLVED.length,
   },
   verdict:
-    acceptance.passed && inventory.formsTree && geometryRoles.passed
-      ? "GEOMETRY_ACCEPTED_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
+    acceptance.passed && inventory.formsTree && geometryRoles.passed && hingeRoles.passed
+      ? "GEOMETRY_AND_HINGE_ROLES_ACCEPTED_PHYSICAL_CONSTRUCTION_SEMANTICS_STILL_UNRESOLVED"
       : "FAIL",
 };
 
@@ -203,6 +219,7 @@ await Promise.all([
   writeFile(`${destination}/golden-run-summary.json`, asJson(summary)),
   writeFile(`${destination}/golden-acceptance.json`, asJson(acceptance)),
   writeFile(`${destination}/golden-geometry-roles.json`, asJson(geometryRoles)),
+  writeFile(`${destination}/golden-hinge-roles.json`, asJson(hingeRoles)),
   writeFile(`${destination}/golden-diagnostic-art.svg`, diagnosticArtwork),
   writeFile(`${destination}/golden-reference-behavior.json`, asJson(referenceBehavior)),
   writeFile(
@@ -221,4 +238,6 @@ await Promise.all([
 
 console.log(asJson({ outputDir: destination, ...summary }));
 
-if (!acceptance.passed || !inventory.formsTree || !geometryRoles.passed) process.exitCode = 1;
+if (!acceptance.passed || !inventory.formsTree || !geometryRoles.passed || !hingeRoles.passed) {
+  process.exitCode = 1;
+}
