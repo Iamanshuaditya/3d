@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "status": "BLOCKED",
+  "updatedAt": "2026-08-24",
+  "scope": "structural-packaging-v2",
+  "goldenProduct": {
+    "name": "Lock Bottom and top incl. window",
+    "nominalDimensionsMm": [300, 150, 200],
+    "sourceSha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557"
+  },
+  "score": {
+    "total": null,
+    "threshold": 94,
+    "categories": {
+      "geometry": { "max": 30, "score": null },
+      "mapping": { "max": 20, "score": null },
+      "fold": { "max": 18, "score": null },
+      "dielineVisual": { "max": 12, "score": null },
+      "threeDVisual": { "max": 10, "score": null },
+      "engineering": { "max": 10, "score": null }
+    }
+  },
+  "hardGates": {
+    "G1_dimensions": "PASS_EVIDENCE_AVAILABLE",
+    "G2_flat3dEqualsSource": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
+    "G3_windowIsGeometry": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
+    "G4_noMirroredArtwork": "PASS_REGRESSION_TESTED",
+    "G5_noCreaseArtworkJump": "PARTIAL_EVIDENCE",
+    "G6_threeDUsesProductionDieline": "PASS_IMPLEMENTATION_NEEDS_GOLDEN_RUN",
+    "G7_manufacturingUsesSameGeometry": "PASS_REGRESSION_TESTED",
+    "G8_repeatedFoldNoDrift": "PASS_ENGINE_TESTS_NEED_GOLDEN_RUNTIME",
+    "G9_hingePivotCorrect": "BLOCKED_ON_CERTIFIED_GOLDEN_CONSTRUCTION",
+    "G10_noSilentUnknownGeometryGuess": "PASS_FAIL_CLOSED",
+    "G11_noRasterAsExactAuthority": "PASS",
+    "G12_noProductionCriticalRegression": "PENDING_FINAL_CI"
+  },
+  "verifiedImplementation": [
+    "canonical vector domain in millimetres",
+    "raw vector PDF authority import with explicit style classification",
+    "hash-locked golden topology repair profile",
+    "17-panel golden topology target",
+    "exact structural panel meshes with holes",
+    "canonical-sheet UV mapping and chirality regression tests",
+    "Studio structural renderer consumes canonical structural authority",
+    "manufacturing geometry consumes canonical structural authority",
+    "CAD-style dieline hairlines",
+    "camera state independent from fold state",
+    "geometry-only construction inventory that refuses to invent fold semantics"
+  ],
+  "blockingEvidence": [
+    "authorized golden PDF must be run through the current verifier after final CI",
+    "golden construction still lacks certified parent/child directions, fold signs, target angles, board thickness and closure sequence",
+    "golden stable-state screenshots and transition captures have not been independently scored",
+    "diagnostic artwork evidence across every intended face is incomplete"
+  ],
+  "ci": {
+    "workflow": ".github/workflows/structural-quality.yml",
+    "status": "PENDING_PR_RUN"
+  },
+  "verdict": "Do not declare production-ready until the blocking evidence is closed."
+}
