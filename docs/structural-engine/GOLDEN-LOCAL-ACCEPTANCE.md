@@ -4,7 +4,7 @@ The authorized CloudLab reference PDF is benchmark evidence, not a repository
 fixture. Do not copy it into the repository and do not commit reports derived
 from it unless redistribution permission is established.
 
-## One-command run
+## Source-only run
 
 From a normal repository checkout with dependencies installed:
 
@@ -12,109 +12,131 @@ From a normal repository checkout with dependencies installed:
 npm run verify:golden-local -- "/absolute/path/to/product_Lock Bottom and top incl. window_mm_300_150_200.pdf"
 ```
 
-The default output directory is:
+The default output directory is `.quality-local/golden/` and is ignored by Git.
+A different private destination can be supplied with `--out`.
+
+This mode proves everything that can be derived without inventing hidden
+construction facts. It imports the named die separations, applies the
+hash-locked topology profile, validates exact flat geometry and UVs, classifies
+all 17 panels and all 16 physical crease chains, and certifies the 300 x 200 x
+150 mm rectangular body tube in both mirror-equivalent handedness conventions.
+
+A successful source-only run deliberately stops at:
 
 ```text
-.quality-local/golden/
+BODY_TUBE_CERTIFIED_REVIEWED_CONSTRUCTION_REQUIRED
 ```
 
-That directory is ignored by Git.
+That is a BLOCKED product state, not a failure and not a complete PASS.
 
-To choose another local directory:
+## Reviewed-construction run
+
+The source-only run also emits `golden-reviewed-construction-template.json`.
+Fill that file only from reviewed evidence and run:
 
 ```bash
-npm run verify:golden-local -- "/path/to/reference.pdf" --out "/private/evidence/golden-run"
+npm run verify:golden-local -- "/path/to/reference.pdf" \
+  --construction "/private/evidence/golden-reviewed-construction.json" \
+  --out "/private/evidence/golden-run"
 ```
 
-## What the command proves
+The reviewed input supplies only facts that the PDF/video cannot safely infer:
+board thickness, body mirror handedness relative to the printed/exterior side,
+which sheet side is the physical top, the parent/child direction and signed
+assembled angle of every non-body hinge, and the evidence-backed closure phase
+grouping.
 
-The command reads the PDF bytes in place, computes the source SHA-256, imports
-only the reviewed vector die separations, applies the source-hash-locked golden
-topology profile, and evaluates the production geometry against the committed
-expectations.
+The compiler refuses missing or duplicated hinges, a reviewed parent/child pair
+that contradicts exact source adjacency, cycles, multiple parents, incomplete
+phase coverage, body hinges placed in closure phases, timing outside the
+measured reference envelope, or unevidenced physical inputs.
 
-It checks the source hash, outer envelope, outer/window edge counts, crease
-source count and physical crease chains, real window ownership, panel count,
-four reviewed endpoint-to-span topology associations, flat panel equivalence,
-and canonical-sheet UV round trip.
+When reviewed construction is supplied, the local verifier additionally:
 
-It also derives the construction adjacency inventory. Geometry may prove that
-two panels share a physical crease; it does **not** prove fold sign, signed
-angle, parent/child direction, root panel, board thickness, glue/tuck/lock
-roles, or closure order.
+- resolves all 16 authored hinges back onto the exact source crease spans;
+- validates one connected 17-panel directed hierarchy;
+- expands the four reviewed phases into an authored absolute-angle unfold plan;
+- requires the plan to reach the exact flat pose with no dependency errors;
+- executes 100 assembled-to-flat torture cycles;
+- requires the same BufferGeometry objects to survive every cycle;
+- requires every terminal hinge matrix to return to identity;
+- requires the canonical flat mesh world pose to show no transform drift.
 
-## Stable geometry roles
-
-The golden source has a reviewed five-panel body band and two six-panel flap
-regions. The local runner derives stable geometry roles from exact physical
-bounds instead of depending on generated face IDs.
-
-The body strip is expected left-to-right as:
+A successful reviewed run stops at:
 
 ```text
-seam candidate → broad plain → narrow → broad with real window → narrow
+REVIEWED_CONSTRUCTION_RUNTIME_CERTIFIED_VISUAL_EVIDENCE_PENDING
 ```
 
-The remaining six panels above the body band are called `north-flap` regions
-and the six below it are called `south-flap` regions. Those are sheet-space
-names only. The classifier deliberately does **not** rename north/south as
-physical top/bottom, or the seam candidate as a glue flap, because those are
-construction semantics rather than vector facts.
+It still does not automatically claim the visual/reference hard gates.
+
+## Geometry and role contracts
+
+The golden source is expected to preserve the reviewed 17-panel decomposition.
+The five-panel body strip is:
+
+```text
+seam candidate -> broad plain -> narrow -> broad with real window -> narrow
+```
+
+There are six sheet-north and six sheet-south flap panels. `north` and `south`
+are sheet-space names until reviewed construction assigns physical top/bottom.
+The narrow strip remains only a seam candidate until construction evidence says
+what adhesive/overlap behavior it has.
+
+All 16 physical crease chains receive stable source-specific roles:
+
+```text
+4 body-chain
+4 north-base
+4 south-base
+2 north-diagonal
+2 south-diagonal
+```
+
+Generated planar edge IDs are never durable construction metadata.
 
 ## Local outputs
 
-The runner writes local evidence without copying the PDF:
+The source-only run writes:
 
-- `golden-run-summary.json` - compact acceptance result and gate summary;
-- `golden-acceptance.json` - complete geometric acceptance report;
-- `golden-geometry-roles.json` - source-locked body/flap geometry roles;
-- `golden-construction-inventory.json` - topology repairs and crease adjacency
-  evidence;
-- `golden-construction-template.json` - source-locked authoring template whose
-  unresolved physical facts remain `null`;
-- `golden-diagnostic-art.svg` - deterministic asymmetric full-sheet artwork for
-  visual mapping checks;
-- `golden-reference-behavior.json` - video-observation benchmark states, motion
-  windows, timing envelope, confidence levels and explicit unknowns.
+- `golden-run-summary.json`
+- `golden-acceptance.json`
+- `golden-geometry-roles.json`
+- `golden-hinge-roles.json`
+- `golden-body-tube.json`
+- `golden-construction-inventory.json`
+- `golden-construction-template.json`
+- `golden-reviewed-construction-template.json`
+- `golden-diagnostic-art.svg`
+- `golden-reference-behavior.json`
 
-The diagnostic SVG is deliberately not manufacturing geometry. It contains
-unequal corner markers, sheet-direction labels, two non-symmetric crossing
-lines, a grid, source hash, and a label/up-arrow for every extracted structural
-panel. When used as artwork in both flat and folded views it makes horizontal
-or vertical mirroring, 90/180 degree rotation, panel swaps, wrong chirality,
-and artwork jumps across shared creases immediately visible.
+A reviewed-construction run additionally writes:
 
-The runner exits non-zero if geometric acceptance fails, the crease adjacency
-graph no longer forms the reviewed tree, or the stable geometry-role contract
-no longer matches the 17-panel source.
+- `golden-reviewed-construction.json`
+- `golden-resolved-rig.json`
+- `golden-unfold-plan.json`
+- `golden-runtime-certificate.json`
+
+None of these outputs copy the proprietary source PDF.
 
 ## Mapping evidence protocol
 
-For golden mapping review, use the generated `golden-diagnostic-art.svg` as the
-single full-sheet artwork source and capture at least:
+Use `golden-diagnostic-art.svg` as one full-sheet artwork source. Capture the
+canonical 2D sheet, exact structural 3D flat pose, erected body, secondary-flap
+state, major-closure state, and final assembled state. Keep the camera fixed
+while structural state changes.
 
-1. the canonical 2D flat sheet;
-2. the exact structural 3D flat pose at the same fold state;
-3. the erected body before top closure;
-4. the dust/secondary-flap state;
-5. the major closure state;
-6. the final assembled state.
-
-Keep the camera fixed while comparing structural states. A mapping PASS requires
-all panel labels and orientation arrows to remain readable with the expected
-chirality, the four corner markers to retain their identities, and continuous
-sheet features to remain continuous across every physically connected crease.
-Do not compensate for a bad UV map by rotating or mirroring individual artwork
-textures.
+A mapping PASS requires panel labels and orientation arrows to retain expected
+chirality, all four asymmetric corner markers to retain identity, and
+continuous artwork features to remain continuous across physically connected
+creases. Never compensate for a bad structural UV map by rotating or mirroring
+individual panel textures.
 
 ## Pass meaning
 
-A successful local golden run is strong evidence for the geometric hard gates,
-including exact source authority, window geometry, flat equivalence, UV
-round-trip, the reviewed topology profile, and stable panel-role identification.
-It is **not** permission to mark the complete product PASS.
-
-The remaining golden product gates still require evidence-backed construction
-metadata and visual/reference validation: signed folds and target angles,
-root/hierarchy, board thickness, tuck/lock/glue destinations and ordering, and
-fixed-camera transition captures scored against the reference behavior.
+The command is intentionally fail-closed. Geometry and runtime success do not
+turn the product-level report into PASS by themselves. Final PASS still requires
+reviewed construction evidence plus fixed-camera visual captures scored against
+the reference behavior, including the final closure/lock appearance and
+professional CAD/prepress presentation quality.
