@@ -1,6 +1,7 @@
 import type { ProductConfig, SurfaceDieline } from "@/types/configurator";
 import { resolveCartonSpec } from "./carton-spec";
 import { dielineOverlay } from "./carton-geometry";
+import { structuralCartonOverlay } from "./structural-carton";
 import { POUCHES } from "./pouch-spec";
 import { pouchDielineOverlay } from "./pouch-geometry";
 
@@ -13,6 +14,17 @@ export function resolveSurfaceDieline(
   config: ProductConfig,
   surface: ProductConfig["editableSurfaces"][number],
 ): SurfaceDieline {
+  // A canonical structural authority outranks generated/legacy UI overlays.
+  // This is what keeps editor geometry on the same source as exact 3D panels
+  // and manufacturing output rather than letting a stale surface.dieline win.
+  if (config.family === "folded-carton") {
+    const spec = resolveCartonSpec(config);
+    if (spec?.structural) {
+      const exact = structuralCartonOverlay(spec, surface.editorWidth, surface.editorHeight);
+      if (exact) return exact;
+    }
+  }
+
   if (surface.dieline) return surface.dieline;
 
   if (config.family === "folded-carton") {

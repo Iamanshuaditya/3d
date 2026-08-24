@@ -1,16 +1,14 @@
 /**
  * Folded-carton dieline spec.
  *
- * This is the entire definition of a box product. From one spec we derive:
- *   - the 3D mesh (panels folded along their creases)
- *   - the 2D editor canvas (the dieline IS the flat layout)
- *   - UVs (each panel's UV is its own rect within the dieline bounds, which is
- *     why artwork flows continuously across folds with no seam fixing)
- *   - the open/close animation (interpolate the hinge angles)
- *
- * Adding a box product = writing one of these. No modelling.
+ * Legacy cartons use rectangular panel metadata plus optional presentation cut
+ * paths. New production structural cartons may additionally carry a canonical
+ * vector authority; when present that authority owns 2D geometry, exact panel
+ * extraction, UVs, hinge axes, 3D meshes and manufacturing output.
  */
 
+import type { CanonicalDieline } from "@/lib/structure/vector-domain";
+import type { StructuralConstructionSpec } from "@/lib/structure/structural-rig";
 import type { UnfoldSpec } from "./unfold";
 
 /** Rect in dieline space, millimetres, y increasing downward (like a canvas). */
@@ -45,18 +43,36 @@ export type CartonPanel = {
   hinge?: "lid";
 };
 
+export type StructuralCartonAuthority = Readonly<{
+  /** Exact imported vector authority in canonical millimetres. */
+  dieline: CanonicalDieline;
+  /** Reviewed, hash-locked construction facts bound to source crease spans. */
+  construction: StructuralConstructionSpec;
+}>;
+
 export type CartonSpec = {
   id: string;
   name: string;
-  /** Overall dieline bounds in millimetres. */
+  /** Overall dieline/page bounds in millimetres. */
   width: number;
   height: number;
   /** Board thickness, used to soften the crease so folds are not knife-edged. */
   boardThickness: number;
+  /**
+   * Legacy rectangle articulation. Production structural cartons ignore these
+   * shapes once `structural` is present; they remain for backwards-compatible
+   * product metadata and older generated cartons.
+   */
   panels: CartonPanel[];
   /** Lid hinge angles in degrees: assembled-closed vs fully open. */
   lidClosedAngle: number;
   lidOpenAngle: number;
+  /**
+   * Canonical structural authority. This is intentionally opt-in so existing
+   * cartons keep rendering unchanged while exact imported cartons can use a
+   * dieline-first pipeline without a second shape definition.
+   */
+  structural?: StructuralCartonAuthority;
   /**
    * Optional authored unfolding sequence. Packaging construction order is a
    * manufacturing fact, so it belongs in the spec rather than being inferred
@@ -65,9 +81,8 @@ export type CartonSpec = {
    */
   unfold?: UnfoldSpec;
   /**
-   * Optional production-style cut and crease paths. Rectangular panel bounds
-   * remain the UV source of truth; these paths preserve the tabs, ears and
-   * tapered cut silhouette that cannot be represented by rectangles alone.
+   * Legacy production-style cut and crease paths. They are presentation-only
+   * when `structural` exists; canonical vector entities take precedence.
    */
   dieline?: {
     cuts: DielinePath[];

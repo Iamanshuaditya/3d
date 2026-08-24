@@ -1,13 +1,13 @@
 import type { CartonPanel, CartonSpec } from "@/types/carton";
 import type { ArticulatedHinge } from "@/types/unfold";
+import { resolveStructuralCarton } from "./structural-carton";
 
 /**
  * Pure dieline topology: which panel folds against which, where the crease
  * runs, and where each panel lands when the carton is laid flat.
  *
- * Deliberately free of three.js. The mesh builder, the unfolding planner and
- * the geometry regression tests all read the tree from here, so they cannot
- * disagree about what a hinge is.
+ * Legacy specs use rectangle adjacency here. Exact structural specs bypass
+ * that inference and return their source-validated crease graph instead.
  */
 
 export const MM_TO_UNITS = 0.01;
@@ -23,7 +23,8 @@ export type HingeGeometry = {
 /**
  * Which edge the child shares with its parent, and therefore which way it
  * folds. Direction is inferred from the panels' relative dieline positions, so
- * specs stay declarative.
+ * specs stay declarative. Production structural cartons do not use this
+ * inference; their crease axes are bound to canonical source spans.
  */
 export function resolveHinge(parent: CartonPanel, child: CartonPanel): HingeGeometry {
   const p = parent.rect;
@@ -57,6 +58,7 @@ export type CartonTopology = {
   articulated: CartonPanel[];
 };
 
+/** Rectangle-only compatibility topology. Exact structural cartons use resolveStructuralCarton(). */
 export function cartonTopology(spec: CartonSpec): CartonTopology {
   const byId = new Map(spec.panels.map((panel) => [panel.id, panel]));
   const childrenOf = new Map<string, CartonPanel[]>();
@@ -105,13 +107,14 @@ export function cartonTopology(spec: CartonSpec): CartonTopology {
 }
 
 /**
- * The articulation graph of a carton.
- *
- * The tapered clamshell is a different construction: its walls are generated
- * as fixed tray shells rather than as folding dieline panels, so it exposes a
- * single lid joint (see `carton-geometry.ts`).
+ * The articulation graph of a carton. Exact structural authority wins over
+ * every inferred/legacy construction path.
  */
 export function cartonHinges(spec: CartonSpec): ArticulatedHinge[] {
+  if (spec.structural) {
+    return [...resolveStructuralCarton(spec)!.rig.articulatedHinges];
+  }
+
   if (spec.clamshell) {
     return [
       {
@@ -149,18 +152,22 @@ export function cartonHinges(spec: CartonSpec): ArticulatedHinge[] {
 
 /** Whether this construction can genuinely reach its printed dieline. */
 export function cartonCanFlatten(spec: CartonSpec): boolean {
+  if (spec.structural) return resolveStructuralCarton(spec)!.panels.length > 1;
   return !spec.clamshell && spec.panels.length > 1;
 }
 
 /**
- * Where a panel's centre sits, in scene units relative to the carton root,
- * once every hinge is at its flat angle.
- *
- * With all hinges at zero the nested hinge/holder offsets telescope to the
- * panel's dieline offset from the root panel — which is exactly what makes the
- * final unfolded pose the dieline itself, and what the regression test asserts.
+ * Where a legacy rectangular panel's centre sits, in scene units relative to
+ * the carton root once every hinge is flat. Exact structural callers should
+ * use canonical panel coordinates directly instead of reducing polygons to a
+ * rectangle centre.
  */
 export function flatPanelOffset(spec: CartonSpec, panelId: string): { x: number; z: number } {
+  if (spec.structural) {
+    throw new Error(
+      `flatPanelOffset() is a legacy rectangle helper and cannot represent exact structural panel ${panelId}.`,
+    );
+  }
   const topology = cartonTopology(spec);
   const panel = topology.byId.get(panelId);
   if (!panel) throw new Error(`Carton spec "${spec.id}" has no panel "${panelId}".`);
