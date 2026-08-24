@@ -1,86 +1,99 @@
 {
-  "schemaVersion": 1,
-  "status": "BLOCKED",
+  "schemaVersion": 2,
+  "status": "BLOCKED_VISUAL_REVIEW",
   "updatedAt": "2026-08-24",
   "scope": "structural-packaging-v2",
-  "baselineCommit": "381233e81a89839a426bcd90480661be767ff8ea",
-  "structuralFinalizationMerge": "2a957f026675e76f71828b6dd519d5c16c2944b1",
+  "implementationHeadUnderCheck": "af03f0fbd6b8a33dc5152311ca306242c4b6d6e5",
+  "previousVerifiedBaseline": {
+    "commit": "34ea4a85974259e98458b0e799aecc7124faa963",
+    "structuralQualityRunId": 32699507367,
+    "repositoryCiRunId": 32699507439,
+    "testsPassed": 264,
+    "testsFailed": 0,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "productionBuild": "PASS"
+  },
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
     "nominalDimensionsMm": [300, 150, 200],
     "sourceSha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557"
   },
-  "score": {
-    "total": null,
-    "threshold": 94,
-    "categories": {
-      "geometry": { "max": 30, "score": null },
-      "mapping": { "max": 20, "score": null },
-      "fold": { "max": 18, "score": null },
-      "dielineVisual": { "max": 12, "score": null },
-      "threeDVisual": { "max": 10, "score": null },
-      "engineering": { "max": 10, "score": 10 }
+  "referenceRecreation": {
+    "runtimeImplementation": "COMPLETE_PENDING_PRIVATE_EXECUTION",
+    "manufacturingConstructionCertified": false,
+    "candidateMatrix": {
+      "physicalTop": ["north", "south"],
+      "finalClosure": ["plain-final", "window-final"],
+      "bodyHandedness": "negative-depth",
+      "diagonalLockPolicy": "0deg_REFERENCE_RECREATION_ONLY_UNTIL_CONVERTER_EVIDENCE"
+    },
+    "commands": {
+      "sourceAcceptance": "npm run verify:golden-local -- <authorized-reference.pdf>",
+      "runtimeRecreation": "npm run verify:golden-reference -- <authorized-reference.pdf>",
+      "studioPreview": "VORTEX_GOLDEN_REFERENCE_PDF=<authorized-reference.pdf> npm run dev; open /studio/golden-reference",
+      "finalize": "npm run finalize:golden-reference -- <reference-run-summary.json> <visual-review.json>"
+    },
+    "runtimeSuccessVerdict": "REFERENCE_RECREATION_RUNTIME_PASS_NOT_MANUFACTURING_CERTIFICATION",
+    "finalSuccessVerdict": "REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION",
+    "visualGate": {
+      "scoreOutOf": 50,
+      "threshold": 45,
+      "requiredCaptureCount": 6,
+      "hardGateCount": 10
     }
+  },
+  "score": {
+    "productThreshold": 94,
+    "referenceVisualThreshold": "45/50 plus all hard gates",
+    "engineering": "previous verified baseline PASS; latest implementation checker running",
+    "goldenProduct": "unassigned until private source execution and visual review"
   },
   "hardGates": {
     "G1_dimensions": "PASS_EVIDENCE_AVAILABLE",
-    "G2_flat3dEqualsSource": "PASS_ENGINE_REGRESSION_NEEDS_AUTHORIZED_GOLDEN_RUN",
-    "G3_windowIsGeometry": "PASS_ENGINE_REGRESSION_NEEDS_AUTHORIZED_GOLDEN_RUN",
-    "G4_noMirroredArtwork": "PASS_REGRESSION_TESTED",
-    "G5_noCreaseArtworkJump": "PARTIAL_GOLDEN_DIAGNOSTIC_ART_PENDING",
-    "G6_threeDUsesProductionDieline": "PASS_CANONICAL_AUTHORITY_WIRED_NEEDS_AUTHORIZED_GOLDEN_RUN",
+    "G2_flat3dEqualsSource": "IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
+    "G3_windowIsGeometry": "IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
+    "G4_noMirroredArtwork": "REGRESSION_TESTED_VISUAL_CAPTURE_PENDING",
+    "G5_noCreaseArtworkJump": "DIAGNOSTIC_ART_AND_SCORE_GATE_IMPLEMENTED_CAPTURE_PENDING",
+    "G6_threeDUsesProductionDieline": "PASS_CANONICAL_AUTHORITY_WIRED",
     "G7_manufacturingUsesSameGeometry": "PASS_REGRESSION_TESTED",
-    "G8_repeatedFoldNoDrift": "PASS_ENGINE_REGRESSION_NEEDS_GOLDEN_RUNTIME_EVIDENCE",
-    "G9_hingePivotCorrect": "BLOCKED_ON_CERTIFIED_GOLDEN_CONSTRUCTION",
-    "G10_noSilentUnknownGeometryGuess": "PASS_FAIL_CLOSED",
+    "G8_repeatedFoldNoDrift": "100_CYCLE_CERTIFICATE_IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
+    "G9_hingePivotCorrect": "SOURCE_LOCKED_RIG_IMPLEMENTED_REFERENCE_RECREATION_ESTIMATES_NOT_MANUFACTURER_CERTIFIED",
+    "G10_noSilentUnknownGeometryGuess": "PASS_REFERENCE_ESTIMATES_EXPLICITLY_LABELLED",
     "G11_noRasterAsExactAuthority": "PASS",
-    "G12_noProductionCriticalRegression": "PASS_CLEAN_CI"
+    "G12_noProductionCriticalRegression": "LATEST_CHECKER_PENDING"
   },
   "verifiedImplementation": [
     "canonical vector domain in millimetres",
     "exact fail-closed SVG and DXF import",
-    "vector PDF operator import and raw PDF authority",
+    "raw vector PDF separation authority",
     "hash-locked golden topology repair profile",
-    "17-panel golden topology target with 16 crease adjacencies",
-    "exact structural panel meshes with real holes",
-    "canonical-sheet UV mapping and chirality regression tests",
-    "source-versus-flat structural acceptance metrics",
-    "geometry-only construction inventory that refuses to invent fold semantics",
-    "hash-locked structural hinge rig and absolute poses",
-    "zero-degree flat restoration and repeated-cycle no-drift tests",
-    "finite easing/stagger timing with rapid retargeting and reduced-motion behavior",
-    "Studio structural renderer consumes canonical structural authority",
-    "manufacturing geometry consumes canonical structural authority",
-    "CAD-style dieline hairlines",
-    "camera state independent from fold state",
-    "current NumPy 2.5-compatible planar onboarding geometry and UV area calculations"
+    "17-panel extraction and 16 physical hinge roles",
+    "exact structural meshes with real window/hole geometry",
+    "global canonical-sheet UV mapping",
+    "exact flat 3D canonical restoration",
+    "body-tube 200 x 150 mm geometry certificate",
+    "strict reviewed construction compiler",
+    "reference behavior contract from supplied video analysis",
+    "four-candidate visual recreation generator",
+    "absolute staged Forward/Backward fold runtime",
+    "100-cycle no-rebuild/no-drift runtime certificate",
+    "canonical manufacturing routing",
+    "development-only private golden Studio route",
+    "six-state fixed-camera capture manifest",
+    "50-point visual/reference score gate with 45/50 threshold",
+    "machine finalizer that cannot grant manufacturing certification"
   ],
-  "checker": {
-    "commit": "34ea4a85974259e98458b0e799aecc7124faa963",
-    "structuralQualityRunId": 32699507367,
-    "repositoryCiRunId": 32699507439,
-    "testsPassed": 264,
-    "testsTotal": 264,
-    "testsFailed": 0,
-    "generatedFileSync": "PASS",
-    "lint": "PASS",
-    "typecheck": "PASS",
-    "onboardingManifestValidation": "PASS",
-    "productionBuild": "PASS",
-    "realGlbOnboardingPipeline": "PASS"
-  },
   "blockingEvidence": [
-    "authorized golden PDF must be run through the final acceptance baseline without committing proprietary bytes",
-    "golden construction still lacks certified signed fold directions, target angles, board thickness and closure/tuck/lock sequence",
-    "golden stable-state screenshots and fixed-camera transition captures have not been independently scored",
-    "asymmetric diagnostic artwork evidence across every intended outside face is incomplete"
+    "execute the current TypeScript golden verifier against the authorized local PDF",
+    "capture the six required fixed-camera states with asymmetric diagnostic artwork",
+    "choose the closest reference candidate from the explicit four-candidate matrix",
+    "complete independent visual review at >=45/50 with all hard gates true",
+    "converter/manufacturer certification separately requires real stock thickness and hidden glue/tuck/bottom-lock semantics"
   ],
-  "ci": {
-    "workflows": [
-      ".github/workflows/ci.yml",
-      ".github/workflows/structural-quality.yml"
-    ],
-    "status": "PASS"
+  "latestChecker": {
+    "branch": "verify/reference-recreation-final",
+    "status": "PENDING"
   },
-  "verdict": "Engineering regression gate is green. Keep the golden product BLOCKED until the authorized golden acceptance run plus certified construction and visual evidence are closed."
+  "verdict": "Reference-recreation software path is implemented. Keep final reference certification BLOCKED until private source execution and the six-capture >=45/50 visual gate pass. Keep manufacturing construction certification false until converter evidence exists."
 }
