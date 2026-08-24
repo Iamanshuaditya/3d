@@ -18,3 +18,4 @@ export * from "./golden-lock-bottom-profile";
 export * from "./diagnostic-art";
 export * from "./golden-reference-behavior";
 export * from "./golden-geometry-roles";
+export * from "./golden-hinge-roles";
