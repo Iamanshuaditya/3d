@@ -3,17 +3,9 @@
   "status": "BLOCKED_VISUAL_REVIEW",
   "updatedAt": "2026-08-24",
   "scope": "structural-packaging-v2",
-  "implementationHeadUnderCheck": "af03f0fbd6b8a33dc5152311ca306242c4b6d6e5",
-  "previousVerifiedBaseline": {
-    "commit": "34ea4a85974259e98458b0e799aecc7124faa963",
-    "structuralQualityRunId": 32699507367,
-    "repositoryCiRunId": 32699507439,
-    "testsPassed": 264,
-    "testsFailed": 0,
-    "lint": "PASS",
-    "typecheck": "PASS",
-    "productionBuild": "PASS"
-  },
+  "verifiedImplementationHead": "a9114d018e2606f37b691d314e6ea09ae813ad2f",
+  "checkerHead": "120bfdb6eb9fce0c0b97a5b3d93a50c5a0347b29",
+  "checkerMergeRef": "bf32d879b92dd984fb80bbd6cedb9f2bcd03e0bc",
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
     "nominalDimensionsMm": [300, 150, 200],
@@ -46,7 +38,7 @@
   "score": {
     "productThreshold": 94,
     "referenceVisualThreshold": "45/50 plus all hard gates",
-    "engineering": "previous verified baseline PASS; latest implementation checker running",
+    "engineering": "10/10",
     "goldenProduct": "unassigned until private source execution and visual review"
   },
   "hardGates": {
@@ -61,7 +53,7 @@
     "G9_hingePivotCorrect": "SOURCE_LOCKED_RIG_IMPLEMENTED_REFERENCE_RECREATION_ESTIMATES_NOT_MANUFACTURER_CERTIFIED",
     "G10_noSilentUnknownGeometryGuess": "PASS_REFERENCE_ESTIMATES_EXPLICITLY_LABELLED",
     "G11_noRasterAsExactAuthority": "PASS",
-    "G12_noProductionCriticalRegression": "LATEST_CHECKER_PENDING"
+    "G12_noProductionCriticalRegression": "PASS_CLEAN_DUAL_WORKFLOW_CI"
   },
   "verifiedImplementation": [
     "canonical vector domain in millimetres",
@@ -84,6 +76,25 @@
     "50-point visual/reference score gate with 45/50 threshold",
     "machine finalizer that cannot grant manufacturing certification"
   ],
+  "latestChecker": {
+    "branch": "verify/reference-recreation-final",
+    "structuralQualityRunId": 32761005013,
+    "repositoryCiRunId": 32761005021,
+    "structuralQualityRunNumber": 59,
+    "repositoryCiRunNumber": 121,
+    "testsPassed": 302,
+    "testsTotal": 302,
+    "testsFailed": 0,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "generatedFileSync": "PASS",
+    "onboardingDependencies": "PASS",
+    "onboardingManifestValidation": "PASS",
+    "realGlbOnboardingPipeline": "PASS",
+    "productionBuild": "PASS",
+    "goldenStudioRouteInBuild": "PASS",
+    "status": "PASS"
+  },
   "blockingEvidence": [
     "execute the current TypeScript golden verifier against the authorized local PDF",
     "capture the six required fixed-camera states with asymmetric diagnostic artwork",
@@ -91,9 +102,5 @@
     "complete independent visual review at >=45/50 with all hard gates true",
     "converter/manufacturer certification separately requires real stock thickness and hidden glue/tuck/bottom-lock semantics"
   ],
-  "latestChecker": {
-    "branch": "verify/reference-recreation-final",
-    "status": "PENDING"
-  },
-  "verdict": "Reference-recreation software path is implemented. Keep final reference certification BLOCKED until private source execution and the six-capture >=45/50 visual gate pass. Keep manufacturing construction certification false until converter evidence exists."
+  "verdict": "Engineering and executable reference-recreation software gates are green. Final reference certification remains BLOCKED only on private golden execution plus six-capture visual evidence. Manufacturing construction certification remains false until converter evidence exists."
 }
