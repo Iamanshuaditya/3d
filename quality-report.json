@@ -19,7 +19,7 @@
       "fold": { "max": 18, "score": null },
       "dielineVisual": { "max": 12, "score": null },
       "threeDVisual": { "max": 10, "score": null },
-      "engineering": { "max": 10, "score": null }
+      "engineering": { "max": 10, "score": 10 }
     }
   },
   "hardGates": {
@@ -34,7 +34,7 @@
     "G9_hingePivotCorrect": "BLOCKED_ON_CERTIFIED_GOLDEN_CONSTRUCTION",
     "G10_noSilentUnknownGeometryGuess": "PASS_FAIL_CLOSED",
     "G11_noRasterAsExactAuthority": "PASS",
-    "G12_noProductionCriticalRegression": "PENDING_POST_MERGE_CLEAN_CI"
+    "G12_noProductionCriticalRegression": "PASS_CLEAN_CI"
   },
   "verifiedImplementation": [
     "canonical vector domain in millimetres",
@@ -55,12 +55,19 @@
     "camera state independent from fold state",
     "current NumPy 2.5-compatible planar onboarding geometry and UV area calculations"
   ],
-  "lastChecker": {
-    "testsPassed": 263,
+  "checker": {
+    "commit": "34ea4a85974259e98458b0e799aecc7124faa963",
+    "structuralQualityRunId": 32699507367,
+    "repositoryCiRunId": 32699507439,
+    "testsPassed": 264,
     "testsTotal": 264,
-    "structuralFailures": 0,
-    "soleFailure": "legacy arbitrary-GLB onboarding validation used NumPy 2D np.cross",
-    "soleFailureFixCommit": "381233e81a89839a426bcd90480661be767ff8ea"
+    "testsFailed": 0,
+    "generatedFileSync": "PASS",
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "onboardingManifestValidation": "PASS",
+    "productionBuild": "PASS",
+    "realGlbOnboardingPipeline": "PASS"
   },
   "blockingEvidence": [
     "authorized golden PDF must be run through the final acceptance baseline without committing proprietary bytes",
@@ -73,7 +80,7 @@
       ".github/workflows/ci.yml",
       ".github/workflows/structural-quality.yml"
     ],
-    "status": "PENDING_POST_MERGE_VERIFICATION_PR"
+    "status": "PASS"
   },
-  "verdict": "Engine implementation has advanced beyond the old PDF/topology blockers, but do not declare the golden product production-ready until clean CI plus construction and visual evidence are closed."
+  "verdict": "Engineering regression gate is green. Keep the golden product BLOCKED until the authorized golden acceptance run plus certified construction and visual evidence are closed."
 }
