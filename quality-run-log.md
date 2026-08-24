@@ -276,3 +276,21 @@ locally).
   construction **not certified** and not obtainable from this repository.
 - Next action: converter evidence for caliper, glue/tuck destinations and
   bottom-lock semantics. No code change can close those.
+
+## RUN 006 - Green main restored and deploy blocker measured
+
+- Verified head `811447b`; Structural Quality 32789786702 and Repository CI
+  32789786877 both `success` on the same SHA.
+- Repository CI red since `a6a30cc` is fixed; the obsolete generated-file sync
+  step is removed and replaced by an enforced quality-record consistency test.
+- `public/models/pouch-002-customizable.glb` Draco-compressed
+  **26.41 MiB -> 5.72 MiB** with bounding-box delta 0, `TEXCOORD_1` preserved,
+  and a 0.09% RMS render difference. `opennextjs-cloudflare build` now passes.
+- Deployment attempted with authenticated credentials and **rejected**:
+  Cloudflare API code 10027, Worker 13.69 MiB against a 3 MiB free-plan cap.
+  The bundle also embeds `better-sqlite3` and `sharp`, native modules Workers
+  cannot execute at any size. Deployment is therefore blocked on plan plus
+  architecture, not on the asset limit and not on credentials.
+- Golden lane re-verified after all changes: 12/12 source gates,
+  `REFERENCE_RECREATION_RUNTIME_PASS_NOT_MANUFACTURING_CERTIFICATION`,
+  100-cycle certificate PASS. No regression.

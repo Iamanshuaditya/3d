@@ -3,8 +3,8 @@
   "status": "REFERENCE_RECREATION_CERTIFIED",
   "updatedAt": "2026-08-25",
   "scope": "structural-packaging-v2",
-  "verifiedImplementationHead": "29d7873be4b7f2bd2b1ff9ba0bd1a4f3d8cbb3f1",
-  "checkerHead": "29d7873",
+  "verifiedImplementationHead": "811447b",
+  "checkerHead": "811447b",
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
     "nominalDimensionsMm": [
@@ -90,23 +90,24 @@
     "machine finalizer that cannot grant manufacturing certification"
   ],
   "latestChecker": {
-    "verifiedHead": "29d7873",
-    "structuralQualityRunId": 32770971315,
+    "verifiedHead": "811447b",
+    "structuralQualityRunId": 32789786702,
     "structuralQualityConclusion": "success",
-    "repositoryCiRunId": 32770971388,
+    "repositoryCiRunId": 32789786877,
     "repositoryCiConclusion": "success",
-    "testsPassed": 303,
-    "testsTotal": 303,
+    "testsPassed": 317,
+    "testsTotal": 317,
     "testsFailed": 0,
     "testsSkipped": 0,
     "lint": "PASS",
     "typecheck": "PASS",
     "onboardingDependencies": "PASS",
-    "onboardingManifestValidation": "PASS",
+    "onboardingManifestValidation": "PASS (18/18)",
     "productionBuild": "PASS",
+    "openNextBuild": "PASS",
     "goldenStudioRouteInBuild": "PASS",
     "status": "PASS",
-    "note": "Last head observed green on both workflows. The certification run below was executed locally against the authorized private source at a later head."
+    "note": "Both required workflows observed green on the same SHA."
   },
   "blockingEvidence": [
     "EXTERNAL: converter-approved board caliper for the golden carton; the drawing does not record stock thickness",
@@ -121,7 +122,7 @@
     "Structural sheetUv inverted u, applying the legacy sheet-flip a second time and mirroring artwork on every assembled structural panel.",
     "The reference-recreation candidate used negative-depth handedness, placing the printed face inside the carton and splaying the flaps to a 350 x 320 mm envelope."
   ],
-  "verifiedImplementationHeadShort": "29d7873",
+  "verifiedImplementationHeadShort": "811447b",
   "certificationRun": {
     "executedAtHead": "a6a30cc",
     "sourceSha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557",
