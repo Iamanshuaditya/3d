@@ -4,6 +4,7 @@ import {
   DEFAULT_STRUCTURAL_TOLERANCES,
   IDENTITY_AFFINE_MATRIX,
   buildPlanarGraph,
+  extractCutCycles,
   extractStructuralPanels,
   type CanonicalDieline,
   type StructuralEntity,
@@ -81,12 +82,47 @@ function fixture(): CanonicalDieline {
   };
 }
 
+function segmentedFixture(): CanonicalDieline {
+  const outer = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 50 },
+    { x: 0, y: 50 },
+  ];
+  const window = [
+    { x: 10, y: 10 },
+    { x: 20, y: 10 },
+    { x: 20, y: 20 },
+    { x: 10, y: 20 },
+  ];
+  const segments = (prefix: string, points: readonly Vec2[]) =>
+    points.map((point, index) =>
+      linePathEntity(
+        `${prefix}-${index}`,
+        "cut",
+        [point, points[(index + 1) % points.length]],
+        false,
+      ),
+    );
+  return {
+    ...fixture(),
+    id: "segmented-source",
+    entities: [
+      ...segments("outer", outer),
+      ...segments("window", window),
+      linePathEntity("center-crease", "crease", [{ x: 50, y: 0 }, { x: 50, y: 50 }], false),
+    ],
+  };
+}
+
 test("planar graph splits source cut edges at crease intersections", () => {
   const graph = buildPlanarGraph(fixture());
   const creaseEdges = graph.edges.filter((edge) => edge.operation === "crease");
   assert.equal(creaseEdges.length, 1);
   const cutVerticesAtCrease = graph.vertices.filter(
-    (vertex) => Math.abs(vertex.point.x - 50) < 1e-9 && (Math.abs(vertex.point.y) < 1e-9 || Math.abs(vertex.point.y - 50) < 1e-9),
+    (vertex) =>
+      Math.abs(vertex.point.x - 50) < 1e-9 &&
+      (Math.abs(vertex.point.y) < 1e-9 || Math.abs(vertex.point.y - 50) < 1e-9),
   );
   assert.equal(cutVerticesAtCrease.length, 2);
 });
@@ -111,4 +147,28 @@ test("panel extraction yields two real panels and owns the window as a hole", ()
     { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
   );
   assert.deepEqual(totalBounds, { minX: 0, minY: 0, maxX: 100, maxY: 50 });
+});
+
+test("individually stroked PDF-style cut edges reconstruct one outer cycle and nested window", () => {
+  const dieline = segmentedFixture();
+  const graph = buildPlanarGraph(dieline);
+  const cycles = extractCutCycles(dieline, graph);
+  assert.equal(cycles.filter((cycle) => cycle.role === "outer").length, 1);
+  assert.equal(cycles.filter((cycle) => cycle.role === "hole").length, 1);
+  const panels = extractStructuralPanels(dieline, graph);
+  assert.equal(panels.length, 2);
+  assert.equal(panels.filter((panel) => panel.holes.length === 1).length, 1);
+});
+
+test("open cut topology fails instead of inventing a production closure", () => {
+  const dieline = segmentedFixture();
+  const withoutOneOuterEdge = {
+    ...dieline,
+    entities: dieline.entities.filter((candidate) => candidate.id !== "outer-3"),
+  };
+  const graph = buildPlanarGraph(withoutOneOuterEdge);
+  assert.throws(
+    () => extractCutCycles(withoutOneOuterEdge, graph),
+    /explicit reviewed topology repair is required/,
+  );
 });
