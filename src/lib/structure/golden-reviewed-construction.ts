@@ -340,13 +340,10 @@ export function compileLockBottomGoldenConstruction(
     hinges: allHinges,
   };
 
-  // The canonical sheet lies in X/Z. A quarter-turn about X makes the body
-  // vertical; the explicit physical-top review chooses which sheet side points up.
-  const modelRotationRad: readonly [number, number, number] = [
-    reviewed.physicalTop === "north" ? Math.PI / 2 : -Math.PI / 2,
-    0,
-    0,
-  ];
+  // Presentation orientation is deliberately independent from physical fold
+  // semantics. The benchmark reference keeps the canonical flat sheet in the
+  // horizontal X/Z plane, so no global model rotation is applied here.
+  const modelRotationRad: readonly [number, number, number] = [0, 0, 0];
 
   return {
     construction,

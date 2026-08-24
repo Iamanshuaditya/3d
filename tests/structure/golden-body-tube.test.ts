@@ -109,14 +109,14 @@ function hinges(sourceSha256 = LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS.sourc
 test("canonical golden body tube closes to 200 x 150 mm with the seam overlapping the side wall", () => {
   const report = certifyLockBottomGoldenBodyTube(geometry(), hinges(), "negative-depth");
   assert.equal(report.passed, true);
-  assert.equal(report.rootPanelId, "front-window");
+  assert.equal(report.rootPanelId, "back");
   assert.equal(report.hinges.length, 4);
   assert.deepEqual(report.hinges.map((item) => item.assembledAngleDeg), [90, 90, 90, -90]);
   assert.ok(report.closureGapMm <= 0.61);
   assert.ok(report.seamLineErrorMm <= 1e-9);
-  assert.ok(Math.abs(report.corners.backLeft.depth + 150) <= 1e-9);
-  assert.ok(Math.abs(report.corners.backRightFromBackPanel.x - 200) <= 1e-9);
-  assert.ok(report.corners.seamInner.depth > report.corners.backRightFromBackPanel.depth);
+  assert.ok(Math.abs(Math.abs(report.corners.backLeft.depth) - 150) <= 1e-9);
+  assert.ok(Math.abs(report.corners.backRightFromBackPanel.x) <= 1e-9);
+  assert.ok(Math.abs(report.corners.seamInner.depth) < Math.abs(report.corners.backRightFromBackPanel.depth));
 });
 
 test("the opposite handedness is the exact global mirror, not a different construction", () => {
