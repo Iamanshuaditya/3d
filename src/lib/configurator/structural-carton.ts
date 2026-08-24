@@ -2,6 +2,7 @@ import type { CartonSpec } from "@/types/carton";
 import type { SurfaceDieline } from "@/types/configurator";
 import {
   buildPlanarGraph,
+  buildProfiledPlanarGraph,
   extractStructuralPanels,
   flattenVectorPath,
   resolveStructuralRig,
@@ -9,13 +10,17 @@ import {
   type PlanarGraph,
   type ResolvedStructuralRig,
   type StructuralPanel,
+  type StructuralTopologyRepair,
 } from "@/lib/structure";
 
 const SIZE_TOLERANCE_MM = 0.01;
 
 export type ResolvedStructuralCarton = Readonly<{
+  /** Untouched canonical source used by editor, UVs and manufacturing. */
   dieline: CanonicalDieline;
+  /** Topology graph, optionally derived through an explicit reviewed profile. */
   graph: PlanarGraph;
+  topologyRepairs: readonly StructuralTopologyRepair[];
   panels: readonly StructuralPanel[];
   rig: ResolvedStructuralRig;
 }>;
@@ -24,6 +29,10 @@ export type ResolvedStructuralCarton = Readonly<{
  * Resolves and validates an exact structural carton once from its canonical
  * vector authority. Legacy width/height/thickness fields may describe the same
  * product for older code, but they are not allowed to silently disagree.
+ *
+ * If an authorized topology profile exists, only the planar-adjacency copy is
+ * repaired. The canonical dieline itself remains unchanged and continues to
+ * own editor/manufacturing/UV coordinates.
  */
 export function resolveStructuralCarton(spec: CartonSpec): ResolvedStructuralCarton | null {
   const authority = spec.structural;
@@ -44,10 +53,13 @@ export function resolveStructuralCarton(spec: CartonSpec): ResolvedStructuralCar
     );
   }
 
-  const graph = buildPlanarGraph(dieline);
+  const profiled = authority.topology
+    ? buildProfiledPlanarGraph(dieline, authority.topology)
+    : { graph: buildPlanarGraph(dieline), repairs: [] as readonly StructuralTopologyRepair[] };
+  const graph = profiled.graph;
   const panels = extractStructuralPanels(dieline, graph);
   const rig = resolveStructuralRig(dieline, graph, panels, construction);
-  return { dieline, graph, panels, rig };
+  return { dieline, graph, topologyRepairs: profiled.repairs, panels, rig };
 }
 
 const CUT_OPERATIONS = new Set(["cut", "window-cut"]);
