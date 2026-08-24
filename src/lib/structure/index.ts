@@ -5,6 +5,7 @@ export * from "./vector-validation";
 export * from "./import-svg";
 export * from "./import-dxf";
 export * from "./import-pdf";
+export * from "./import-pdf-raw";
 export * from "./topology";
 export * from "./structural-mesh";
 export * from "./structural-quality";
