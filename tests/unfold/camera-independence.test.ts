@@ -14,11 +14,21 @@ test("fold state never owns a Studio camera preset", async () => {
   assert.doesNotMatch(studio, /dielineCameraPreset/);
   assert.doesNotMatch(studio, /defaultCameraPreset/);
   assert.doesNotMatch(studio, /wasFlatRef|movedCameraRef/);
-  assert.doesNotMatch(
-    studio,
-    /unfold\.status\?\.isFlat[\s\S]{0,1200}setPendingPreset/,
-    "flat/fold state must not trigger a camera preset",
+  assert.doesNotMatch(studio, /useEffect\s*\([^)]*unfold\.status\?\.isFlat/);
+
+  // The only remaining preset mutations clear a preset after an explicit
+  // camera action finishes. Fold state may still drive `dielineView`, which is
+  // a structural/material presentation flag and deliberately not a camera
+  // mutation.
+  const presetCalls = [...studio.matchAll(/setPendingPreset\(([^)]*)\)/g)].map(
+    (match) => match[1].trim(),
   );
+  assert.deepEqual(
+    presetCalls,
+    ["null", "null"],
+    "Studio may clear an explicit camera preset, but folding must not assign one",
+  );
+  assert.match(studio, /dielineView=\{Boolean\(unfold\.status\?\.isFlat\)\}/);
 
   assert.doesNotMatch(presentation, /dielineCameraPreset|defaultCameraPreset/);
   assert.match(
