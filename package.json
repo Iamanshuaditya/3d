@@ -1,28 +1,28 @@
 {
-  "name": "ai-website-clone-template",
-  "version": "0.4.0",
+  "name": "vortex",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Clone any website into a clean, modern Next.js codebase using AI coding agents",
-  "author": "JCodesMore",
+  "description": "3D packaging configurator and structural carton engine: production dielines to exact folding geometry, artwork mapping and print-ready output",
+  "author": "Iamanshuaditya",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/JCodesMore/ai-website-cloner-template.git"
+    "url": "https://github.com/Iamanshuaditya/3d.git"
   },
-  "homepage": "https://github.com/JCodesMore/ai-website-cloner-template",
+  "homepage": "https://github.com/Iamanshuaditya/3d",
   "bugs": {
-    "url": "https://github.com/JCodesMore/ai-website-cloner-template/issues"
+    "url": "https://github.com/Iamanshuaditya/3d/issues"
   },
   "keywords": [
-    "claude-code",
-    "website-clone",
-    "reverse-engineering",
+    "packaging",
+    "dieline",
+    "folding-carton",
+    "3d",
+    "threejs",
     "nextjs",
-    "ai",
-    "template",
-    "tailwindcss",
-    "shadcn-ui"
+    "structural-engine",
+    "print"
   ],
   "engines": {
     "node": ">=24"
