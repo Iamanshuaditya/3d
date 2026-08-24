@@ -20,3 +20,4 @@ export * from "./golden-reference-behavior";
 export * from "./golden-geometry-roles";
 export * from "./golden-hinge-roles";
 export * from "./golden-body-tube";
+export * from "./golden-reviewed-construction";
