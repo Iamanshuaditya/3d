@@ -1,0 +1,42 @@
+name: Golden Local Transport
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  package-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package source with dependencies
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.next \
+            --exclude=.quality-local \
+            -czf /tmp/vortex-source-with-deps.tgz .
+
+      - name: Upload source transport
+        uses: actions/upload-artifact@v4
+        with:
+          name: vortex-source-with-deps
+          path: /tmp/vortex-source-with-deps.tgz
+          retention-days: 1
+          compression-level: 0
+          if-no-files-found: error
