@@ -7,3 +7,4 @@ export * from "./import-dxf";
 export * from "./import-pdf";
 export * from "./topology";
 export * from "./structural-mesh";
+export * from "./structural-quality";
