@@ -158,3 +158,57 @@ results look better.
 - Regressions: none in the 62-test structure suite.
 - Next action: independently certify the corrected vector-PDF importer, then
   harden the golden planar topology before building exact panel meshes.
+
+## RUN 004 - Merged structural engine and clean post-merge checker
+
+- Date: 2026-08-24
+- Structural finalization merge: `2a957f026675e76f71828b6dd519d5c16c2944b1`.
+- Verified runtime baseline: `381233e81a89839a426bcd90480661be767ff8ea`.
+- Verification commit: `34ea4a85974259e98458b0e799aecc7124faa963`.
+- Goal: verify the merged structural engine as one repository baseline and
+  close the production-critical engineering regression gate without claiming
+  unknown golden construction facts.
+- Changes verified in the merged baseline:
+  - raw vector-PDF structural authority and source-hash-locked golden profile;
+  - planar topology / 17-panel target / real window ownership;
+  - exact structural panel meshes and canonical sheet UVs;
+  - flat source-equivalence metrics;
+  - canonical Studio and manufacturing routing;
+  - construction inventory, hinge rig, absolute fold poses, no-drift cycles,
+    finite staggered motion, reverse/rapid-retarget/reduced-motion behavior;
+  - fold/camera independence;
+  - current NumPy 2.5 compatibility for planar onboarding outline and UV-area
+    geometry.
+- Checker discovery/fixes:
+  - earlier attempts exposed two legacy 2D `np.cross` incompatibilities under
+    NumPy 2.5 rather than structural-engine failures;
+  - both were replaced with explicit scalar 2D determinant math;
+  - onboarding test diagnostics were improved so subprocess failures retain the
+    exact Python exception instead of surfacing only `failed !== passed`.
+- Structural Quality workflow `32699507367`:
+  - dependency setup: PASS;
+  - lint: PASS;
+  - typecheck: PASS;
+  - tests: **264/264 PASS**;
+  - production build: PASS.
+- Repository CI workflow `32699507439`:
+  - generated-file sync: PASS;
+  - dependency setup: PASS;
+  - lint: PASS;
+  - typecheck: PASS;
+  - tests: **264/264 PASS**;
+  - onboarding manifest validation: PASS;
+  - production build: PASS.
+- The real checked-in GLB onboarding fixture now passes inspect, build,
+  validate, and durable outputs on Python 3.13 / NumPy 2.5.2.
+- Engineering score after: **10/10**.
+- Hard gate G12: **PASS**.
+- Product-level result: **BLOCKED / unscored**, not PASS. Remaining blockers
+  are the authorized golden acceptance run, certified signed fold/angle/root/
+  thickness/closure metadata, and scored fixed-camera + diagnostic-art visual
+  evidence.
+- Regressions: none observed in the clean dual-workflow checker.
+- Next action: run the authorized local golden PDF through
+  `scripts/inspect-golden-construction.ts`, preserve the report outside source
+  control, then close construction and visual-reference evidence without
+  guessing missing semantics.
