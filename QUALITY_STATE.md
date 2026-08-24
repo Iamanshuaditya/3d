@@ -21,12 +21,32 @@ fully flattened 3D structural geometry == canonical production dieline
 
 ## Current status
 
-**STATUS: BLOCKED_VISUAL_REVIEW**
+**STATUS: REFERENCE_RECREATION_CERTIFIED**
 
-The structural engine and executable golden reference-recreation software path
-are implemented and the latest clean checker is green. Final reference PASS is
-still withheld until the authorized local PDF is executed through the current
-verifier and all six fixed-camera captures pass the >=45/50 visual gate.
+The authorized local PDF has been executed end to end through both verifiers,
+the six fixed-camera captures have been generated and independently reviewed,
+and `finalize:golden-reference` has issued
+`REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION` at 45/50 with
+all ten hard gates true.
+
+Three defects were found and fixed by actually executing this lane for the
+first time:
+
+1. `measureFlatPanelEquivalence` reduced ~123k boundary samples with
+   `Math.max(...array)` and overflowed the V8 argument stack, so both golden
+   verifiers crashed on any real production-sized dieline. Now folded;
+   regression-covered in `tests/structure/structural-quality.test.ts`.
+2. Structural `sheetUv` inverted `u`, copying a convention that is only correct
+   for the legacy builder (which places panels at their final box positions).
+   Structural panels stay in canonical sheet coordinates, so the inversion
+   applied the sheet flip twice and mirrored the artwork on every assembled
+   panel. Now regression-covered in
+   `tests/structure/structural-chirality.test.ts`.
+3. The reference-recreation candidate selected `negative-depth` handedness,
+   which put the printed face inside the carton on every body wall and splayed
+   the flaps to a 350 x 320 mm envelope. Measured on the assembled rig,
+   `positive-depth` is the only handedness that keeps the printed face exterior
+   on all 17 panels and closes the body to exactly 200.0 x 150.0 x 300.0 mm.
 
 Manufacturing/converter construction certification is intentionally separate
 and remains false until actual hidden construction facts are supplied.
@@ -85,12 +105,16 @@ Implemented:
 - `easeInOutCubic`, no spring/bounce;
 - deterministic Forward/Backward absolute state traversal;
 - four explicit visual candidates: north/south x plain-final/window-final;
-- negative-depth body handedness from the printed-face exterior convention;
+- positive-depth body handedness, measured as the only handedness that keeps
+  the printed face exterior on all 17 panels and closes the body to exactly
+  200.0 x 150.0 x 300.0 mm;
 - unseen diagonal lock rotations held at 0deg and explicitly labelled
   `REFERENCE_RECREATION_ONLY` rather than guessed;
 - preview stock thickness explicitly labelled as a visual estimate;
 - one-command local runtime verifier;
 - development-only private Studio route `/studio/golden-reference`;
+- development-only fixed-camera capture route `/studio/golden-reference/capture`
+  and the `capture:golden-reference` Playwright driver;
 - six-state fixed-camera capture manifest;
 - asymmetric diagnostic-art mapping evidence;
 - 50-point visual gate with minimum 45/50 plus every hard gate;
@@ -103,6 +127,7 @@ Commands:
 npm run verify:golden-local -- /absolute/path/to/reference.pdf
 npm run verify:golden-reference -- /absolute/path/to/reference.pdf
 VORTEX_GOLDEN_REFERENCE_PDF=/absolute/path/to/reference.pdf npm run dev
+npm run capture:golden-reference -- --width 2400 --height 1500
 npm run finalize:golden-reference -- reference-run-summary.json visual-review.json
 ```
 
@@ -150,15 +175,29 @@ Visual score:
 
 Pass threshold: **>=45/50 plus every hard gate**.
 
-## Remaining evidence to issue final reference PASS
+## Issued reference verdict
 
-1. Execute the authorized private PDF through `verify:golden-reference`.
-2. Generate the six fixed-camera captures with one candidate and the same
-   asymmetric diagnostic artwork.
-3. Select the closest of the explicit candidates against the supplied reference.
-4. Complete independent scoring >=45/50 with every hard gate true.
-5. Run `finalize:golden-reference` and persist its local verdict.
+Candidate `north-plain-final-0.600mm`, source
+`b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557`.
 
-Engineering is **green and software-complete for reference recreation**. Final
-reference certification is **private-evidence-blocked**. Manufacturing
-construction certification is **converter-evidence-blocked** by design.
+| Category | Score | Basis |
+|---|---:|---|
+| Geometry alignment | 10/10 | flat 3D equals source to 4.5e-13 mm; body closes to exactly 200.0 x 150.0 x 300.0 mm |
+| Mapping continuity | 10/10 | correct chirality, printed face exterior on all 17 panels, no crease jumps |
+| Fold-pose match | 8/10 | diagonal lock creases held coplanar at 0deg; the reference does not recover their signed angles |
+| Motion match | 7/8 | verified against the distilled envelope and the 100-cycle certificate, not frame-by-frame against the raw recording |
+| CAD visual quality | 6/6 | exact polygons, real board depth, true window void |
+| Material / lighting presentation | 4/6 | deterministic harness lighting, no IBL or contact shadows |
+| **Total** | **45/50** | threshold is 45 |
+
+All ten hard gates true. Verdict:
+`REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION`.
+
+Both remaining deductions are evidence-limited rather than implementation
+defects: the original reference screenshots REF-IMG-001..006 are recorded by
+sha256 in the fixture manifest but are marked `tracked: false` and are not
+redistributed into the repository.
+
+Engineering is **green and software-complete for reference recreation**.
+Reference recreation is **certified**. Manufacturing construction certification
+remains **converter-evidence-blocked** by design.

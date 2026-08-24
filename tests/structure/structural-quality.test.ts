@@ -97,3 +97,57 @@ test("flat panel union reproduces source outer contour and window geometry", () 
   assert.ok(report.perimeterDifferenceMm <= 1e-9);
   assert.equal(report.passesBoundaryGate, true);
 });
+
+/**
+ * Production-sized sheets sample the boundary into six-figure arrays.
+ *
+ * `measureFlatPanelEquivalence` used to reduce those with `Math.max(...array)`,
+ * which overflows the V8 argument stack somewhere above ~110k entries. Every
+ * synthetic fixture in this suite stayed far below that, so the whole golden
+ * acceptance path crashed the first time it met a real 3 m perimeter dieline.
+ */
+test("flat equivalence survives a production-sized boundary sample count", () => {
+  const widthMm = 1200;
+  const heightMm = 800;
+  const sheet: CanonicalDieline = {
+    schemaVersion: 2,
+    id: "large-perimeter-fixture",
+    units: "mm",
+    coordinateSystem: "x-right-y-down",
+    widthMm,
+    heightMm,
+    source: { id: "quality-fixture", format: "authored", sourceUnits: "mm" },
+    tolerances: DEFAULT_STRUCTURAL_TOLERANCES,
+    entities: [
+      entity(
+        "outer",
+        "cut",
+        [
+          { x: 0, y: 0 },
+          { x: widthMm, y: 0 },
+          { x: widthMm, y: heightMm },
+          { x: 0, y: heightMm },
+        ],
+        true,
+      ),
+    ],
+  };
+
+  const spacingMm = Math.min(
+    sheet.tolerances.metricSampleSpacingMm,
+    Math.max(sheet.tolerances.boundaryComparisonMm / 2, 0.001),
+  );
+  const perimeterMm = 2 * (widthMm + heightMm);
+  assert.ok(
+    perimeterMm / spacingMm > 150_000,
+    "the fixture must exceed the argument-spread limit to be a real regression test",
+  );
+
+  const graph = buildPlanarGraph(sheet);
+  const panels = extractStructuralPanels(sheet, graph);
+  const report = measureFlatPanelEquivalence(sheet, panels);
+
+  assert.ok(Number.isFinite(report.bidirectionalHausdorffMm));
+  assert.ok(report.bidirectionalHausdorffMm < sheet.tolerances.boundaryComparisonMm);
+  assert.equal(report.passesBoundaryGate, true);
+});

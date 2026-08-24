@@ -128,6 +128,26 @@ Required captures:
 Use the same asymmetric diagnostic artwork throughout. Do not rotate, mirror or
 replace artwork per panel to hide a mapping error.
 
+These are produced by the private capture route and its driver rather than by
+hand, so the camera constraint is structural instead of procedural:
+
+```bash
+VORTEX_GOLDEN_REFERENCE_PDF=/absolute/path/to/reference.pdf npm run dev
+npm run capture:golden-reference -- --width 2400 --height 1500
+```
+
+`/studio/golden-reference/capture` owns one frozen `CAPTURE_CAMERA` and mounts
+no orbit controls, so the camera cannot drift between captures. Poses come from
+the same `buildGoldenReferenceCapturePlan` that writes the manifest, so a
+capture cannot show a different pose than the manifest claims, and `stepPose`
+snaps to its absolute target on first render, so a capture never races an
+animation. `01-flat-2d` is rendered as the canonical sheet — exact source cut
+and crease linework over the diagnostic artwork — not as a 3D frame.
+
+The driver writes the PNGs plus `visual-review.scaffold.json` with the capture
+paths filled in. It deliberately leaves every hard gate and score unset: a
+reviewer must inspect the images and author `visual-review.json`.
+
 ## 5. Score visual/reference quality
 
 The visual gate is 50 points:

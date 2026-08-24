@@ -233,6 +233,99 @@ function HoverParallaxRig({
 }
 
 /** Exposes a screenshot function for cart thumbnails / proofs (§42). */
+/**
+ * Keeps the orbit pivot and the zoom on the product itself.
+ *
+ * Structural cartons live in canonical sheet coordinates: the flat pose is
+ * centred on the origin, but the assembled body sits wherever its root panel
+ * happens to fall on the sheet. Orbiting a fixed world target then swings the
+ * carton through a wide arc around a pivot that is not on it, which reads as
+ * the camera revolving around the viewer rather than turning the product.
+ *
+ * The same product also changes size dramatically between poses — a 300 mm
+ * carton unfolds into a 742 mm sheet — so one authored distance cannot frame
+ * both. This rig re-fits only when the model's extent actually changes, so a
+ * fold re-frames the view while ordinary manual zooming is left alone.
+ */
+function AutoFrameRig({
+  enabled,
+  controlsRef,
+  minDistance,
+  maxDistance,
+}: {
+  enabled: boolean;
+  controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  minDistance: number;
+  maxDistance: number;
+}) {
+  const { scene, camera, size } = useThree();
+  const box = useRef(new THREE.Box3());
+  const centre = useRef(new THREE.Vector3());
+  const sphere = useRef(new THREE.Sphere());
+  const desiredTarget = useRef(new THREE.Vector3());
+  const offset = useRef(new THREE.Vector3());
+  const settled = useRef(false);
+  const lastRadius = useRef(0);
+  const desiredDistance = useRef(0);
+  const sampleCountdown = useRef(0);
+
+  useFrame((_, delta) => {
+    if (!enabled) return;
+    const controls = controlsRef.current;
+    if (!controls) return;
+
+    sampleCountdown.current -= 1;
+    if (sampleCountdown.current <= 0) {
+      sampleCountdown.current = 6;
+      const root =
+        scene.getObjectByName("STRUCTURAL_PACKAGE_ROOT") ??
+        scene.getObjectByName("CARTON_ROOT");
+      if (root) {
+        box.current.setFromObject(root);
+        if (!box.current.isEmpty()) {
+          box.current.getCenter(centre.current);
+          box.current.getBoundingSphere(sphere.current);
+          desiredTarget.current.copy(centre.current);
+          settled.current = true;
+
+          const radius = sphere.current.radius;
+          // Re-fit only when the product's extent really changed, so folding
+          // re-frames but a deliberate manual zoom is not fought every frame.
+          if (Math.abs(radius - lastRadius.current) > lastRadius.current * 0.05) {
+            lastRadius.current = radius;
+            const perspective = camera as THREE.PerspectiveCamera;
+            const vertical = (perspective.fov * Math.PI) / 180;
+            const aspect = size.width / Math.max(1, size.height);
+            const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * aspect);
+            const limiting = Math.min(vertical, horizontal);
+            desiredDistance.current = THREE.MathUtils.clamp(
+              (radius * 1.15) / Math.sin(limiting / 2),
+              minDistance,
+              maxDistance,
+            );
+          }
+        }
+      }
+    }
+
+    if (!settled.current) return;
+    const ease = 1 - Math.pow(0.0015, delta);
+    controls.target.lerp(desiredTarget.current, ease);
+
+    if (desiredDistance.current > 0) {
+      offset.current.copy(camera.position).sub(controls.target);
+      const distance = offset.current.length();
+      if (distance > 1e-4 && Math.abs(distance - desiredDistance.current) > 0.01) {
+        const next = THREE.MathUtils.lerp(distance, desiredDistance.current, ease);
+        camera.position.copy(controls.target).addScaledVector(offset.current.normalize(), next);
+      }
+    }
+    controls.update();
+  });
+
+  return null;
+}
+
 function CaptureBridge({ onReady }: { onReady?: (fn: () => string | null) => void }) {
   const { gl, scene, camera } = useThree();
 
@@ -427,6 +520,12 @@ export function Product3DViewer({
           controlsRef={controlsRef}
         />
         <CaptureBridge onReady={onCaptureReady} />
+        <AutoFrameRig
+          enabled={config.camera.autoFrame === true}
+          controlsRef={controlsRef}
+          minDistance={config.camera.minDistance}
+          maxDistance={config.camera.maxDistance}
+        />
 
         <OrbitControls
           ref={controlsRef}

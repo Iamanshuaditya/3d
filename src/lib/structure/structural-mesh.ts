@@ -17,9 +17,23 @@ function normalizeLoop(points: readonly Vec2[], clockwise: boolean): Vec2[] {
   return isClockwiseInNumericCoordinates === clockwise ? [...points] : [...points].reverse();
 }
 
+/**
+ * Global sheet UVs in canonical dieline coordinates.
+ *
+ * The legacy carton builder places each panel at its FINAL position on the
+ * assembled box, so the physical sheet flip is already baked into that
+ * geometry and its `toUv` inverts u to compensate. Structural panels are
+ * different: they stay in canonical sheet coordinates so the flat pose IS the
+ * dieline. Inverting u here would apply the flip a second time and mirror the
+ * artwork on every assembled panel, so u maps straight through.
+ *
+ * With v flipped (`1 - y`) and the design texture uploaded `flipY`, sheet
+ * x-right / y-down lands on the printed +Y face exactly as authored. See
+ * `tests/structure/structural-chirality.test.ts`.
+ */
 function sheetUv(point: Vec2, dieline: CanonicalDieline): [number, number] {
   if (dieline.widthMm <= 0 || dieline.heightMm <= 0) throw new Error("Canonical dieline dimensions must be positive.");
-  return [1 - point.x / dieline.widthMm, 1 - point.y / dieline.heightMm];
+  return [point.x / dieline.widthMm, 1 - point.y / dieline.heightMm];
 }
 
 function pushTriangle(

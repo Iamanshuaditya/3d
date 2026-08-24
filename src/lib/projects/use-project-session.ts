@@ -27,6 +27,28 @@ const pendingProjectCreations = new Map<
   { key: string; promise: Promise<DesignProjectDto> }
 >();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PREVIEW_ONLY_PROJECT_ID = "preview-only";
+
+/** Reads an image's intrinsic pixel size without a round trip to the server. */
+async function decodeImageSize(file: File): Promise<{ width: number; height: number }> {
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file);
+    const size = { width: bitmap.width, height: bitmap.height };
+    bitmap.close();
+    return size;
+  }
+  const url = URL.createObjectURL(file);
+  try {
+    return await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
+      image.onerror = () => reject(new Error("That image could not be decoded."));
+      image.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 type PendingSave = {
   sequence: number;
@@ -116,6 +138,7 @@ export function useProjectSession(
   commitSequence: number,
   onDocumentLoaded: (document: DesignDocument) => void,
 ): ProjectSession {
+  const previewOnly = config.previewOnly === true;
   const creationIdentity = pendingCreationIdentity(config);
   const [project, setProject] = useState<DesignProjectDto | null>(null);
   const [saveState, setSaveState] = useState<ProjectSaveState>("loading");
@@ -129,8 +152,19 @@ export function useProjectSession(
   const loadedCallbackRef = useRef(onDocumentLoaded);
   const lastQueuedSequenceRef = useRef(0);
   const flushRef = useRef<() => void>(() => {});
+  const previewAssetUrls = useRef<string[]>([]);
 
   loadedCallbackRef.current = onDocumentLoaded;
+
+  // Preview-only artwork lives in this tab only, so its object URLs must be
+  // released when the Studio unmounts rather than leaking for the session.
+  useEffect(() => {
+    const urls = previewAssetUrls.current;
+    return () => {
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.length = 0;
+    };
+  }, []);
 
   const schedulePreview = useCallback((projectId: string) => {
     if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
@@ -202,6 +236,16 @@ export function useProjectSession(
     pendingRef.current = null;
     revisionRef.current = 0;
     lastQueuedSequenceRef.current = 0;
+
+    // A preview-only product has no catalogue row to own a project, so opening
+    // one would fail with "product is not published" and leave the editor
+    // permanently blocked. Report the session as settled instead.
+    if (previewOnly) {
+      setSaveState("saved");
+      return () => {
+        cancelled = true;
+      };
+    }
 
     void (async () => {
       try {
@@ -283,6 +327,7 @@ export function useProjectSession(
     config.optionSelection,
     config.productVersionId,
     creationIdentity,
+    previewOnly,
     requestedProjectId,
   ]);
 
@@ -326,6 +371,28 @@ export function useProjectSession(
   }, []);
 
   const uploadAsset = useCallback(async (file: File) => {
+    if (previewOnly) {
+      // The server normally decodes the artwork to record its pixel size. With
+      // no project to upload to, decode it here instead — the editor refuses an
+      // image whose dimensions it does not know.
+      const { width, height } = await decodeImageSize(file);
+      const readUrl = URL.createObjectURL(file);
+      previewAssetUrls.current.push(readUrl);
+      const asset: ProjectAssetDto = {
+        id: `preview-${crypto.randomUUID()}`,
+        projectId: PREVIEW_ONLY_PROJECT_ID,
+        kind: "artwork",
+        filename: file.name,
+        mimeType: file.type as ProjectAssetDto["mimeType"],
+        byteSize: file.size,
+        width,
+        height,
+        sha256: "",
+        createdAt: new Date().toISOString(),
+        readUrl,
+      };
+      return asset;
+    }
     const current = projectRef.current;
     if (!current) throw new Error("Wait for the project to finish opening before uploading.");
     const asset = await uploadProjectAsset(current.id, file);
@@ -333,7 +400,7 @@ export function useProjectSession(
     projectRef.current = next;
     setProject(next);
     return asset;
-  }, []);
+  }, [previewOnly]);
 
   const retrySave = useCallback(() => {
     if (pendingRef.current) flushRef.current();

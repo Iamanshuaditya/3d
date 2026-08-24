@@ -1,12 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import {
-  anglesAtStage,
-  authoredPlan,
-  validateUnfoldPlan,
-} from "../src/lib/configurator/unfold-plan";
-import type { HingeAngles } from "../src/types/unfold";
+import { buildGoldenReferenceCapturePlan } from "../src/lib/configurator/golden-reference-captures";
 import {
   applyLockBottomGoldenSourceProfile,
   buildPlanarGraph,
@@ -90,16 +85,6 @@ function asJson(value: unknown): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function midpointPose(start: HingeAngles, end: HingeAngles, hingeIds: readonly string[]): HingeAngles {
-  const pose: Record<string, number> = { ...start };
-  for (const hingeId of hingeIds) {
-    const a = start[hingeId] ?? 0;
-    const b = end[hingeId] ?? 0;
-    pose[hingeId] = a + (b - a) * 0.5;
-  }
-  return pose;
-}
-
 const args = parseArgs(process.argv.slice(2));
 const bytes = new Uint8Array(await readFile(args.pdf));
 const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -146,18 +131,10 @@ const compiled = compileLockBottomGoldenConstruction(
   selected.input,
 );
 const rig = resolveStructuralRig(raw, graph, panels, compiled.construction);
-const plan = authoredPlan([...compiled.unfold.steps], [...rig.articulatedHinges]);
-const planErrors = validateUnfoldPlan(plan, [...rig.articulatedHinges]);
+const capturePlan = buildGoldenReferenceCapturePlan(compiled.unfold, rig.articulatedHinges);
+const plan = capturePlan.plan;
+const planErrors = capturePlan.planErrors;
 const runtime = certifyStructuralFoldRuntime(raw, panels, rig, 100);
-
-const assembledPose = anglesAtStage(plan, 0);
-const majorClosurePose = anglesAtStage(plan, 1);
-const secondaryPose = anglesAtStage(plan, 2);
-const bodyPose = anglesAtStage(plan, 3);
-const flatPose = anglesAtStage(plan, 4);
-const bodyStep = compiled.unfold.steps.find((step) => step.id === "body");
-if (!bodyStep) throw new Error("Golden reference recreation has no body phase.");
-const bodyFormingPose = midpointPose(bodyPose, flatPose, bodyStep.hingeIds);
 
 const captureManifest = {
   schemaVersion: 1,
@@ -167,46 +144,32 @@ const captureManifest = {
   diagnosticArtworkRule:
     "Use the same generated asymmetric diagnostic artwork for every 2D/3D capture. Do not rotate, mirror or replace per-panel textures to hide mapping errors.",
   modelRotationRad: compiled.modelRotationRad,
-  captures: [
-    {
-      id: "01-flat-2d",
-      kind: "canonical-2d",
-      pose: "flat",
-      requiredChecks: ["cut/crease source alignment", "real window", "corner markers", "sheet chirality"],
-    },
-    {
-      id: "02-flat-3d",
-      kind: "structural-3d",
-      pose: flatPose,
-      requiredChecks: ["3D flat boundary equals 2D", "window remains empty", "artwork orientation matches 2D"],
-    },
-    {
-      id: "03-body-forming-50pct",
-      kind: "structural-3d",
-      pose: bodyFormingPose,
-      interpolation: "50% of body phase angle delta; capture helper should use the same ease curve when sampling animation time",
-      requiredChecks: ["rigid panels", "crease pivots", "no geometry rebuild", "no camera movement"],
-    },
-    {
-      id: "04-body-erect",
-      kind: "structural-3d",
-      pose: bodyPose,
-      requiredChecks: ["200x150 rectangular tube", "window broad wall opposite plain broad wall", "side walls upright"],
-    },
-    {
-      id: "05-secondary-flaps",
-      kind: "structural-3d",
-      pose: secondaryPose,
-      requiredChecks: ["narrow top dust flaps opened/positioned consistently", "hidden lower-lock estimate labelled reference-only"],
-    },
-    {
-      id: "06-major-and-final",
-      kind: "structural-3d-pair",
-      majorPose: majorClosurePose,
-      finalPose: assembledPose,
-      requiredChecks: ["major closure precedes final closure", "same camera", "no bounce", "artwork does not jump"],
-    },
-  ],
+  captures: capturePlan.captures.map((capture) => {
+    if (capture.kind === "canonical-2d") {
+      return {
+        id: capture.id,
+        kind: capture.kind,
+        pose: "flat",
+        requiredChecks: capture.requiredChecks,
+      };
+    }
+    if (capture.kind === "structural-3d-pair") {
+      return {
+        id: capture.id,
+        kind: capture.kind,
+        majorPose: capture.pose,
+        finalPose: capture.pairedPose,
+        requiredChecks: capture.requiredChecks,
+      };
+    }
+    return {
+      id: capture.id,
+      kind: capture.kind,
+      pose: capture.pose,
+      ...(capture.interpolation ? { interpolation: capture.interpolation } : {}),
+      requiredChecks: capture.requiredChecks,
+    };
+  }),
 };
 
 const basePassed =
@@ -282,14 +245,7 @@ await Promise.all([
   writeFile(`${destination}/reference-unfold-spec.json`, asJson(compiled.unfold)),
   writeFile(`${destination}/reference-resolved-rig.json`, asJson(rig)),
   writeFile(`${destination}/reference-runtime-certificate.json`, asJson(runtime)),
-  writeFile(`${destination}/reference-terminal-poses.json`, asJson({
-    assembled: assembledPose,
-    majorClosure: majorClosurePose,
-    secondaryFlaps: secondaryPose,
-    bodyErect: bodyPose,
-    bodyForming50Percent: bodyFormingPose,
-    flat: flatPose,
-  })),
+  writeFile(`${destination}/reference-terminal-poses.json`, asJson(capturePlan.terminalPoses)),
   writeFile(`${destination}/reference-capture-manifest.json`, asJson(captureManifest)),
 ]);
 

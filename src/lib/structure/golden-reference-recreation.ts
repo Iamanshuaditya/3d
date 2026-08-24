@@ -59,10 +59,10 @@ function bodyAndFlap(
 }
 
 function inwardBaseAngle(side: GoldenReferenceTopSide): number {
-  // The certified golden body uses negative-depth handedness so the printed
-  // face remains exterior. In canonical sheet coordinates, north flaps extend
-  // toward -Z and therefore rotate -90deg around their +X crease to enter the
-  // box interior; south flaps extend toward +Z and rotate +90deg.
+  // Measured against the certified positive-depth body: with these signs the
+  // assembled bounding box closes to exactly 200 x 150 x 300 mm, so every base
+  // flap folds into the tube rather than splaying outward. Negating them opens
+  // the assembly back out to 350 x 320 mm.
   return side === "north" ? -90 : 90;
 }
 
@@ -113,7 +113,7 @@ function baseDefinition(
     childPanelId: flap.panelId,
     assembledAngleDeg: inwardBaseAngle(side),
     evidence:
-      `REFERENCE_RECREATION_ONLY: ${side} body-to-flap hinge is folded inward by a quarter turn from the exact source crease; sign follows the certified negative-depth exterior-print convention.`,
+      `REFERENCE_RECREATION_ONLY: ${side} body-to-flap hinge is folded inward by a quarter turn from the exact source crease; sign follows the certified positive-depth exterior-print convention.`,
   };
 }
 
@@ -225,13 +225,13 @@ export function createGoldenReferenceRecreationCandidate(
     schemaVersion: 1,
     sourceSha256: geometry.sourceSha256,
     boardThicknessMm,
-    bodyHandedness: "negative-depth",
+    bodyHandedness: "positive-depth",
     physicalTop,
     evidence: {
       boardThickness:
         `REFERENCE_RECREATION_ONLY: supplied motion analysis estimates visible stock below 1% of carton width (roughly 0.2-0.8%); ${boardThicknessMm.toFixed(3)} mm is a visual preview value, not converter caliper.`,
       bodyHandedness:
-        "ENGINE_GEOMETRY: negative-depth keeps the structural mesh's printed +Y face exterior on the window wall; positive-depth would place that printed face toward the certified tube interior.",
+        "ENGINE_GEOMETRY: positive-depth is the only certified handedness that keeps the structural mesh's printed +Y face exterior. Measured on the assembled rig it puts the printed face outward on all 17 panels and closes the body to exactly 200 x 150 x 300 mm; negative-depth inverts the printed face on every body wall and splays the flaps to 350 x 320 mm.",
       physicalTop:
         `REFERENCE_RECREATION_ONLY: sheet-${physicalTop} is used as physical top for the visual candidate. The source is vertically symmetric enough that converter metadata is still required for manufacturing certification.`,
       flapConstruction:

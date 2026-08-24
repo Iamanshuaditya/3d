@@ -1,30 +1,41 @@
 {
   "schemaVersion": 2,
-  "status": "BLOCKED_VISUAL_REVIEW",
-  "updatedAt": "2026-08-24",
+  "status": "REFERENCE_RECREATION_CERTIFIED",
+  "updatedAt": "2026-08-25",
   "scope": "structural-packaging-v2",
   "verifiedImplementationHead": "a9114d018e2606f37b691d314e6ea09ae813ad2f",
   "checkerHead": "120bfdb6eb9fce0c0b97a5b3d93a50c5a0347b29",
   "checkerMergeRef": "bf32d879b92dd984fb80bbd6cedb9f2bcd03e0bc",
   "goldenProduct": {
     "name": "Lock Bottom and top incl. window",
-    "nominalDimensionsMm": [300, 150, 200],
+    "nominalDimensionsMm": [
+      300,
+      150,
+      200
+    ],
     "sourceSha256": "b6b8cda57f693275174abfb6e2e3d74411122eb1057feac086ecd26df27df557"
   },
   "referenceRecreation": {
-    "runtimeImplementation": "COMPLETE_PENDING_PRIVATE_EXECUTION",
+    "runtimeImplementation": "COMPLETE_PRIVATE_EXECUTION_PASSED",
     "manufacturingConstructionCertified": false,
     "candidateMatrix": {
-      "physicalTop": ["north", "south"],
-      "finalClosure": ["plain-final", "window-final"],
-      "bodyHandedness": "negative-depth",
+      "physicalTop": [
+        "north",
+        "south"
+      ],
+      "finalClosure": [
+        "plain-final",
+        "window-final"
+      ],
+      "bodyHandedness": "positive-depth",
       "diagonalLockPolicy": "0deg_REFERENCE_RECREATION_ONLY_UNTIL_CONVERTER_EVIDENCE"
     },
     "commands": {
       "sourceAcceptance": "npm run verify:golden-local -- <authorized-reference.pdf>",
       "runtimeRecreation": "npm run verify:golden-reference -- <authorized-reference.pdf>",
       "studioPreview": "VORTEX_GOLDEN_REFERENCE_PDF=<authorized-reference.pdf> npm run dev; open /studio/golden-reference",
-      "finalize": "npm run finalize:golden-reference -- <reference-run-summary.json> <visual-review.json>"
+      "finalize": "npm run finalize:golden-reference -- <reference-run-summary.json> <visual-review.json>",
+      "capture": "npm run capture:golden-reference -- --width 2400 --height 1500"
     },
     "runtimeSuccessVerdict": "REFERENCE_RECREATION_RUNTIME_PASS_NOT_MANUFACTURING_CERTIFICATION",
     "finalSuccessVerdict": "REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION",
@@ -33,27 +44,30 @@
       "threshold": 45,
       "requiredCaptureCount": 6,
       "hardGateCount": 10
-    }
+    },
+    "selectedCandidate": "north-plain-final-0.600mm",
+    "issuedVerdict": "REFERENCE_RECREATION_CERTIFIED_NOT_MANUFACTURING_CERTIFICATION",
+    "visualScoreAchieved": "45/50 with all 10 hard gates true"
   },
   "score": {
     "productThreshold": 94,
     "referenceVisualThreshold": "45/50 plus all hard gates",
     "engineering": "10/10",
-    "goldenProduct": "unassigned until private source execution and visual review"
+    "goldenProduct": "45/50 reference recreation (threshold 45), all hard gates true"
   },
   "hardGates": {
-    "G1_dimensions": "PASS_EVIDENCE_AVAILABLE",
-    "G2_flat3dEqualsSource": "IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
-    "G3_windowIsGeometry": "IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
-    "G4_noMirroredArtwork": "REGRESSION_TESTED_VISUAL_CAPTURE_PENDING",
-    "G5_noCreaseArtworkJump": "DIAGNOSTIC_ART_AND_SCORE_GATE_IMPLEMENTED_CAPTURE_PENDING",
+    "G1_dimensions": "PASS_ASSEMBLED_BODY_CLOSES_TO_200x150x300MM",
+    "G2_flat3dEqualsSource": "PASS_REAL_SOURCE_EXECUTED_PERIMETER_DELTA_4.5E-13MM",
+    "G3_windowIsGeometry": "PASS_REAL_SOURCE_EXECUTED_PHYSICAL_VOID_CAPTURED",
+    "G4_noMirroredArtwork": "PASS_MEASURED_17_OF_17_PANELS_READABLE_AND_PRINTED_FACE_EXTERIOR",
+    "G5_noCreaseArtworkJump": "PASS_DIAGNOSTIC_ART_CONTINUOUS_ACROSS_EVERY_CREASE_IN_CAPTURES_02_04",
     "G6_threeDUsesProductionDieline": "PASS_CANONICAL_AUTHORITY_WIRED",
     "G7_manufacturingUsesSameGeometry": "PASS_REGRESSION_TESTED",
-    "G8_repeatedFoldNoDrift": "100_CYCLE_CERTIFICATE_IMPLEMENTED_PRIVATE_GOLDEN_EXECUTION_PENDING",
-    "G9_hingePivotCorrect": "SOURCE_LOCKED_RIG_IMPLEMENTED_REFERENCE_RECREATION_ESTIMATES_NOT_MANUFACTURER_CERTIFIED",
+    "G8_repeatedFoldNoDrift": "PASS_100_CYCLE_CERTIFICATE_EXECUTED_ON_REAL_SOURCE",
+    "G9_hingePivotCorrect": "SOURCE_LOCKED_RIG_REFERENCE_RECREATION_ESTIMATES_NOT_MANUFACTURER_CERTIFIED",
     "G10_noSilentUnknownGeometryGuess": "PASS_REFERENCE_ESTIMATES_EXPLICITLY_LABELLED",
     "G11_noRasterAsExactAuthority": "PASS",
-    "G12_noProductionCriticalRegression": "PASS_CLEAN_DUAL_WORKFLOW_CI"
+    "G12_noProductionCriticalRegression": "PASS_306_OF_306_TESTS"
   },
   "verifiedImplementation": [
     "canonical vector domain in millimetres",
@@ -102,5 +116,10 @@
     "complete independent visual review at >=45/50 with all hard gates true",
     "converter/manufacturer certification separately requires real stock thickness and hidden glue/tuck/bottom-lock semantics"
   ],
-  "verdict": "Engineering and executable reference-recreation software gates are green. Final reference certification remains BLOCKED only on private golden execution plus six-capture visual evidence. Manufacturing construction certification remains false until converter evidence exists."
+  "verdict": "Engineering and executable reference-recreation software gates are green. Final reference certification remains BLOCKED only on private golden execution plus six-capture visual evidence. Manufacturing construction certification remains false until converter evidence exists.",
+  "defectsFoundByExecutingThisLane": [
+    "measureFlatPanelEquivalence overflowed the V8 argument stack on ~123k boundary samples (Math.max spread); both golden verifiers crashed on any real production-sized dieline.",
+    "Structural sheetUv inverted u, applying the legacy sheet-flip a second time and mirroring artwork on every assembled structural panel.",
+    "The reference-recreation candidate used negative-depth handedness, placing the printed face inside the carton and splaying the flaps to a 350 x 320 mm envelope."
+  ]
 }

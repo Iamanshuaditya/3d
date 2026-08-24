@@ -255,7 +255,28 @@ export type ProductConfig = {
     minDistance: number;
     maxDistance: number;
     presets: CameraPreset[];
+    /**
+     * Keep the orbit pivot and zoom on the product itself.
+     *
+     * Structural cartons are modelled in canonical sheet coordinates, so the
+     * assembled body sits wherever its root panel falls on the sheet while the
+     * flat pose is centred on the origin. A fixed pivot then sits off the
+     * product and orbiting swings it through a wide arc instead of turning it
+     * in place. Opt in per product; fixed-pose products keep their authored
+     * framing.
+     */
+    autoFrame?: boolean;
   };
+  /**
+   * Render this product without a persisted project.
+   *
+   * Some products are built at request time from a local, non-redistributable
+   * source rather than resolved from the published catalogue, so there is no
+   * product row to create a project against. Without this the Studio blocks on
+   * "product is not published" and uploads never unlock. Preview-only sessions
+   * keep artwork in memory for the tab and never call the projects API.
+   */
+  previewOnly?: boolean;
   /** Vertical offset applied to the model so it sits on the ground plane. */
   modelYOffset?: number;
   /**

@@ -92,6 +92,15 @@ function sampleSegments(segments: readonly BoundarySegment[], spacingMm: number)
   return samples;
 }
 
+// Boundary sample arrays scale with perimeter / spacing and reach >100k entries on
+// real production dielines. Spreading them into Math.max/Math.min overflows the V8
+// argument stack, so fold instead of spreading.
+function maxOf(values: readonly number[]): number {
+  let best = -Infinity;
+  for (const value of values) if (value > best) best = value;
+  return best;
+}
+
 function nearestDistance(point: Vec2, segments: readonly BoundarySegment[]): number {
   let best = Infinity;
   for (const segment of segments) {
@@ -115,8 +124,8 @@ function bidirectionalHausdorff(
   spacingMm: number,
 ): number {
   return Math.max(
-    ...directionalDistances(first, second, spacingMm),
-    ...directionalDistances(second, first, spacingMm),
+    maxOf(directionalDistances(first, second, spacingMm)),
+    maxOf(directionalDistances(second, first, spacingMm)),
   );
 }
 
@@ -195,8 +204,8 @@ export function measureFlatPanelEquivalence(
     spacing,
   );
   const allDistances = [...sourceToDerived, ...derivedToSource];
-  const maxSourceToDerivedMm = Math.max(...sourceToDerived);
-  const maxDerivedToSourceMm = Math.max(...derivedToSource);
+  const maxSourceToDerivedMm = maxOf(sourceToDerived);
+  const maxDerivedToSourceMm = maxOf(derivedToSource);
   const bidirectionalHausdorffMm = Math.max(
     maxSourceToDerivedMm,
     maxDerivedToSourceMm,

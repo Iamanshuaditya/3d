@@ -221,7 +221,8 @@ function measureUvRoundTrip(
       for (let index = 0; index < mesh.printedFaceVertexCount; index += 1) {
         const x = position.getX(index);
         const sheetY = position.getZ(index);
-        const recoveredX = (1 - uv.getX(index)) * dieline.widthMm;
+        // Exact inverse of sheetUv: u maps straight through, v is flipped.
+        const recoveredX = uv.getX(index) * dieline.widthMm;
         const recoveredY = (1 - uv.getY(index)) * dieline.heightMm;
         worst = Math.max(worst, Math.hypot(recoveredX - x, recoveredY - sheetY));
       }

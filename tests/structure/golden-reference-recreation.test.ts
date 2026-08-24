@@ -170,7 +170,9 @@ function hinges(): GoldenHingeRoleReport {
 test("reference recreation produces a complete evidence-labelled 16-hinge candidate", () => {
   const candidate = createGoldenReferenceRecreationCandidate(geometry(), hinges());
   assert.equal(candidate.confidence, "reference-recreation-only");
-  assert.equal(candidate.input.bodyHandedness, "negative-depth");
+  // Positive-depth is the only handedness that keeps the printed face exterior
+  // and closes the body to the nominal 200 x 150 x 300 mm carton.
+  assert.equal(candidate.input.bodyHandedness, "positive-depth");
   assert.equal(candidate.input.physicalTop, "north");
   assert.equal(candidate.input.boardThicknessMm, 0.6);
   assert.equal(candidate.input.flapHinges.length, 12);

@@ -84,7 +84,10 @@ test("printed-face UVs are derived globally from canonical sheet coordinates", (
   for (let vertex = printed.start; vertex < printed.start + printed.count; vertex += 1) {
     const x = positions.getX(vertex);
     const y = positions.getZ(vertex);
-    assert.ok(Math.abs(uvs.getX(vertex) - (1 - x / 100)) < 1e-6);
+    // u maps straight through: structural panels stay in canonical sheet
+    // coordinates, so inverting u would mirror the artwork on the assembled
+    // carton (see tests/structure/structural-chirality.test.ts).
+    assert.ok(Math.abs(uvs.getX(vertex) - x / 100) < 1e-6);
     assert.ok(Math.abs(uvs.getY(vertex) - (1 - y / 60)) < 1e-6);
   }
 });
