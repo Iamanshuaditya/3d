@@ -236,7 +236,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(state, p1, p2, p3);
+        cubic(path, p1, p2, p3);
         break;
       }
       case "curveTo2": {
@@ -253,7 +253,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(state, state.current, p2, p3);
+        cubic(path, state.current, p2, p3);
         break;
       }
       case "curveTo3": {
@@ -270,7 +270,7 @@ function parseConstructPath(
           ctm,
           page,
         );
-        cubic(state, p1, p3, p3);
+        cubic(path, p1, p3, p3);
         break;
       }
       case "rectangle": {
@@ -303,9 +303,52 @@ function parseConstructPath(
     }
   }
   if (cursor !== coordinates.length && coordinates.length - cursor !== 4) {
-    // pdf.js can append a four-number path bounding box to constructPath.
     throw new Error("PDF constructPath coordinate arity is ambiguous.");
   }
+}
+
+function normalizeColorSpaceName(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    for (const candidate of value) {
+      const nested = normalizeColorSpaceName(candidate);
+      if (nested) return nested;
+    }
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["name", "id", "colorSpace", "colorSpaceName"]) {
+      if (typeof record[key] === "string") return record[key] as string;
+    }
+  }
+  return null;
+}
+
+function styleForColorSpace(
+  previous: PdfStrokeStyle,
+  rawName: unknown,
+): PdfStrokeStyle {
+  const name = normalizeColorSpaceName(rawName);
+  if (!name) {
+    throw new Error("PDF stroking color space does not expose a certifiable name.");
+  }
+  const normalized = name.replace(/^\//, "").toLowerCase();
+  if (normalized === "devicegray" || normalized === "g") {
+    return { ...previous, colorSpace: "gray", components: [0], spotName: undefined };
+  }
+  if (normalized === "devicergb" || normalized === "rgb") {
+    return { ...previous, colorSpace: "rgb", components: [0, 0, 0], spotName: undefined };
+  }
+  if (normalized === "devicecmyk" || normalized === "cmyk") {
+    return { ...previous, colorSpace: "cmyk", components: [0, 0, 0, 1], spotName: undefined };
+  }
+  if (normalized === "pattern") {
+    throw new Error("Pattern stroking color spaces are not certified as structural authority.");
+  }
+  // A named resource such as DieCutBlue/DieCutRed/Bleed is treated as a spot
+  // identity only because the import contract still requires an explicit rule
+  // for that exact name before a stroked path can become structural geometry.
+  return { ...previous, colorSpace: "spot", components: [1], spotName: name.replace(/^\//, "") };
 }
 
 export function importVectorPdfOperatorPage(
@@ -385,6 +428,9 @@ export function importVectorPdfOperatorPage(
       case "setLineWidth":
         style = { ...style, lineWidthPt: finiteNumber(operator.args[0], "PDF line width") };
         break;
+      case "setStrokeColorSpace":
+        style = styleForColorSpace(style, operator.args[0]);
+        break;
       case "setStrokeGray":
         style = {
           ...style,
@@ -413,15 +459,31 @@ export function importVectorPdfOperatorPage(
           spotName: undefined,
         };
         break;
+      case "setStrokeColor":
       case "setStrokeColorN": {
-        const spotName = operator.args.find((value) => typeof value === "string");
-        if (typeof spotName !== "string") {
-          throw new Error("PDF spot stroke does not expose a certifiable separation name.");
-        }
+        const embeddedName = operator.args.find((value) => typeof value === "string");
         const components = operator.args.filter(
           (value): value is number => typeof value === "number" && Number.isFinite(value),
         );
-        style = { ...style, colorSpace: "spot", components, spotName };
+        if (embeddedName && style.colorSpace !== "spot") {
+          style = { ...style, colorSpace: "spot", spotName: embeddedName, components };
+          break;
+        }
+        if (style.colorSpace === "spot") {
+          if (!style.spotName) {
+            throw new Error("PDF spot stroke has no certifiable separation name.");
+          }
+          if (components.length === 0) {
+            throw new Error(`PDF spot stroke ${style.spotName} has no tint components.`);
+          }
+          style = { ...style, components };
+          break;
+        }
+        const expectedComponents = style.colorSpace === "gray" ? 1 : style.colorSpace === "rgb" ? 3 : style.colorSpace === "cmyk" ? 4 : 0;
+        if (expectedComponents === 0 || components.length !== expectedComponents) {
+          throw new Error("PDF generic stroke color cannot be certified for the active color space.");
+        }
+        style = { ...style, components };
         break;
       }
       case "constructPath":
@@ -446,9 +508,10 @@ export function importVectorPdfOperatorPage(
       case "endPath":
         path = emptyPath();
         break;
-      // Fill-only paths are presentation, not structural authority.
       case "fill":
       case "eoFill":
+      case "setFillColorSpace":
+      case "setFillColor":
       case "setFillRGBColor":
       case "setFillGray":
       case "setFillCMYKColor":
