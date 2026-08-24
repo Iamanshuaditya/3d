@@ -10,24 +10,22 @@ import {
   applyHingeAngles,
   buildCartonTree,
   setDielineView,
+  type CartonTree,
 } from "@/lib/configurator/carton-geometry";
 import { stepPose } from "@/lib/configurator/hinge-animation";
+import { resolveStructuralCarton } from "@/lib/configurator/structural-carton";
+import {
+  applyStructuralHingeAngles,
+  createStructuralTree,
+  type StructuralTree,
+} from "@/lib/structure";
 
 type CartonModelProps = {
   spec: CartonSpec;
   config: ProductConfig;
   textures: Record<string, THREE.CanvasTexture | null>;
   consumeDirty: (surfaceId: string) => boolean;
-  /**
-   * Target pose: absolute hinge angles in degrees. Omitted hinges fall back to
-   * their assembled angle, so a product with no structural control is simply
-   * rendered assembled.
-   */
   hingeAngles?: HingeAngles;
-  /**
-   * True once the product has reached its flat pose. Renders the blank as its
-   * printed sheet instead of as board — see `setDielineView`.
-   */
   dielineView?: boolean;
   onSurfaceClick?: (surfaceId: string) => void;
 };
@@ -37,6 +35,30 @@ const EMPTY_POSE: HingeAngles = {};
 function seededNoise(index: number): number {
   const value = Math.sin(index * 12.9898 + 78.233) * 43758.5453;
   return value - Math.floor(value);
+}
+
+type RuntimeTree =
+  | Readonly<{ kind: "legacy"; tree: CartonTree }>
+  | Readonly<{ kind: "structural"; tree: StructuralTree }>;
+
+function runtimeJoints(runtime: RuntimeTree) {
+  return runtime.kind === "structural"
+    ? runtime.tree.hinges.map((hinge) => ({
+        id: hinge.id,
+        restAngleDeg: hinge.assembledAngleDeg,
+      }))
+    : runtime.tree.hinges.map((hinge) => ({ id: hinge.id, restAngleDeg: hinge.angleDeg }));
+}
+
+function applyRuntimePose(runtime: RuntimeTree, pose: Record<string, number>) {
+  if (runtime.kind === "structural") applyStructuralHingeAngles(runtime.tree, pose);
+  else applyHingeAngles(runtime.tree, pose);
+}
+
+function setRuntimeDielineView(runtime: RuntimeTree, enabled: boolean) {
+  if (runtime.kind === "legacy") setDielineView(runtime.tree, enabled);
+  // Exact structural meshes already share one canonical geometry in flat and
+  // folded states. Never swap/rebuild geometry for a terminal flat frame.
 }
 
 export function CartonModel({
@@ -50,21 +72,9 @@ export function CartonModel({
 }: CartonModelProps) {
   const surfaceId = config.editableSurfaces[0]?.id ?? "outside";
   const texture = textures[surfaceId] ?? null;
-
-  /**
-   * The generated panels have distinct printed, inner-board and exposed-edge
-   * meshes. The front and rear faces may be double-sided for fold animation,
-   * but the opaque inner mesh sits in front when the carton is viewed open, so
-   * uploaded artwork never appears mirrored on the food-contact surface.
-   */
   const isKraft = config.materialProfile === "kraft-corrugated";
 
   const materials = useMemo(() => {
-    /**
-     * Procedural board textures for the kraft profile. Paper fibre grain
-     * (bump + roughness variation) and a corrugation flute pattern for cut
-     * edges are what make cardboard read as cardboard instead of plastic.
-     */
     const makeGrain = () => {
       const size = 256;
       const canvas = document.createElement("canvas");
@@ -117,18 +127,12 @@ export function CartonModel({
 
     const outer = new THREE.MeshPhysicalMaterial({
       name: "CartonOuter",
-      // Slightly below white for kraft so the studio environment cannot blow
-      // the lid out to cream; printed artwork still reads true.
       color: isKraft ? 0xece4d6 : 0xffffff,
       roughness: isKraft ? 0.78 : 0.58,
       metalness: 0,
       clearcoat: isKraft ? 0.04 : 0.2,
       clearcoatRoughness: 0.5,
       side: THREE.DoubleSide,
-      // Unprinted areas of the dieline are transparent on the canvas. Without
-      // this the material ignores alpha and renders them as black RGB; with it,
-      // bare areas reveal the white board underneath, which is what real
-      // partially-printed packaging looks like.
       transparent: true,
       alphaTest: 0.01,
       ...(grain ? { bumpMap: grain, bumpScale: 0.35, roughnessMap: grain } : {}),
@@ -152,14 +156,23 @@ export function CartonModel({
     return { outer, inner, edge };
   }, [isKraft]);
 
-  const tree = useMemo(
-    () => buildCartonTree(spec, materials.outer, materials.inner, materials.edge),
-    [spec, materials],
-  );
+  const runtime = useMemo<RuntimeTree>(() => {
+    const structural = resolveStructuralCarton(spec);
+    if (structural) {
+      const tree = createStructuralTree(
+        structural.dieline,
+        structural.panels,
+        structural.rig,
+        [materials.outer, materials.inner, materials.edge],
+      );
+      return { kind: "structural", tree };
+    }
+    return {
+      kind: "legacy",
+      tree: buildCartonTree(spec, materials.outer, materials.inner, materials.edge),
+    };
+  }, [spec, materials]);
 
-  // Bind the live design texture to the printed face. Assigning `map` mutates
-  // an externally-owned three.js material, which the React Compiler cannot know
-  // is the required idiom here.
   /* eslint-disable react-hooks/immutability */
   useEffect(() => {
     if (materials.outer.map !== texture) {
@@ -171,23 +184,17 @@ export function CartonModel({
 
   useEffect(() => {
     return () => {
-      tree.dispose();
+      runtime.tree.dispose();
       materials.outer.dispose();
       materials.inner.dispose();
       materials.edge.dispose();
     };
-  }, [tree, materials]);
+  }, [runtime, materials]);
 
-  // Structural animation is per-hinge, not one global scalar. The pose the
-  // model is *currently* showing lives here; the requested pose is a prop.
-  // Re-targeting mid-flight is therefore always safe — there is no transition
-  // object to interrupt and no accumulated value to corrupt.
   const poseRef = useRef<Record<string, number>>({});
-
   useEffect(() => {
-    // A rebuilt tree is a different set of joints; start it at rest.
     poseRef.current = {};
-  }, [tree]);
+  }, [runtime]);
 
   const [reducedMotion, setReducedMotion] = useState(false);
   useEffect(() => {
@@ -202,26 +209,22 @@ export function CartonModel({
     const pose = poseRef.current;
     const maxDeviation = stepPose(
       pose,
-      tree.hinges.map((hinge) => ({ id: hinge.id, restAngleDeg: hinge.angleDeg })),
+      runtimeJoints(runtime),
       hingeAngles,
       delta,
       reducedMotion,
     );
-    applyHingeAngles(tree, pose);
-    // Swap to the printed sheet only once the last fold is essentially done,
-    // so the board does not pop away at the start of the closing move.
-    setDielineView(tree, dielineView && maxDeviation < 6);
+    applyRuntimePose(runtime, pose);
+    setRuntimeDielineView(runtime, dielineView && maxDeviation < 6);
 
     /* eslint-disable react-hooks/immutability */
-    if (texture && consumeDirty(surfaceId)) {
-      texture.needsUpdate = true;
-    }
+    if (texture && consumeDirty(surfaceId)) texture.needsUpdate = true;
     /* eslint-enable react-hooks/immutability */
   });
 
   return (
     <primitive
-      object={tree.root}
+      object={runtime.tree.root}
       position={[0, config.modelYOffset ?? 0, 0]}
       onPointerDown={(e: { stopPropagation: () => void }) => {
         if (!onSurfaceClick) return;
