@@ -1,7 +1,6 @@
 import type {
   AffineMatrix,
   CanonicalDieline,
-  CoreStructuralOperation,
   SourceMetadataValue,
   StructuralEntity,
   StructuralOperation,
@@ -49,6 +48,8 @@ export type NormalizedPdfOperator = Readonly<{
 export type PdfOperatorPage = Readonly<{
   widthPt: number;
   heightPt: number;
+  originXPt?: number;
+  originYPt?: number;
   userUnit?: number;
   rotate?: number;
   operators: readonly NormalizedPdfOperator[];
@@ -62,7 +63,9 @@ type PathState = {
 };
 
 function finiteNumber(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`${label} must be a finite number.`);
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`${label} must be a finite number.`);
+  }
   return value;
 }
 
@@ -90,10 +93,14 @@ function classifyStroke(style: PdfStrokeStyle, rules: readonly PdfSemanticRule[]
 
 function sourcePointToMm(point: Vec2, page: PdfOperatorPage): Vec2 {
   const userUnit = page.userUnit ?? 1;
-  if (!Number.isFinite(userUnit) || userUnit <= 0) throw new Error("PDF UserUnit must be finite and positive.");
+  if (!Number.isFinite(userUnit) || userUnit <= 0) {
+    throw new Error("PDF UserUnit must be finite and positive.");
+  }
+  const originXPt = page.originXPt ?? 0;
+  const originYPt = page.originYPt ?? 0;
   return {
-    x: point.x * userUnit * POINTS_TO_MM,
-    y: (page.heightPt - point.y) * userUnit * POINTS_TO_MM,
+    x: (point.x - originXPt) * userUnit * POINTS_TO_MM,
+    y: (originYPt + page.heightPt - point.y) * userUnit * POINTS_TO_MM,
   };
 }
 
@@ -118,7 +125,9 @@ function cubic(path: PathState, p1: Vec2, p2: Vec2, p3: Vec2): void {
 }
 
 function close(path: PathState): void {
-  if (!path.current || !path.start) throw new Error("PDF closePath appears without an active subpath.");
+  if (!path.current || !path.start) {
+    throw new Error("PDF closePath appears without an active subpath.");
+  }
   const dx = path.current.x - path.start.x;
   const dy = path.current.y - path.start.y;
   if (Math.hypot(dx, dy) > DEFAULT_STRUCTURAL_TOLERANCES.coordinateEpsilonMm) {
@@ -137,7 +146,9 @@ function pathFromState(
   sourceId: string,
   sourceName?: string,
 ): StructuralEntity {
-  if (state.segments.length === 0) throw new Error("Cannot stroke an empty PDF structural path.");
+  if (state.segments.length === 0) {
+    throw new Error("Cannot stroke an empty PDF structural path.");
+  }
   const provenance = {
     sourceId,
     format: "pdf" as const,
@@ -171,7 +182,9 @@ function parseConstructPath(
 ): void {
   const operations = Array.isArray(args[0]) ? args[0] : null;
   const coordinates = Array.isArray(args[1]) ? args[1] : null;
-  if (!operations || !coordinates) throw new Error("Unsupported PDF constructPath payload.");
+  if (!operations || !coordinates) {
+    throw new Error("Unsupported PDF constructPath payload.");
+  }
   let cursor = 0;
   for (const rawOperation of operations) {
     const operation = nestedName(rawOperation);
@@ -183,8 +196,10 @@ function parseConstructPath(
           ctm,
           page,
         );
-        if (state.segments.length > 0 && state.current && state.start && !state.closed) {
-          throw new Error("Multiple PDF subpaths in one paint operation are not yet certified; split them before import.");
+        if (state.segments.length > 0 && state.current && state.start) {
+          throw new Error(
+            "Multiple PDF subpaths in one paint operation are not yet certified; split them before import.",
+          );
         }
         state.start = point;
         state.current = point;
@@ -203,23 +218,58 @@ function parseConstructPath(
         );
         break;
       case "curveTo": {
-        const p1 = transformedPoint(finiteNumber(coordinates[cursor++], "curve x1"), finiteNumber(coordinates[cursor++], "curve y1"), ctm, page);
-        const p2 = transformedPoint(finiteNumber(coordinates[cursor++], "curve x2"), finiteNumber(coordinates[cursor++], "curve y2"), ctm, page);
-        const p3 = transformedPoint(finiteNumber(coordinates[cursor++], "curve x3"), finiteNumber(coordinates[cursor++], "curve y3"), ctm, page);
+        const p1 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curve x1"),
+          finiteNumber(coordinates[cursor++], "curve y1"),
+          ctm,
+          page,
+        );
+        const p2 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curve x2"),
+          finiteNumber(coordinates[cursor++], "curve y2"),
+          ctm,
+          page,
+        );
+        const p3 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curve x3"),
+          finiteNumber(coordinates[cursor++], "curve y3"),
+          ctm,
+          page,
+        );
         cubic(state, p1, p2, p3);
         break;
       }
       case "curveTo2": {
         if (!state.current) throw new Error("PDF curveTo2 appears before moveTo.");
-        const p2 = transformedPoint(finiteNumber(coordinates[cursor++], "curveTo2 x2"), finiteNumber(coordinates[cursor++], "curveTo2 y2"), ctm, page);
-        const p3 = transformedPoint(finiteNumber(coordinates[cursor++], "curveTo2 x3"), finiteNumber(coordinates[cursor++], "curveTo2 y3"), ctm, page);
+        const p2 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curveTo2 x2"),
+          finiteNumber(coordinates[cursor++], "curveTo2 y2"),
+          ctm,
+          page,
+        );
+        const p3 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curveTo2 x3"),
+          finiteNumber(coordinates[cursor++], "curveTo2 y3"),
+          ctm,
+          page,
+        );
         cubic(state, state.current, p2, p3);
         break;
       }
       case "curveTo3": {
         if (!state.current) throw new Error("PDF curveTo3 appears before moveTo.");
-        const p1 = transformedPoint(finiteNumber(coordinates[cursor++], "curveTo3 x1"), finiteNumber(coordinates[cursor++], "curveTo3 y1"), ctm, page);
-        const p3 = transformedPoint(finiteNumber(coordinates[cursor++], "curveTo3 x3"), finiteNumber(coordinates[cursor++], "curveTo3 y3"), ctm, page);
+        const p1 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curveTo3 x1"),
+          finiteNumber(coordinates[cursor++], "curveTo3 y1"),
+          ctm,
+          page,
+        );
+        const p3 = transformedPoint(
+          finiteNumber(coordinates[cursor++], "curveTo3 x3"),
+          finiteNumber(coordinates[cursor++], "curveTo3 y3"),
+          ctm,
+          page,
+        );
         cubic(state, p1, p3, p3);
         break;
       }
@@ -228,7 +278,9 @@ function parseConstructPath(
         const y = finiteNumber(coordinates[cursor++], "rectangle y");
         const width = finiteNumber(coordinates[cursor++], "rectangle width");
         const height = finiteNumber(coordinates[cursor++], "rectangle height");
-        if (state.segments.length > 0) throw new Error("Multiple PDF subpaths in one paint operation are not certified.");
+        if (state.segments.length > 0) {
+          throw new Error("Multiple PDF subpaths in one paint operation are not certified.");
+        }
         const points = [
           transformedPoint(x, y, ctm, page),
           transformedPoint(x + width, y, ctm, page),
@@ -250,10 +302,9 @@ function parseConstructPath(
         throw new Error(`Unsupported PDF path operator ${operation}.`);
     }
   }
-  if (cursor !== coordinates.length) {
-    // pdf.js may append four min/max numbers to constructPath. They are not
-    // structural geometry. Accept exactly that documented optimization tail.
-    if (coordinates.length - cursor !== 4) throw new Error("PDF constructPath coordinate arity is ambiguous.");
+  if (cursor !== coordinates.length && coordinates.length - cursor !== 4) {
+    // pdf.js can append a four-number path bounding box to constructPath.
+    throw new Error("PDF constructPath coordinate arity is ambiguous.");
   }
 }
 
@@ -261,11 +312,20 @@ export function importVectorPdfOperatorPage(
   page: PdfOperatorPage,
   options: PdfImportOptions,
 ): CanonicalDieline {
-  if (!Number.isFinite(page.widthPt) || page.widthPt <= 0 || !Number.isFinite(page.heightPt) || page.heightPt <= 0) {
+  if (
+    !Number.isFinite(page.widthPt) ||
+    page.widthPt <= 0 ||
+    !Number.isFinite(page.heightPt) ||
+    page.heightPt <= 0
+  ) {
     throw new Error("PDF page dimensions must be finite and positive.");
   }
-  if ((page.rotate ?? 0) % 360 !== 0) throw new Error("Rotated PDF pages are not yet certified for structural import.");
-  if (options.rules.length === 0) throw new Error("PDF structural import requires explicit semantic classification rules.");
+  if ((page.rotate ?? 0) % 360 !== 0) {
+    throw new Error("Rotated PDF pages are not yet certified for structural import.");
+  }
+  if (options.rules.length === 0) {
+    throw new Error("PDF structural import requires explicit semantic classification rules.");
+  }
 
   const pageNumber = options.pageNumber ?? 1;
   let ctm: AffineMatrix = IDENTITY_AFFINE_MATRIX;
@@ -282,13 +342,15 @@ export function importVectorPdfOperatorPage(
 
   const strokeCurrentPath = () => {
     const operation = classifyStroke(style, options.rules);
+    const currentObjectIndex = objectIndex;
+    objectIndex += 1;
     entities.push(
       pathFromState(
         path,
-        `pdf-p${pageNumber}-o${objectIndex++}`,
+        `pdf-p${pageNumber}-o${currentObjectIndex}`,
         pageNumber,
         operation,
-        objectIndex,
+        currentObjectIndex,
         options.id,
         options.sourceName,
       ),
@@ -324,13 +386,20 @@ export function importVectorPdfOperatorPage(
         style = { ...style, lineWidthPt: finiteNumber(operator.args[0], "PDF line width") };
         break;
       case "setStrokeGray":
-        style = { ...style, colorSpace: "gray", components: [finiteNumber(operator.args[0], "PDF gray")] };
+        style = {
+          ...style,
+          colorSpace: "gray",
+          components: [finiteNumber(operator.args[0], "PDF gray")],
+          spotName: undefined,
+        };
         break;
       case "setStrokeRGBColor":
         style = {
           ...style,
           colorSpace: "rgb",
-          components: [0, 1, 2].map((index) => finiteNumber(operator.args[index], `PDF RGB ${index}`)),
+          components: [0, 1, 2].map((index) =>
+            finiteNumber(operator.args[index], `PDF RGB ${index}`),
+          ),
           spotName: undefined,
         };
         break;
@@ -338,14 +407,20 @@ export function importVectorPdfOperatorPage(
         style = {
           ...style,
           colorSpace: "cmyk",
-          components: [0, 1, 2, 3].map((index) => finiteNumber(operator.args[index], `PDF CMYK ${index}`)),
+          components: [0, 1, 2, 3].map((index) =>
+            finiteNumber(operator.args[index], `PDF CMYK ${index}`),
+          ),
           spotName: undefined,
         };
         break;
       case "setStrokeColorN": {
         const spotName = operator.args.find((value) => typeof value === "string");
-        if (typeof spotName !== "string") throw new Error("PDF spot stroke does not expose a certifiable separation name.");
-        const components = operator.args.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+        if (typeof spotName !== "string") {
+          throw new Error("PDF spot stroke does not expose a certifiable separation name.");
+        }
+        const components = operator.args.filter(
+          (value): value is number => typeof value === "number" && Number.isFinite(value),
+        );
         style = { ...style, colorSpace: "spot", components, spotName };
         break;
       }
@@ -354,21 +429,24 @@ export function importVectorPdfOperatorPage(
         break;
       case "stroke":
       case "closeStroke":
-        if (operator.name === "closeStroke" && path.start && path.current && !path.closed) close(path);
+        if (operator.name === "closeStroke" && path.start && path.current && !path.closed) {
+          close(path);
+        }
         strokeCurrentPath();
         break;
       case "fillStroke":
       case "eoFillStroke":
       case "closeFillStroke":
       case "closeEOFillStroke":
-        if (operator.name.startsWith("close") && path.start && path.current && !path.closed) close(path);
+        if (operator.name.startsWith("close") && path.start && path.current && !path.closed) {
+          close(path);
+        }
         strokeCurrentPath();
         break;
       case "endPath":
         path = emptyPath();
         break;
-      // Non-geometric paint/text state is intentionally ignored. Fill-only
-      // paths are not structural authority and never become dieline entities.
+      // Fill-only paths are presentation, not structural authority.
       case "fill":
       case "eoFill":
       case "setFillRGBColor":
@@ -377,15 +455,18 @@ export function importVectorPdfOperatorPage(
       case "setFillColorN":
         break;
       default:
-        // Unknown operators are safe only while there is no active structural
-        // path. If a path exists, fail closed so clipping/geometry mutation
-        // cannot be silently certified.
-        if (path.segments.length > 0) throw new Error(`Unsupported PDF operator ${operator.name} while a structural path is active.`);
+        if (path.segments.length > 0) {
+          throw new Error(`Unsupported PDF operator ${operator.name} while a structural path is active.`);
+        }
         break;
     }
   }
-  if (ctmStack.length !== 0) throw new Error("PDF graphics-state save/restore stack is unbalanced.");
-  if (entities.length === 0) throw new Error("PDF page contains no explicitly classified stroked structural geometry.");
+  if (ctmStack.length !== 0) {
+    throw new Error("PDF graphics-state save/restore stack is unbalanced.");
+  }
+  if (entities.length === 0) {
+    throw new Error("PDF page contains no explicitly classified stroked structural geometry.");
+  }
 
   const userUnit = page.userUnit ?? 1;
   return {
@@ -413,15 +494,21 @@ export async function importVectorPdf(
   bytes: Uint8Array,
   options: PdfImportOptions,
 ): Promise<CanonicalDieline> {
-  if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) throw new Error("Vector PDF import requires non-empty bytes.");
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) {
+    throw new Error("Vector PDF import requires non-empty bytes.");
+  }
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const loadingTask = pdfjs.getDocument({ data: bytes, useWorkerFetch: false, isEvalSupported: false });
+  const loadingTask = pdfjs.getDocument({ data: bytes, useWorkerFetch: false });
   const document = await loadingTask.promise;
   try {
     const pageNumber = options.pageNumber ?? 1;
-    if (pageNumber < 1 || pageNumber > document.numPages) throw new RangeError(`PDF page ${pageNumber} is outside the document.`);
+    if (pageNumber < 1 || pageNumber > document.numPages) {
+      throw new RangeError(`PDF page ${pageNumber} is outside the document.`);
+    }
     const page = await document.getPage(pageNumber);
-    if (page.rotate % 360 !== 0) throw new Error("Rotated PDF pages are not yet certified for structural import.");
+    if (page.rotate % 360 !== 0) {
+      throw new Error("Rotated PDF pages are not yet certified for structural import.");
+    }
     const operatorList = await page.getOperatorList();
     const opNames = new Map<number, string>();
     for (const [name, value] of Object.entries(pdfjs.OPS)) {
@@ -435,18 +522,22 @@ export async function importVectorPdf(
       }
       throw new Error(`Unknown pdf.js operator ${String(value)}.`);
     };
-    const operators: NormalizedPdfOperator[] = operatorList.fnArray.map((fn: number, index: number) => {
-      const name = normalizeName(fn);
-      const rawArgs = operatorList.argsArray[index] ?? [];
-      if (name === "constructPath" && Array.isArray(rawArgs[0])) {
-        const nested = rawArgs[0].map((nestedFn: unknown) => normalizeName(nestedFn));
-        return { name, args: [nested, rawArgs[1], ...(rawArgs.slice(2) ?? [])] };
-      }
-      return { name, args: rawArgs };
-    });
+    const operators: NormalizedPdfOperator[] = operatorList.fnArray.map(
+      (fn: number, index: number) => {
+        const name = normalizeName(fn);
+        const rawArgs = operatorList.argsArray[index] ?? [];
+        if (name === "constructPath" && Array.isArray(rawArgs[0])) {
+          const nested = rawArgs[0].map((nestedFn: unknown) => normalizeName(nestedFn));
+          return { name, args: [nested, rawArgs[1], ...rawArgs.slice(2)] };
+        }
+        return { name, args: rawArgs };
+      },
+    );
     const view = page.view;
     return importVectorPdfOperatorPage(
       {
+        originXPt: view[0],
+        originYPt: view[1],
         widthPt: Math.abs(view[2] - view[0]),
         heightPt: Math.abs(view[3] - view[1]),
         userUnit: page.userUnit,
@@ -456,6 +547,6 @@ export async function importVectorPdf(
       options,
     );
   } finally {
-    await document.destroy();
+    await loadingTask.destroy();
   }
 }
