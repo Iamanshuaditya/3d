@@ -4,26 +4,45 @@ import {
   LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS,
   type GoldenStructuralAcceptanceReport,
 } from "./structural-acceptance";
+import {
+  buildProfiledPlanarGraph,
+  type StructuralTopologyProfile,
+  type StructuralTopologyRepair,
+} from "./topology-profile";
 
 /**
  * Source-specific topology contract for the reviewed CloudLab lock-bottom PDF.
  *
  * Independent object-level measurement found four diagonal crease terminals
- * 0.0135–0.0147 mm from their intended cut span. Those gaps are larger than
- * the engine-wide 0.01 mm automatic topology tolerance but remain below
- * 0.02 mm. Raising the GLOBAL tolerance would weaken unrelated products, so
- * the exception is explicit, hash-locked and local to this exact source.
+ * 0.0135–0.0147 mm from the INTERIOR of their intended cut spans. The global
+ * endpoint-to-endpoint snapper cannot and should not invent those joins.
+ * Instead this exact source is hash-locked to an explicit topology-only
+ * endpoint-to-span profile. Canonical source vectors remain untouched.
  */
 export const LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM = 0.02;
 export const LOCK_BOTTOM_WINDOW_EXPECTED_PANEL_COUNT = 17;
+export const LOCK_BOTTOM_WINDOW_EXPECTED_TOPOLOGY_REPAIRS = 4;
+
+export const LOCK_BOTTOM_WINDOW_TOPOLOGY_PROFILE: StructuralTopologyProfile = Object.freeze({
+  id: "cloudlab-lock-bottom-window-300x150x200",
+  sourceSha256: LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS.sourceSha256,
+  endpointToSpanSnapMm: LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM,
+  expectedRepairCount: LOCK_BOTTOM_WINDOW_EXPECTED_TOPOLOGY_REPAIRS,
+});
 
 export type LockBottomGoldenAcceptanceReport = GoldenStructuralAcceptanceReport &
   Readonly<{
     profile: Readonly<{
       id: "cloudlab-lock-bottom-window-300x150x200";
-      topologySnapMm: number;
+      endpointToSpanSnapMm: number;
       expectedPanelCount: number;
+      expectedRepairCount: number;
+      actualRepairCount: number;
+      maxRepairDistanceMm: number;
+      repairs: readonly StructuralTopologyRepair[];
       panelCountPassed: boolean;
+      repairCountPassed: boolean;
+      repairDistancePassed: boolean;
       sourceProfileApplied: true;
     }>;
     passed: boolean;
@@ -31,59 +50,60 @@ export type LockBottomGoldenAcceptanceReport = GoldenStructuralAcceptanceReport 
 
 export function applyLockBottomGoldenSourceProfile(
   dieline: CanonicalDieline,
-): CanonicalDieline {
-  if (
-    dieline.source.sha256?.toLowerCase() !==
-    LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS.sourceSha256.toLowerCase()
-  ) {
-    throw new Error(
-      "Lock-bottom golden topology profile may only be applied to the reviewed source SHA-256.",
-    );
-  }
-  if (dieline.tolerances.topologySnapMm > LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM) {
-    throw new Error(
-      `Golden source already requests topology tolerance ${dieline.tolerances.topologySnapMm} mm, which exceeds the reviewed ${LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM} mm profile.`,
-    );
-  }
+): Readonly<{
+  topologyDieline: CanonicalDieline;
+  repairs: readonly StructuralTopologyRepair[];
+}> {
+  const profiled = buildProfiledPlanarGraph(dieline, LOCK_BOTTOM_WINDOW_TOPOLOGY_PROFILE);
   return {
-    ...dieline,
-    tolerances: {
-      ...dieline.tolerances,
-      topologySnapMm: LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM,
-    },
-    metadata: {
-      ...dieline.metadata,
-      topologyProfile: "cloudlab-lock-bottom-window-300x150x200",
-      topologySnapMm: LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM,
-      topologyRationale:
-        "Four reviewed diagonal crease terminals are 0.0135–0.0147 mm from their intended cut spans; 0.02 mm closes those numeric source gaps without changing global tolerances.",
-    },
+    topologyDieline: profiled.topologyDieline,
+    repairs: profiled.repairs,
   };
 }
 
 /**
  * Full golden source acceptance with the reviewed local topology profile.
- * Source-cycle metrics remain measured from the untouched canonical vectors;
- * only planar adjacency uses the explicit 0.02 mm source-profile tolerance.
+ *
+ * Cut/source measurements still originate in the untouched imported source;
+ * the derived topology copy differs only where the four audited dangling
+ * crease endpoints are projected <=0.02 mm to their intended cut spans.
  */
 export function evaluateLockBottomGoldenAcceptance(
   rawDieline: CanonicalDieline,
 ): LockBottomGoldenAcceptanceReport {
-  const dieline = applyLockBottomGoldenSourceProfile(rawDieline);
+  const profiled = applyLockBottomGoldenSourceProfile(rawDieline);
   const base = evaluateGoldenStructuralAcceptance(
-    dieline,
+    profiled.topologyDieline,
     LOCK_BOTTOM_WINDOW_300_150_200_EXPECTATIONS,
   );
   const panelCountPassed = base.panelCount === LOCK_BOTTOM_WINDOW_EXPECTED_PANEL_COUNT;
+  const repairCountPassed =
+    profiled.repairs.length === LOCK_BOTTOM_WINDOW_EXPECTED_TOPOLOGY_REPAIRS;
+  const maxRepairDistanceMm = profiled.repairs.reduce(
+    (maximum, repair) => Math.max(maximum, repair.distanceMm),
+    0,
+  );
+  const repairDistancePassed =
+    maxRepairDistanceMm <= LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM;
   return {
     ...base,
     profile: {
       id: "cloudlab-lock-bottom-window-300x150x200",
-      topologySnapMm: LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM,
+      endpointToSpanSnapMm: LOCK_BOTTOM_WINDOW_TOPOLOGY_SNAP_MM,
       expectedPanelCount: LOCK_BOTTOM_WINDOW_EXPECTED_PANEL_COUNT,
+      expectedRepairCount: LOCK_BOTTOM_WINDOW_EXPECTED_TOPOLOGY_REPAIRS,
+      actualRepairCount: profiled.repairs.length,
+      maxRepairDistanceMm,
+      repairs: profiled.repairs,
       panelCountPassed,
+      repairCountPassed,
+      repairDistancePassed,
       sourceProfileApplied: true,
     },
-    passed: base.passed && panelCountPassed,
+    passed:
+      base.passed &&
+      panelCountPassed &&
+      repairCountPassed &&
+      repairDistancePassed,
   };
 }
