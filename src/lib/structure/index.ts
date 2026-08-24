@@ -9,5 +9,6 @@ export * from "./import-pdf-raw";
 export * from "./topology";
 export * from "./structural-mesh";
 export * from "./structural-rig";
+export * from "./structural-tree";
 export * from "./structural-quality";
 export * from "./structural-acceptance";
