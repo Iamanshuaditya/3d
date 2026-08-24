@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 from collections import defaultdict
-from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -57,7 +56,12 @@ def uv_coverage_and_overlap(faces: np.ndarray, uv: np.ndarray, res: int = 256):
     # overlap estimate: total analytic triangle area vs rasterized covered area.
     # If triangles tile the square without overlap the two agree; excess = overlap.
     tri = uv[faces]
-    tri_area = 0.5 * np.abs(np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])).sum()
+    edge_a = tri[:, 1] - tri[:, 0]
+    edge_b = tri[:, 2] - tri[:, 0]
+    # NumPy 2.5 requires np.cross inputs to be 3D. UV triangles are planar, so
+    # compute the scalar z-component of the 2D cross product directly.
+    cross_z = edge_a[:, 0] * edge_b[:, 1] - edge_a[:, 1] * edge_b[:, 0]
+    tri_area = 0.5 * np.abs(cross_z).sum()
     overlap = float(max(0.0, tri_area - covered_px) / max(tri_area, 1e-9))
     return covered_px, overlap
 
