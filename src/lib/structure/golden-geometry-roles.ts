@@ -82,6 +82,12 @@ function roleFor(
   };
 }
 
+function requireCount(actual: number, expected: number, label: string): void {
+  if (actual !== expected) {
+    throw new Error(`Golden geometry role classifier expected ${expected} ${label}; found ${actual}.`);
+  }
+}
+
 /**
  * Source-specific geometry-role classifier for the authorized golden carton.
  *
@@ -101,13 +107,15 @@ export function classifyLockBottomGoldenGeometry(
     throw new Error("Golden geometry roles may only be derived from the hash-locked authorized source.");
   }
 
+  // This profile is intentionally source-specific. A changed panel count means
+  // the canonical extraction or the source itself changed and must be reviewed
+  // before any semantic role is allowed downstream.
+  requireCount(panels.length, EXPECTED_PANEL_COUNT, "total panels");
+
   const bodyPanels = panels
     .filter((panel) => Math.abs(height(panel) - NOMINAL_BODY_HEIGHT_MM) <= BODY_HEIGHT_TOLERANCE_MM)
     .sort((left, right) => centerX(left) - centerX(right));
-
-  if (bodyPanels.length !== EXPECTED_BODY_COUNT) {
-    throw new Error(`Golden geometry role classifier expected ${EXPECTED_BODY_COUNT} body-band panels; found ${bodyPanels.length}.`);
-  }
+  requireCount(bodyPanels.length, EXPECTED_BODY_COUNT, "body-band panels");
 
   const bodyMinY = Math.min(...bodyPanels.map((panel) => panel.bounds.minY));
   const bodyMaxY = Math.max(...bodyPanels.map((panel) => panel.bounds.maxY));
@@ -119,6 +127,9 @@ export function classifyLockBottomGoldenGeometry(
   const southPanels = panels
     .filter((panel) => panel.bounds.minY >= bodyMaxY - BODY_BOUNDARY_TOLERANCE_MM)
     .sort((left, right) => centerX(left) - centerX(right) || left.bounds.minY - right.bounds.minY);
+
+  requireCount(northPanels.length, EXPECTED_FLAPS_PER_SIDE, "sheet-north flap panels");
+  requireCount(southPanels.length, EXPECTED_FLAPS_PER_SIDE, "sheet-south flap panels");
 
   const assigned = new Set([...bodyPanels, ...northPanels, ...southPanels].map((panel) => panel.id));
   if (assigned.size !== panels.length) {
@@ -149,6 +160,11 @@ export function classifyLockBottomGoldenGeometry(
     bodyBandHeight: Math.abs(bodyBandHeight - NOMINAL_BODY_HEIGHT_MM) <= BODY_HEIGHT_TOLERANCE_MM,
   } as const;
 
+  const failed = Object.entries(gates).filter(([, passed]) => !passed).map(([name]) => name);
+  if (failed.length > 0) {
+    throw new Error(`Golden geometry role gates failed: ${failed.join(", ")}.`);
+  }
+
   return {
     sourceSha256,
     bodyBand: { minY: bodyMinY, maxY: bodyMaxY, heightMm: bodyBandHeight },
@@ -157,6 +173,6 @@ export function classifyLockBottomGoldenGeometry(
     northFlapsLeftToRight: northRoles,
     southFlapsLeftToRight: southRoles,
     gates,
-    passed: Object.values(gates).every(Boolean),
+    passed: true,
   };
 }
