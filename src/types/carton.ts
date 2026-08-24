@@ -9,6 +9,7 @@
 
 import type { CanonicalDieline } from "@/lib/structure/vector-domain";
 import type { StructuralConstructionSpec } from "@/lib/structure/structural-rig";
+import type { StructuralTopologyProfile } from "@/lib/structure/topology-profile";
 import type { UnfoldSpec } from "./unfold";
 
 /** Rect in dieline space, millimetres, y increasing downward (like a canvas). */
@@ -46,6 +47,12 @@ export type CartonPanel = {
 export type StructuralCartonAuthority = Readonly<{
   /** Exact imported vector authority in canonical millimetres. */
   dieline: CanonicalDieline;
+  /**
+   * Optional reviewed topology-only profile for known sub-tolerance source
+   * gaps. It never changes editor/manufacturing vectors; it only controls how
+   * the planar adjacency graph is derived, with every repair recorded.
+   */
+  topology?: StructuralTopologyProfile;
   /** Reviewed, hash-locked construction facts bound to source crease spans. */
   construction: StructuralConstructionSpec;
 }>;
