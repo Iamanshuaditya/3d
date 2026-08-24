@@ -1,5 +1,7 @@
 import { dielineOverlay } from "@/lib/configurator/carton-geometry";
 import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
+import { flattenVectorPath } from "@/lib/structure/vector-math";
+import type { CanonicalDieline, CoreStructuralOperation } from "@/lib/structure/vector-domain";
 import type { DielinePath } from "@/types/carton";
 import type { ProductConfig } from "@/types/configurator";
 import type { NormalizedPrintJob } from "./types";
@@ -10,6 +12,9 @@ export type ManufacturingPath = {
   operation: ManufacturingOperation;
   closed: boolean;
   points: Array<{ xMm: number; yMm: number }>;
+  /** Canonical source identity retained for audit/provenance when available. */
+  sourceEntityId?: string;
+  sourcePathId?: string;
 };
 
 export type ManufacturingSheet = {
@@ -25,10 +30,19 @@ export type ManufacturingGeometry = {
   productId: string;
   productVersionId: string | null;
   configurationId: string | null;
+  /** Canonical source hash when production geometry came from structural authority. */
+  sourceSha256?: string;
   sheets: ManufacturingSheet[];
 };
 
 const GEOMETRY_TOLERANCE_MM = 0.01;
+const CUT_OPERATIONS = new Set<CoreStructuralOperation>(["cut", "window-cut"]);
+const CREASE_OPERATIONS = new Set<CoreStructuralOperation>([
+  "crease",
+  "score",
+  "perforation",
+  "half-cut",
+]);
 
 function validPath(path: DielinePath, operation: ManufacturingOperation) {
   const minimumPoints = path.closed ? 3 : 2;
@@ -47,6 +61,42 @@ function validPath(path: DielinePath, operation: ManufacturingOperation) {
   } satisfies ManufacturingPath;
 }
 
+function canonicalManufacturingPaths(dieline: CanonicalDieline): ManufacturingPath[] {
+  return dieline.entities.flatMap((entity) => {
+    let operation: ManufacturingOperation | null = null;
+    if (CUT_OPERATIONS.has(entity.operation as CoreStructuralOperation)) operation = "cut";
+    else if (CREASE_OPERATIONS.has(entity.operation as CoreStructuralOperation)) operation = "crease";
+    else if (entity.operation === "bleed") operation = "bleed";
+    if (!operation) return [];
+
+    // Manufacturing coordinates stay derived from the canonical vector source.
+    // The current SVG/PDF artifact layer is polyline-based, so curves are
+    // tessellated here using the canonical physical error budget rather than a
+    // screen/rendering tolerance. Provenance is retained on every emitted path.
+    const flattened = flattenVectorPath(
+      entity.path,
+      dieline.tolerances.curveFlatteningMm,
+      dieline.tolerances.maxSubdivisionDepth,
+      dieline.tolerances.coordinateEpsilonMm,
+    );
+    const minimumPoints = flattened.closed ? 3 : 2;
+    if (flattened.points.length < minimumPoints) {
+      throw new Error(
+        `Canonical manufacturing ${operation} entity ${entity.id} has too few points after certified flattening.`,
+      );
+    }
+    return [
+      {
+        operation,
+        closed: flattened.closed,
+        points: flattened.points.map((point) => ({ xMm: point.x, yMm: point.y })),
+        sourceEntityId: entity.id,
+        sourcePathId: entity.path.id,
+      },
+    ];
+  });
+}
+
 export function supportsManufacturingSvg(product: ProductConfig) {
   const spec = resolveCartonSpec(product);
   const surface = product.editableSurfaces[0];
@@ -60,8 +110,8 @@ export function supportsManufacturingSvg(product: ProductConfig) {
 
 /**
  * Normalizes the version-pinned structural spec directly into manufacturing
- * millimetres. It refuses a surface/spec size mismatch instead of silently
- * stretching the cutting geometry to fit a UI or PDF size.
+ * millimetres. Exact structural authority always wins over legacy presentation
+ * paths so editor, 3D and manufacturing cannot silently diverge.
  */
 export function normalizeManufacturingGeometry(
   job: NormalizedPrintJob,
@@ -82,28 +132,43 @@ export function normalizeManufacturingGeometry(
     );
   }
 
-  const overlay = spec.dieline
-    ? spec.dieline
-    : (() => {
-        const derived = dielineOverlay(spec, spec.width, spec.height);
-        const path = (candidate: { points: number[]; closed: boolean }): DielinePath => ({
-          points: Array.from({ length: candidate.points.length / 2 }, (_, index) => ({
-            x: candidate.points[index * 2],
-            y: candidate.points[index * 2 + 1],
-          })),
-          closed: candidate.closed,
-        });
-        return {
-          cuts: derived.cuts.map(path),
-          creases: derived.creases.map(path),
-          bleed: (derived.safety ?? []).map(path),
-        };
-      })();
-  const paths = [
-    ...overlay.cuts.map((candidate) => validPath(candidate, "cut")),
-    ...overlay.creases.map((candidate) => validPath(candidate, "crease")),
-    ...(overlay.bleed ?? []).map((candidate) => validPath(candidate, "bleed")),
-  ];
+  let paths: ManufacturingPath[];
+  let sourceSha256: string | undefined;
+  if (spec.structural) {
+    const canonical = spec.structural.dieline;
+    if (
+      Math.abs(canonical.widthMm - spec.width) > GEOMETRY_TOLERANCE_MM ||
+      Math.abs(canonical.heightMm - spec.height) > GEOMETRY_TOLERANCE_MM
+    ) {
+      throw new Error("Canonical manufacturing bounds disagree with the resolved carton spec.");
+    }
+    paths = canonicalManufacturingPaths(canonical);
+    sourceSha256 = canonical.source.sha256;
+  } else {
+    const overlay = spec.dieline
+      ? spec.dieline
+      : (() => {
+          const derived = dielineOverlay(spec, spec.width, spec.height);
+          const path = (candidate: { points: number[]; closed: boolean }): DielinePath => ({
+            points: Array.from({ length: candidate.points.length / 2 }, (_, index) => ({
+              x: candidate.points[index * 2],
+              y: candidate.points[index * 2 + 1],
+            })),
+            closed: candidate.closed,
+          });
+          return {
+            cuts: derived.cuts.map(path),
+            creases: derived.creases.map(path),
+            bleed: (derived.safety ?? []).map(path),
+          };
+        })();
+    paths = [
+      ...overlay.cuts.map((candidate) => validPath(candidate, "cut")),
+      ...overlay.creases.map((candidate) => validPath(candidate, "crease")),
+      ...(overlay.bleed ?? []).map((candidate) => validPath(candidate, "bleed")),
+    ];
+  }
+
   for (const path of paths) {
     for (const point of path.points) {
       if (
@@ -122,6 +187,7 @@ export function normalizeManufacturingGeometry(
     productId: job.product.id,
     productVersionId: job.product.productVersionId ?? null,
     configurationId: job.product.configurationId ?? null,
+    ...(sourceSha256 ? { sourceSha256 } : {}),
     sheets: [
       {
         surfaceId: surface.id,
