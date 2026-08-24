@@ -225,6 +225,19 @@ export function DesignEditor({
 
   const displayHeight = useMemo(() => H * scale, [H, scale]);
 
+  // Technical guides are UI, not artwork. Keep them close to a 1 CSS-pixel
+  // prepress hairline after the editor's own fit transform instead of encoding
+  // arbitrary 2.5–3 px strokes into dieline space.
+  const screenStroke = useCallback(
+    (cssPixels: number) => cssPixels / Math.max(scale, 0.05),
+    [scale],
+  );
+  const cutStrokeWidth = screenStroke(1.15);
+  const creaseStrokeWidth = screenStroke(1);
+  const guideStrokeWidth = screenStroke(0.9);
+  const creaseDash = [screenStroke(5), screenStroke(3)];
+  const guideDash = [screenStroke(4), screenStroke(3)];
+
   const sectionAtPointer = useCallback(() => {
     const pointer = stageRef.current?.getPointerPosition();
     if (!pointer) return null;
@@ -325,9 +338,6 @@ export function DesignEditor({
                 };
 
                 if (el.type === "image") {
-                  // Stitching wins when it exists; while it is still being
-                  // generated the original asset keeps the canvas populated so
-                  // the artwork never blinks out from under the customer.
                   const stitched = embroidery?.[el.id];
                   const source = stitched?.colour ?? (el.src ? images[el.src] : undefined);
                   if (!source) return null;
@@ -392,21 +402,72 @@ export function DesignEditor({
                 );
               })}
 
-              {/* Dieline: blue cut outlines, red dashed creases. */}
+              {/* CAD/prepress overlay: thin semantic technical strokes. */}
               {dieline?.cuts.map((cut, i) => (
-                <Line key={`cut-${i}`} points={cut.points} closed={cut.closed} stroke="#4a90d9" strokeWidth={3} lineJoin="round" listening={false} />
+                <Line
+                  key={`cut-${i}`}
+                  points={cut.points}
+                  closed={cut.closed}
+                  stroke="#2856b6"
+                  strokeWidth={cutStrokeWidth}
+                  lineCap="butt"
+                  lineJoin="miter"
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
               ))}
               {dieline?.creases.map((crease, i) => (
-                <Line key={`crease-${i}`} points={crease.points} closed={crease.closed} stroke="#e05252" strokeWidth={2.5} dash={[14, 10]} listening={false} />
+                <Line
+                  key={`crease-${i}`}
+                  points={crease.points}
+                  closed={crease.closed}
+                  stroke="#df3434"
+                  strokeWidth={creaseStrokeWidth}
+                  dash={creaseDash}
+                  lineCap="butt"
+                  lineJoin="miter"
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
               ))}
               {dieline?.safety?.map((safeLine, i) => (
-                <Line key={`safety-${i}`} points={safeLine.points} closed={safeLine.closed} stroke="#55ad80" strokeWidth={2.5} dash={[14, 10]} lineJoin="round" listening={false} />
+                <Line
+                  key={`safety-${i}`}
+                  points={safeLine.points}
+                  closed={safeLine.closed}
+                  stroke="#7fa83b"
+                  opacity={0.8}
+                  strokeWidth={guideStrokeWidth}
+                  dash={guideDash}
+                  lineCap="butt"
+                  lineJoin="miter"
+                  perfectDrawEnabled={false}
+                  listening={false}
+                />
               ))}
               {showGuides && bleed > 0 && (
-                <Rect x={bleed} y={bleed} width={W - bleed * 2} height={H - bleed * 2} stroke="#e05252" strokeWidth={3} dash={[14, 10]} listening={false} />
+                <Rect
+                  x={bleed}
+                  y={bleed}
+                  width={W - bleed * 2}
+                  height={H - bleed * 2}
+                  stroke="#7fa83b"
+                  strokeWidth={guideStrokeWidth}
+                  dash={guideDash}
+                  listening={false}
+                />
               )}
               {showGuides && safe > 0 && (
-                <Rect x={safe} y={safe} width={W - safe * 2} height={H - safe * 2} stroke="#3a9ad9" strokeWidth={3} dash={[14, 10]} listening={false} />
+                <Rect
+                  x={safe}
+                  y={safe}
+                  width={W - safe * 2}
+                  height={H - safe * 2}
+                  stroke="#3a9ad9"
+                  strokeWidth={guideStrokeWidth}
+                  dash={guideDash}
+                  listening={false}
+                />
               )}
               {!readOnly && (
                 <Transformer
