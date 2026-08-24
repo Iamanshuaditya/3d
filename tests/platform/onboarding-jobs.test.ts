@@ -102,7 +102,15 @@ test("a real checked-in GLB runs through inspect, build, validate, and durable o
   await runner.run(job.id);
 
   const completed = await service.get(job.id);
-  assert.equal(completed.job.status, "passed");
+  assert.equal(
+    completed.job.status,
+    "passed",
+    [
+      `onboarding fixture failed with ${completed.job.errorCode ?? "unknown error"}`,
+      completed.job.stderr?.trim(),
+      completed.job.stdout?.trim(),
+    ].filter(Boolean).join("\n"),
+  );
   assert.equal(completed.job.errorCode, null);
   assert.ok(completed.job.reportAssetId);
   assert.ok(completed.assets.some((asset) => asset.role === "inspection"));
