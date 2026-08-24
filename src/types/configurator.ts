@@ -258,6 +258,12 @@ export type ProductConfig = {
   };
   /** Vertical offset applied to the model so it sits on the ground plane. */
   modelYOffset?: number;
+  /**
+   * Fixed presentation rotation in radians, applied outside structural hinge
+   * transforms. This orients a product for viewing without changing canonical
+   * dieline coordinates, fold state, artwork mapping, or camera state.
+   */
+  modelRotation?: [number, number, number];
   /** Uniform scale applied without modifying the source GLB. */
   modelScale?: number;
   /** Ground-plane height when it differs from the model origin. */
