@@ -158,38 +158,42 @@ export function certifyLockBottomGoldenBodyTube(
   const [seam, broad, narrowLeft, window, narrowRight] = panels;
   const sign = handedness === "negative-depth" ? 1 : -1;
 
-  const rootPanelId = window.panelId;
+  // The reference keeps the plain broad body panel as the stationary floor
+  // while the narrow side, window-bearing broad wall, and opposite side fold
+  // around it. This root choice is presentation-observable and removes the
+  // previous mirror-equivalent-but-visually-wrong window-floor construction.
+  const rootPanelId = broad.panelId;
   const directed: GoldenBodyHingeDefinition[] = [
     {
-      roleId: hinges[2].id,
+      roleId: hinges[1].id,
       parentPanelId: rootPanelId,
       childPanelId: narrowLeft.panelId,
-      assembledAngleDeg: 90 * sign,
-      source: hinges[2].source,
-      evidence: "CANONICAL_RECTANGULAR_TUBE_RECONSTRUCTION_UP_TO_GLOBAL_MIRROR",
-    },
-    {
-      roleId: hinges[1].id,
-      parentPanelId: narrowLeft.panelId,
-      childPanelId: broad.panelId,
       assembledAngleDeg: 90 * sign,
       source: hinges[1].source,
       evidence: "CANONICAL_RECTANGULAR_TUBE_RECONSTRUCTION_UP_TO_GLOBAL_MIRROR",
     },
     {
-      roleId: hinges[0].id,
-      parentPanelId: broad.panelId,
-      childPanelId: seam.panelId,
+      roleId: hinges[2].id,
+      parentPanelId: narrowLeft.panelId,
+      childPanelId: window.panelId,
       assembledAngleDeg: 90 * sign,
-      source: hinges[0].source,
+      source: hinges[2].source,
       evidence: "CANONICAL_RECTANGULAR_TUBE_RECONSTRUCTION_UP_TO_GLOBAL_MIRROR",
     },
     {
       roleId: hinges[3].id,
-      parentPanelId: rootPanelId,
+      parentPanelId: window.panelId,
       childPanelId: narrowRight.panelId,
-      assembledAngleDeg: -90 * sign,
+      assembledAngleDeg: 90 * sign,
       source: hinges[3].source,
+      evidence: "CANONICAL_RECTANGULAR_TUBE_RECONSTRUCTION_UP_TO_GLOBAL_MIRROR",
+    },
+    {
+      roleId: hinges[0].id,
+      parentPanelId: rootPanelId,
+      childPanelId: seam.panelId,
+      assembledAngleDeg: -90 * sign,
+      source: hinges[0].source,
       evidence: "CANONICAL_RECTANGULAR_TUBE_RECONSTRUCTION_UP_TO_GLOBAL_MIRROR",
     },
   ];
@@ -200,32 +204,32 @@ export function certifyLockBottomGoldenBodyTube(
   const wFront = window.widthMm;
   const wRight = narrowRight.widthMm;
 
-  // Canonical sheet x positions relative to the window wall's left crease.
-  const xWindowLeft = 0;
-  const xWindowRight = wFront;
-  const xNarrowLeftFar = -wLeft;
-  const xBroadFar = -(wLeft + wBack);
-  const xSeamFar = -(wLeft + wBack + wSeam);
-  const xNarrowRightFar = wFront + wRight;
+  // Canonical strip x positions relative to the plain broad panel's left edge.
+  const xBroadLeft = 0;
+  const xBroadRight = wBack;
+  const xNarrowLeftFar = wBack + wLeft;
+  const xWindowFar = wBack + wLeft + wFront;
+  const xNarrowRightFar = wBack + wLeft + wFront + wRight;
+  const xSeamFar = -wSeam;
 
   const root = identity();
-  const narrowLeftTransform = compose(root, rotateAboutSheetX(xWindowLeft, 90 * sign));
-  const broadTransform = compose(narrowLeftTransform, rotateAboutSheetX(xNarrowLeftFar, 90 * sign));
-  const seamTransform = compose(broadTransform, rotateAboutSheetX(xBroadFar, 90 * sign));
-  const narrowRightTransform = compose(root, rotateAboutSheetX(xWindowRight, -90 * sign));
+  const narrowLeftTransform = compose(root, rotateAboutSheetX(xBroadRight, 90 * sign));
+  const windowTransform = compose(narrowLeftTransform, rotateAboutSheetX(xNarrowLeftFar, 90 * sign));
+  const narrowRightTransform = compose(windowTransform, rotateAboutSheetX(xWindowFar, 90 * sign));
+  const seamTransform = compose(root, rotateAboutSheetX(xBroadLeft, -90 * sign));
 
-  const frontLeft = apply(root, { x: xWindowLeft, depth: 0 });
-  const frontRight = apply(root, { x: xWindowRight, depth: 0 });
+  const frontLeft = apply(root, { x: xBroadLeft, depth: 0 });
+  const frontRight = apply(root, { x: xBroadRight, depth: 0 });
   const backLeft = apply(narrowLeftTransform, { x: xNarrowLeftFar, depth: 0 });
-  const backRightFromBackPanel = apply(broadTransform, { x: xBroadFar, depth: 0 });
+  const backRightFromBackPanel = apply(windowTransform, { x: xWindowFar, depth: 0 });
   const backRightFromSidePanel = apply(narrowRightTransform, { x: xNarrowRightFar, depth: 0 });
   const seamInner = apply(seamTransform, { x: xSeamFar, depth: 0 });
 
-  const closureGapMm = distance(backRightFromBackPanel, backRightFromSidePanel);
-  const seamLineErrorMm = pointLineDistance(seamInner, backRightFromSidePanel, frontRight);
-  const seamFraction = projectionFraction(seamInner, backRightFromSidePanel, frontRight);
+  const closureGapMm = distance(frontLeft, backRightFromSidePanel);
+  const seamLineErrorMm = pointLineDistance(seamInner, backRightFromSidePanel, backRightFromBackPanel);
+  const seamFraction = projectionFraction(seamInner, backRightFromSidePanel, backRightFromBackPanel);
   const frontAxis = vector(frontLeft, frontRight);
-  const sideAxis = vector(frontLeft, backLeft);
+  const sideAxis = vector(frontRight, backLeft);
   const orthogonalityError = Math.abs(dot(frontAxis, sideAxis)) /
     Math.max(Number.EPSILON, Math.hypot(frontAxis.x, frontAxis.depth) * Math.hypot(sideAxis.x, sideAxis.depth));
 

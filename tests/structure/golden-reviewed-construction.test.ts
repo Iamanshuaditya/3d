@@ -240,7 +240,7 @@ test("reviewed golden construction compiles all 17 panels and 16 exact hinge rol
     hingeRoles(),
     reviewed(),
   );
-  assert.equal(compiled.construction.rootPanelId, "front-window");
+  assert.equal(compiled.construction.rootPanelId, "back");
   assert.equal(compiled.construction.boardThicknessMm, 0.6);
   assert.equal(compiled.construction.hinges.length, 16);
   assert.deepEqual(compiled.modelRotationRad, [Math.PI / 2, 0, 0]);
@@ -251,11 +251,18 @@ test("reviewed golden construction compiles all 17 panels and 16 exact hinge rol
     "body",
   ]);
   const body = new Map(compiled.construction.hinges.map((hinge) => [hinge.id, hinge]));
-  assert.equal(body.get("body-2")?.parentPanelId, "front-window");
-  assert.equal(body.get("body-2")?.childPanelId, "left");
+  assert.equal(body.get("body-1")?.parentPanelId, "back");
+  assert.equal(body.get("body-1")?.childPanelId, "left");
+  assert.equal(body.get("body-1")?.assembledAngleDeg, 90);
+  assert.equal(body.get("body-2")?.parentPanelId, "left");
+  assert.equal(body.get("body-2")?.childPanelId, "front-window");
   assert.equal(body.get("body-2")?.assembledAngleDeg, 90);
+  assert.equal(body.get("body-3")?.parentPanelId, "front-window");
   assert.equal(body.get("body-3")?.childPanelId, "right");
-  assert.equal(body.get("body-3")?.assembledAngleDeg, -90);
+  assert.equal(body.get("body-3")?.assembledAngleDeg, 90);
+  assert.equal(body.get("body-0")?.parentPanelId, "back");
+  assert.equal(body.get("body-0")?.childPanelId, "seam");
+  assert.equal(body.get("body-0")?.assembledAngleDeg, -90);
 });
 
 test("reviewed golden construction refuses missing or duplicate non-body hinge facts", () => {
@@ -311,7 +318,7 @@ test("reviewed golden construction refuses cycles even when every local adjacenc
       hingeRoles(),
       { ...base, flapHinges: changed },
     ),
-    /(more than one reviewed parent|no reviewed parent|cycle)/,
+    /(root panel|more than one reviewed parent|no reviewed parent|cycle)/,
   );
 });
 

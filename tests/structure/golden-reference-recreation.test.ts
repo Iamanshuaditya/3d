@@ -207,7 +207,7 @@ test("reference recreation compiles through the strict reviewed-construction com
     candidate.input,
   );
   assert.equal(compiled.construction.hinges.length, 16);
-  assert.equal(compiled.construction.rootPanelId, "window");
+  assert.equal(compiled.construction.rootPanelId, "plain");
   assert.equal(compiled.construction.boardThicknessMm, 0.6);
   assert.deepEqual(compiled.modelRotationRad, [Math.PI / 2, 0, 0]);
   assert.equal(compiled.unfold.steps.length, 4);

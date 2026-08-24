@@ -340,8 +340,9 @@ export function compileLockBottomGoldenConstruction(
     hinges: allHinges,
   };
 
-  // The canonical sheet lies in X/Z. A quarter-turn about X makes the body
-  // vertical; the explicit physical-top review chooses which sheet side points up.
+  // Product presentation orientation is independent from fold state and camera.
+  // The certified broad body root is an upright wall in the assembled carton;
+  // the reviewed physical-top convention selects which sheet side points up.
   const modelRotationRad: readonly [number, number, number] = [
     reviewed.physicalTop === "north" ? Math.PI / 2 : -Math.PI / 2,
     0,
