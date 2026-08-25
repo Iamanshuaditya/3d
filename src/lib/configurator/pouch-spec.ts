@@ -172,6 +172,10 @@ export const generatedPouchSpecs: PouchSpec[] = [
   makePouchSpec({ id: "pouch-fb-130", name: "Flat-Bottom Pouch 130\u00d7210+80", style: "flat_bottom", width: 130, height: 210, depth: 80 }),
   makePouchSpec({ id: "pouch-fb-zip-130", name: "Flat-Bottom Zipper Pouch 130\u00d7210+80", style: "flat_bottom", width: 130, height: 210, depth: 80, zipper: true }),
   makePouchSpec({ id: "pouch-sg-90", name: "Side-Gusset Pouch 90\u00d7230+60", style: "side_gusset", width: 90, height: 230, depth: 60 }),
+  // 1 kg whole-bean coffee bag: the most common flat-bottom SKU on the market.
+  // Flat-bottom holds full depth to the top, so a filled brick stands square on
+  // shelf; the zipper is what makes it resealable after opening.
+  makePouchSpec({ id: "pouch-fb-coffee-1kg", name: "Flat-Bottom Coffee Pouch 190\u00d7290+75", style: "flat_bottom", width: 190, height: 290, depth: 75, zipper: true }),
 ];
 
 export const POUCHES: Record<string, PouchSpec> = {
