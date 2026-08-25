@@ -9,6 +9,7 @@ export * from "./import-pdf-raw";
 export * from "./topology";
 export * from "./topology-profile";
 export * from "./structural-authoring";
+export * from "./synthetic-carton";
 export * from "./structural-mesh";
 export * from "./structural-rig";
 export * from "./structural-tree";
