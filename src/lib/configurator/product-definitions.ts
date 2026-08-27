@@ -28,11 +28,29 @@ export const PRODUCT_VERSION_NUMBERS: Readonly<Record<string, number>> = {
   // progressive-unfold capability. The clamshell itself is unchanged; v2
   // corrects the immutable capability snapshot rather than mutating v1.
   "burger-box-001": 2,
+  // v2 separates the kraft substrate preview from the process-white/no-ink
+  // production base while retaining the same authoritative physical geometry.
+  "kraft-visiting-card-88.9x50.8": 2,
+  // v2 publishes the finalized measured-web presentation and explicitly
+  // labelled flexible-film preview assumptions without mutating the dev v1.
+  "nexibles-rstz-190x265-110": 2,
+  // v2 corrects the printed-web wrap on every construction that uses all four
+  // columns. The left gusset was laid out at bleed + width + 2*gusset, which
+  // placed it inside the back panel and left the final band of the web unmapped,
+  // so the left wall sampled back-panel artwork. It now follows the back panel
+  // at bleed + 2*width + gusset. This moves real print coordinates, so it is a
+  // new version rather than an edit to a published one.
+  "pouch-fb-130": 2,
+  "pouch-fb-zip-130": 2,
+  "pouch-fb-coffee-1kg": 2,
+  "pouch-sg-90": 2,
 };
 
 const TEMPLATE_ENABLED_PRODUCT_IDS = new Set([
   "bottle-001",
+  "kraft-visiting-card-88.9x50.8",
   "mailer-box-001",
+  "nexibles-rstz-190x265-110",
   "tshirt",
 ]);
 

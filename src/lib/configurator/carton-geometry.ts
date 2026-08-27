@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CartonPanel, CartonSpec, PanelRect } from "@/types/carton";
+import type { SurfaceDieline } from "@/types/configurator";
 import type { HingeAngles } from "@/types/unfold";
 import { MM_TO_UNITS, cartonTopology, resolveHinge } from "./carton-topology";
 
@@ -687,7 +688,11 @@ export function setDielineView(tree: CartonTree, dielineView: boolean) {
 }
 
 /** Cut and crease paths for the Konva editor, scaled into editor pixels. */
-export function dielineOverlay(spec: CartonSpec, editorWidth: number, editorHeight: number) {
+export function dielineOverlay(
+  spec: CartonSpec,
+  editorWidth: number,
+  editorHeight: number,
+): SurfaceDieline {
   const sx = editorWidth / spec.width;
   const sy = editorHeight / spec.height;
   const scalePath = (points: { x: number; y: number }[]) =>
@@ -703,7 +708,7 @@ export function dielineOverlay(spec: CartonSpec, editorWidth: number, editorHeig
         points: scalePath(crease.points),
         closed: crease.closed ?? false,
       })),
-      safety: (spec.dieline.bleed ?? []).map((path) => ({
+      bleed: (spec.dieline.bleed ?? []).map((path) => ({
         points: scalePath(path.points),
         closed: path.closed ?? false,
       })),

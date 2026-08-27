@@ -100,13 +100,10 @@ export function StudioPreview({
   const activeTarget = studioPresentation.targets.find(
     (target) => target.surfaceId === c.activeSurfaceId,
   );
-  const unit = c.activeSurface.displayUnit === "in" ? "in" : "cm";
-  const width = unit === "in"
-    ? c.activeSurface.physicalWidthCm / 2.54
-    : c.activeSurface.physicalWidthCm;
-  const height = unit === "in"
-    ? c.activeSurface.physicalHeightCm / 2.54
-    : c.activeSurface.physicalHeightCm;
+  const unit = c.activeSurface.displayUnit ?? "cm";
+  const displayScale = unit === "in" ? 1 / 2.54 : unit === "mm" ? 10 : 1;
+  const width = c.activeSurface.physicalWidthCm * displayScale;
+  const height = c.activeSurface.physicalHeightCm * displayScale;
 
   return (
     <div

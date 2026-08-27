@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { POUCHES, generatedPouchSpecs } from "@/lib/configurator/pouch-spec";
 import { PRODUCTS } from "@/lib/configurator/product-config";
+import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
 
 /**
  * The parametric pouch factory is the supported way to add a SKU: one
@@ -74,9 +75,18 @@ test("the coffee pouch web wraps front | right | back | left at true size", () =
   assert.ok(surface.editorWidth > 0 && surface.editorHeight > 0);
 });
 
-test("pouch products declare bleed and safe-area guides", () => {
+test("pouch products declare generic guides or exact measured production regions", () => {
   for (const spec of generatedPouchSpecs) {
     const surface = PRODUCTS[spec.id].editableSurfaces[0];
+    if (spec.productionWeb) {
+      const dieline = resolveSurfaceDieline(PRODUCTS[spec.id], surface);
+      assert.equal(
+        dieline.regions?.length,
+        spec.productionWeb.segments.length,
+        `${spec.id} must expose every measured web region`,
+      );
+      continue;
+    }
     const guides = surface.guides;
     assert.ok(guides, `${spec.id} has no print guides`);
     const { bleed, safeArea } = guides;

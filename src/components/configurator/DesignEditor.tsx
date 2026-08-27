@@ -12,8 +12,30 @@ import {
   Transformer,
 } from "react-konva";
 import type Konva from "konva";
-import type { DesignElement, EditableSurface, SurfaceDesign } from "@/types/configurator";
+import type {
+  DesignElement,
+  EditableSurface,
+  SurfaceDesign,
+  SurfaceDieline,
+} from "@/types/configurator";
 import type { EmbroideryResult } from "@/types/embroidery";
+import { DielineOverlay } from "./DielineOverlay";
+import { EditorContextToolbar } from "./EditorContextToolbar";
+import type {
+  DielineGuideClass,
+  DielineGuideVisibility,
+} from "@/lib/configurator/dieline-presentation";
+import { screenSpaceValue } from "@/lib/configurator/dieline-presentation";
+import {
+  contextToolbarPosition,
+  elementLocalSize,
+  transformedElementBounds,
+} from "@/lib/configurator/editor-selection";
+import {
+  buildSnapTargets,
+  resolveElementSnap,
+  type SnapGuide,
+} from "@/lib/configurator/snapping";
 
 type DesignEditorProps = {
   surface: EditableSurface;
@@ -48,11 +70,19 @@ type DesignEditorProps = {
   /** StudioShell already supplies the surrounding rulers/chips. */
   showProductionChrome?: boolean;
   /** Optional dieline overlay (cut outlines + crease lines), in editor pixels. */
-  dieline?: {
-    cuts: { points: number[]; closed: boolean }[];
-    creases: { points: number[]; closed: boolean }[];
-    safety?: { points: number[]; closed: boolean }[];
-  };
+  dieline?: SurfaceDieline;
+  /** Per-class UI visibility; manufacturing geometry is never filtered. */
+  guideVisibility?: Readonly<Partial<DielineGuideVisibility>>;
+  highlightedGuideClass?: DielineGuideClass | null;
+  onGuideHover?: (guideClass: DielineGuideClass | null) => void;
+  onDeleteSelected?: () => void;
+  onDuplicateSelected?: () => void;
+  onToggleSelectedLock?: () => void;
+  onLayerUp?: () => void;
+  onLayerDown?: () => void;
+  onCropSelected?: () => void;
+  onReplaceSelectedFile?: (file: File) => void;
+  cropMode?: boolean;
   /** Renders the same artwork without selection, dragging, guides, or texture ownership. */
   readOnly?: boolean;
 };
@@ -75,6 +105,17 @@ export function DesignEditor({
   onSectionHover,
   showProductionChrome = true,
   dieline,
+  guideVisibility,
+  highlightedGuideClass = null,
+  onGuideHover,
+  onDeleteSelected,
+  onDuplicateSelected,
+  onToggleSelectedLock,
+  onLayerUp,
+  onLayerDown,
+  onCropSelected,
+  onReplaceSelectedFile,
+  cropMode = false,
   readOnly = false,
 }: DesignEditorProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -85,6 +126,8 @@ export function DesignEditor({
   const textureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hoveredMeshRef = useRef<string | null>(null);
   const [scale, setScale] = useState(0.3);
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
+  const [snapGuides, setSnapGuides] = useState<readonly SnapGuide[]>([]);
 
   const { editorWidth: W, editorHeight: H } = surface;
   const sections = useMemo(
@@ -193,12 +236,51 @@ export function DesignEditor({
     tr.getLayer()?.batchDraw();
   }, [selectedId, design.elements]);
 
+  const printSnapBounds = useMemo(() => {
+    const layout = surface.rectangularLayout;
+    if (layout) {
+      const box = (value: typeof layout.trimBoxMm) => ({
+        x: value.x * layout.pxPerMm,
+        y: value.y * layout.pxPerMm,
+        width: value.width * layout.pxPerMm,
+        height: value.height * layout.pxPerMm,
+      });
+      return [box(layout.trimBoxMm), box(layout.safeAreaBoxMm)];
+    }
+    const insets = [surface.guides?.bleed, surface.guides?.safeArea].filter(
+      (value): value is number => typeof value === "number" && value > 0,
+    );
+    return insets.map((inset) => ({
+      x: inset,
+      y: inset,
+      width: W - inset * 2,
+      height: H - inset * 2,
+    }));
+  }, [H, W, surface.guides, surface.rectangularLayout]);
+
   const handleDragMove = useCallback(
     (el: DesignElement, e: Konva.KonvaEventObject<DragEvent>) => {
-      onChange(el.id, { x: e.target.x(), y: e.target.y() }, true);
+      const result = resolveElementSnap({
+        element: el,
+        proposedX: e.target.x(),
+        proposedY: e.target.y(),
+        targets: buildSnapTargets({
+          canvasWidth: W,
+          canvasHeight: H,
+          panels: sections,
+          printGuides: printSnapBounds,
+          elements: design.elements,
+          excludeElementId: el.id,
+        }),
+        stageScale: scale,
+        disabled: e.evt.altKey,
+      });
+      e.target.position({ x: result.x, y: result.y });
+      setSnapGuides(result.guides);
+      onChange(el.id, { x: result.x, y: result.y }, true);
       onDirty?.(surface.id);
     },
-    [onChange, onDirty, surface.id],
+    [H, W, design.elements, onChange, onDirty, printSnapBounds, scale, sections, surface.id],
   );
 
   const handleTransform = useCallback(
@@ -220,23 +302,24 @@ export function DesignEditor({
     [onChange, onDirty, surface.id],
   );
 
-  const bleed = surface.guides?.bleed ?? 0;
-  const safe = surface.guides?.safeArea ?? 0;
+  const editorBackground = design.background ?? surface.defaultBackground;
+  const selectedElement = useMemo(
+    () => design.elements.find((element) => element.id === selectedId) ?? null,
+    [design.elements, selectedId],
+  );
+  const hoveredElement = useMemo(
+    () => design.elements.find((element) => element.id === hoveredElementId) ?? null,
+    [design.elements, hoveredElementId],
+  );
 
   const displayHeight = useMemo(() => H * scale, [H, scale]);
-
-  // Technical guides are UI, not artwork. Keep them close to a 1 CSS-pixel
-  // prepress hairline after the editor's own fit transform instead of encoding
-  // arbitrary 2.5–3 px strokes into dieline space.
-  const screenStroke = useCallback(
-    (cssPixels: number) => cssPixels / Math.max(scale, 0.05),
-    [scale],
+  const toolbarPosition = useMemo(
+    () =>
+      selectedElement
+        ? contextToolbarPosition(transformedElementBounds(selectedElement), scale, W * scale)
+        : null,
+    [W, scale, selectedElement],
   );
-  const cutStrokeWidth = screenStroke(1.15);
-  const creaseStrokeWidth = screenStroke(1);
-  const guideStrokeWidth = screenStroke(0.9);
-  const creaseDash = [screenStroke(5), screenStroke(3)];
-  const guideDash = [screenStroke(4), screenStroke(3)];
 
   const sectionAtPointer = useCallback(() => {
     const pointer = stageRef.current?.getPointerPosition();
@@ -307,8 +390,8 @@ export function DesignEditor({
           >
             {/* ---- Artwork layer: composited into the 3D texture above ---- */}
             <Layer ref={artLayerRef}>
-              {design.background && (
-                <Rect x={0} y={0} width={W} height={H} fill={design.background} />
+              {editorBackground && (
+                <Rect x={0} y={0} width={W} height={H} fill={editorBackground} />
               )}
 
               {design.elements.map((el) => {
@@ -320,27 +403,45 @@ export function DesignEditor({
                   scaleX: el.scaleX,
                   scaleY: el.scaleY,
                   opacity: el.opacity,
-                  draggable: !readOnly,
+                  draggable: !readOnly && !el.locked && !(cropMode && el.id === selectedId),
                   ref: (node: Konva.Node | null) => {
                     if (node) nodeRefs.current[el.id] = node;
                     else delete nodeRefs.current[el.id];
                   },
-                  onMouseDown: readOnly ? undefined : () => onSelect(el.id),
+                  onMouseDown: readOnly
+                    ? undefined
+                    : () => {
+                        setSnapGuides([]);
+                        onSelect(el.id);
+                      },
                   onTouchStart: readOnly ? undefined : () => onSelect(el.id),
-                  onDragMove: readOnly
+                  onMouseEnter: readOnly ? undefined : () => setHoveredElementId(el.id),
+                  onMouseLeave: readOnly ? undefined : () => setHoveredElementId(null),
+                  onDragMove: readOnly || el.locked || (cropMode && el.id === selectedId)
                     ? undefined
                     : (e: Konva.KonvaEventObject<DragEvent>) => handleDragMove(el, e),
-                  onDragEnd: readOnly ? undefined : onCommit,
-                  onTransform: readOnly
+                  onDragEnd: readOnly || el.locked || (cropMode && el.id === selectedId)
+                    ? undefined
+                    : () => {
+                        setSnapGuides([]);
+                        onCommit();
+                      },
+                  onTransform: readOnly || el.locked || (cropMode && el.id === selectedId)
                     ? undefined
                     : (e: Konva.KonvaEventObject<Event>) => handleTransform(el, e),
-                  onTransformEnd: readOnly ? undefined : onCommit,
+                  onTransformEnd: readOnly || el.locked || (cropMode && el.id === selectedId)
+                    ? undefined
+                    : onCommit,
                 };
 
                 if (el.type === "image") {
                   const stitched = embroidery?.[el.id];
                   const source = stitched?.colour ?? (el.src ? images[el.src] : undefined);
                   if (!source) return null;
+                  const sourceWidth =
+                    source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+                  const sourceHeight =
+                    source instanceof HTMLImageElement ? source.naturalHeight : source.height;
                   return (
                     <KonvaImage
                       key={el.id}
@@ -348,6 +449,16 @@ export function DesignEditor({
                       image={source}
                       width={el.width}
                       height={el.height}
+                      crop={
+                        el.crop
+                          ? {
+                              x: el.crop.x * sourceWidth,
+                              y: el.crop.y * sourceHeight,
+                              width: el.crop.width * sourceWidth,
+                              height: el.crop.height * sourceHeight,
+                            }
+                          : undefined
+                      }
                     />
                   );
                 }
@@ -367,6 +478,35 @@ export function DesignEditor({
 
             {/* ---- UI layer: never part of the exported artwork ---- */}
             <Layer listening>
+              <DielineOverlay
+                dieline={dieline}
+                scale={scale}
+                visible={showGuides}
+                visibility={guideVisibility}
+                highlightedClass={highlightedGuideClass}
+                onGuideHover={onGuideHover}
+              />
+
+              {snapGuides.map((guide) => (
+                <Line
+                  key={`${guide.axis}-${guide.value}-${guide.label}`}
+                  points={
+                    guide.axis === "x"
+                      ? [guide.value, 0, guide.value, H]
+                      : [0, guide.value, W, guide.value]
+                  }
+                  stroke="#e11d74"
+                  strokeWidth={screenSpaceValue(1, scale)}
+                  dash={
+                    guide.kind === "object"
+                      ? [screenSpaceValue(4, scale), screenSpaceValue(3, scale)]
+                      : undefined
+                  }
+                  listening={false}
+                  perfectDrawEnabled={false}
+                />
+              ))}
+
               {sections.map((section) => {
                 const selected = section.id === selectedSectionId;
                 const hovered = section.meshName === hoveredMeshName;
@@ -402,81 +542,78 @@ export function DesignEditor({
                 );
               })}
 
-              {/* CAD/prepress overlay: thin semantic technical strokes. */}
-              {dieline?.cuts.map((cut, i) => (
-                <Line
-                  key={`cut-${i}`}
-                  points={cut.points}
-                  closed={cut.closed}
-                  stroke="#2856b6"
-                  strokeWidth={cutStrokeWidth}
-                  lineCap="butt"
-                  lineJoin="miter"
-                  perfectDrawEnabled={false}
-                  listening={false}
-                />
-              ))}
-              {dieline?.creases.map((crease, i) => (
-                <Line
-                  key={`crease-${i}`}
-                  points={crease.points}
-                  closed={crease.closed}
-                  stroke="#df3434"
-                  strokeWidth={creaseStrokeWidth}
-                  dash={creaseDash}
-                  lineCap="butt"
-                  lineJoin="miter"
-                  perfectDrawEnabled={false}
-                  listening={false}
-                />
-              ))}
-              {dieline?.safety?.map((safeLine, i) => (
-                <Line
-                  key={`safety-${i}`}
-                  points={safeLine.points}
-                  closed={safeLine.closed}
-                  stroke="#7fa83b"
-                  opacity={0.8}
-                  strokeWidth={guideStrokeWidth}
-                  dash={guideDash}
-                  lineCap="butt"
-                  lineJoin="miter"
-                  perfectDrawEnabled={false}
-                  listening={false}
-                />
-              ))}
-              {showGuides && bleed > 0 && (
-                <Rect
-                  x={bleed}
-                  y={bleed}
-                  width={W - bleed * 2}
-                  height={H - bleed * 2}
-                  stroke="#7fa83b"
-                  strokeWidth={guideStrokeWidth}
-                  dash={guideDash}
-                  listening={false}
-                />
-              )}
-              {showGuides && safe > 0 && (
-                <Rect
-                  x={safe}
-                  y={safe}
-                  width={W - safe * 2}
-                  height={H - safe * 2}
-                  stroke="#3a9ad9"
-                  strokeWidth={guideStrokeWidth}
-                  dash={guideDash}
-                  listening={false}
-                />
-              )}
+              {hoveredElement && hoveredElement.id !== selectedId && (() => {
+                const size = elementLocalSize(hoveredElement);
+                return (
+                  <Group
+                    x={hoveredElement.x}
+                    y={hoveredElement.y}
+                    rotation={hoveredElement.rotation}
+                    scaleX={hoveredElement.scaleX}
+                    scaleY={hoveredElement.scaleY}
+                    listening={false}
+                  >
+                    <Rect
+                      width={size.width}
+                      height={size.height}
+                      stroke="#3b82f6"
+                      strokeWidth={screenSpaceValue(1, scale)}
+                      dash={[screenSpaceValue(3, scale), screenSpaceValue(2, scale)]}
+                      listening={false}
+                    />
+                  </Group>
+                );
+              })()}
+
+              {cropMode && selectedElement?.type === "image" && (() => {
+                const size = elementLocalSize(selectedElement);
+                return (
+                  <Group
+                    x={selectedElement.x}
+                    y={selectedElement.y}
+                    rotation={selectedElement.rotation}
+                    scaleX={selectedElement.scaleX}
+                    scaleY={selectedElement.scaleY}
+                    listening={false}
+                  >
+                    {[1 / 3, 2 / 3].flatMap((fraction) => [
+                      <Line
+                        key={`crop-v-${fraction}`}
+                        points={[size.width * fraction, 0, size.width * fraction, size.height]}
+                        stroke="#ffffff"
+                        opacity={0.75}
+                        strokeWidth={screenSpaceValue(1, scale)}
+                        listening={false}
+                      />,
+                      <Line
+                        key={`crop-h-${fraction}`}
+                        points={[0, size.height * fraction, size.width, size.height * fraction]}
+                        stroke="#ffffff"
+                        opacity={0.75}
+                        strokeWidth={screenSpaceValue(1, scale)}
+                        listening={false}
+                      />,
+                    ])}
+                  </Group>
+                );
+              })()}
+
               {!readOnly && (
                 <Transformer
                   ref={transformerRef}
-                  rotateEnabled
-                  keepRatio
-                  anchorSize={18}
-                  borderStroke="#3a9ad9"
-                  anchorStroke="#3a9ad9"
+                  rotateEnabled={!selectedElement?.locked && !cropMode}
+                  resizeEnabled={!selectedElement?.locked && !cropMode}
+                  keepRatio={selectedElement?.type === "image"}
+                  shiftBehavior="invert"
+                  anchorSize={screenSpaceValue(10, scale)}
+                  anchorCornerRadius={screenSpaceValue(5, scale)}
+                  anchorFill="#ffffff"
+                  anchorStroke="#2563eb"
+                  anchorStrokeWidth={screenSpaceValue(1.25, scale)}
+                  borderStroke="#2563eb"
+                  borderStrokeWidth={screenSpaceValue(1.25, scale)}
+                  rotateAnchorOffset={screenSpaceValue(26, scale)}
+                  rotateLineVisible={!selectedElement?.locked && !cropMode}
                   boundBoxFunc={(oldBox, newBox) =>
                     newBox.width < 20 || newBox.height < 20 ? oldBox : newBox
                   }
@@ -485,6 +622,27 @@ export function DesignEditor({
             </Layer>
           </Stage>
         </div>
+        {!readOnly &&
+          !cropMode &&
+          selectedElement &&
+          toolbarPosition &&
+          onDeleteSelected &&
+          onDuplicateSelected &&
+          onToggleSelectedLock &&
+          onLayerUp &&
+          onLayerDown && (
+            <EditorContextToolbar
+              element={selectedElement}
+              position={toolbarPosition}
+              onToggleLock={onToggleSelectedLock}
+              onDuplicate={onDuplicateSelected}
+              onDelete={onDeleteSelected}
+              onLayerUp={onLayerUp}
+              onLayerDown={onLayerDown}
+              onCrop={onCropSelected}
+              onReplaceFile={onReplaceSelectedFile}
+            />
+          )}
       </div>
     </div>
   );
@@ -493,8 +651,12 @@ export function DesignEditor({
     <div className={withProductionChrome ? "relative w-full bg-[#f4f4f4] px-11 pb-11 pt-12" : "w-full"}>
       {withProductionChrome && (
         <div className="absolute right-3 top-2 flex items-center gap-2 text-[12px] text-[#151515]">
-          <span className="rounded-full border-2 border-[#6aba91] bg-[#f2f2f2] px-2 py-0.5 shadow-[0_0_0_2px_#b6d8c5_inset]">Safety Area</span>
-          <span className="rounded-full border-2 border-[#70b6df] bg-[#f2f2f2] px-2 py-0.5 shadow-[0_0_0_2px_#c0dbea_inset]">Bleed</span>
+          <span className="rounded-full border-2 border-[#6aba91] bg-[#f2f2f2] px-2 py-0.5 shadow-[0_0_0_2px_#b6d8c5_inset]">
+            {surface.presentation?.kind === "continuous-web" ? "Production Regions" : "Safety Area"}
+          </span>
+          <span className="rounded-full border-2 border-[#70b6df] bg-[#f2f2f2] px-2 py-0.5 shadow-[0_0_0_2px_#c0dbea_inset]">
+            {surface.presentation?.kind === "continuous-web" ? "Technical Guides" : "Bleed"}
+          </span>
         </div>
       )}
       {withProductionChrome && (

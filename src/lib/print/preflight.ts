@@ -4,10 +4,23 @@ import type {
   PreflightIssue,
   PreflightReport,
 } from "./types";
+import { pixelsForMm } from "./physical-resolution";
 
 const MM_PER_INCH = 25.4;
 
 export type EffectivePpi = { x: number; y: number; minimum: number };
+export type ImageQualityState = "good" | "warning" | "poor" | "unknown";
+
+export function imageQualityState(
+  ppi: EffectivePpi | null,
+  minimumPpi: number,
+  warningPpi: number,
+): ImageQualityState {
+  if (!ppi) return "unknown";
+  if (ppi.minimum < minimumPpi) return "poor";
+  if (ppi.minimum < warningPpi) return "warning";
+  return "good";
+}
 
 /**
  * Calculates resolution after scale and rotation in physical space. This is
@@ -41,8 +54,10 @@ export function effectiveImagePpi(
   );
 
   if (widthMm <= 0 || heightMm <= 0) return null;
-  const x = image.sourcePixelWidth / (widthMm / MM_PER_INCH);
-  const y = image.sourcePixelHeight / (heightMm / MM_PER_INCH);
+  const sourceWidth = image.sourcePixelWidth * (image.crop?.width ?? 1);
+  const sourceHeight = image.sourcePixelHeight * (image.crop?.height ?? 1);
+  const x = sourceWidth / (widthMm / MM_PER_INCH);
+  const y = sourceHeight / (heightMm / MM_PER_INCH);
   return { x, y, minimum: Math.min(x, y) };
 }
 
@@ -134,8 +149,8 @@ export function preflightPrintJob(
       }
     }
 
-    const rasterWidth = Math.ceil((physicalWidthMm / MM_PER_INCH) * job.profile.renderPpi);
-    const rasterHeight = Math.ceil((physicalHeightMm / MM_PER_INCH) * job.profile.renderPpi);
+    const rasterWidth = pixelsForMm(physicalWidthMm, job.profile.renderPpi);
+    const rasterHeight = pixelsForMm(physicalHeightMm, job.profile.renderPpi);
     if (rasterWidth * rasterHeight > job.profile.maximumRasterPixels) {
       rasterBudgetOk = false;
       issue(issues, {

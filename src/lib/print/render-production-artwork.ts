@@ -1,7 +1,6 @@
 import type { DesignElement, EditableSection } from "@/types/configurator";
 import type { NormalizedPrintSurface, RenderedProductionArtwork } from "./types";
-
-const MM_PER_INCH = 25.4;
+import { pixelsForMm } from "./physical-resolution";
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -66,7 +65,11 @@ function applySectionTransforms(
   output.height = source.height;
   const context = output.getContext("2d", { alpha: false });
   if (!context) throw new Error("Canvas 2D is unavailable for print transforms.");
-  context.fillStyle = entry.design.background ?? entry.surface.defaultBackground ?? "#ffffff";
+  context.fillStyle =
+    entry.design.background ??
+    entry.surface.productionBackground ??
+    entry.surface.defaultBackground ??
+    "#ffffff";
   context.fillRect(0, 0, output.width, output.height);
 
   for (const section of sections) {
@@ -125,8 +128,8 @@ export async function renderProductionArtwork(
 
   const physicalWidthMm = entry.surface.physicalWidthCm * 10;
   const physicalHeightMm = entry.surface.physicalHeightCm * 10;
-  const pixelWidth = Math.ceil((physicalWidthMm / MM_PER_INCH) * ppi);
-  const pixelHeight = Math.ceil((physicalHeightMm / MM_PER_INCH) * ppi);
+  const pixelWidth = pixelsForMm(physicalWidthMm, ppi);
+  const pixelHeight = pixelsForMm(physicalHeightMm, ppi);
 
   const canvas = document.createElement("canvas");
   canvas.width = pixelWidth;
@@ -136,7 +139,11 @@ export async function renderProductionArtwork(
 
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  context.fillStyle = entry.design.background ?? entry.surface.defaultBackground ?? "#ffffff";
+  context.fillStyle =
+    entry.design.background ??
+    entry.surface.productionBackground ??
+    entry.surface.defaultBackground ??
+    "#ffffff";
   context.fillRect(0, 0, pixelWidth, pixelHeight);
 
   const imageElements = entry.design.elements.filter(
@@ -166,7 +173,21 @@ export async function renderProductionArtwork(
     if (element.type === "image") {
       const image = element.src ? loadedImages.get(element.src) : undefined;
       if (!image) throw new Error(`Print asset ${element.sourceName ?? element.id} is unavailable.`);
-      context.drawImage(image, 0, 0, element.width, element.height);
+      if (element.crop) {
+        context.drawImage(
+          image,
+          element.crop.x * image.naturalWidth,
+          element.crop.y * image.naturalHeight,
+          element.crop.width * image.naturalWidth,
+          element.crop.height * image.naturalHeight,
+          0,
+          0,
+          element.width,
+          element.height,
+        );
+      } else {
+        context.drawImage(image, 0, 0, element.width, element.height);
+      }
     } else {
       drawText(context, element);
     }

@@ -62,6 +62,15 @@ export const PDFX4_SRGB_PACKAGING: PrinterProfile = {
   },
 };
 
+/** Generic physical handoff for flat print products requiring 3 mm bleed. */
+export const PDFX4_SRGB_3MM_BLEED: PrinterProfile = {
+  ...PDFX4_SRGB_PACKAGING,
+  id: "pdfx4-srgb-3mm-bleed-v1",
+  label: "PDF/X-4 color-managed flat print with 3 mm bleed",
+  minimumBleedMm: 3,
+  pageBoxMode: "rectangular-trim",
+};
+
 /**
  * A realistic, deliberately simulated folding-carton converter contract for
  * a white coated litho liner laminated to corrugated board. It does not claim
@@ -106,6 +115,7 @@ export const VORTEX_CARTON_WORKS_COATED_OFFSET: PrinterProfile = {
 
 export const PRINTER_PROFILES: Record<string, PrinterProfile> = {
   [PDFX4_SRGB_PACKAGING.id]: PDFX4_SRGB_PACKAGING,
+  [PDFX4_SRGB_3MM_BLEED.id]: PDFX4_SRGB_3MM_BLEED,
   [VORTEX_CARTON_WORKS_COATED_OFFSET.id]: VORTEX_CARTON_WORKS_COATED_OFFSET,
 };
 

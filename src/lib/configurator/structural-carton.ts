@@ -64,7 +64,8 @@ export function resolveStructuralCarton(spec: CartonSpec): ResolvedStructuralCar
 
 const CUT_OPERATIONS = new Set(["cut", "window-cut"]);
 const CREASE_OPERATIONS = new Set(["crease", "score", "perforation", "half-cut"]);
-const SAFETY_OPERATIONS = new Set(["bleed", "safe"]);
+const BLEED_OPERATIONS = new Set(["bleed"]);
+const SAFETY_OPERATIONS = new Set(["safe"]);
 
 /**
  * Projects canonical millimetre linework into editor pixels. Curves are
@@ -100,6 +101,7 @@ export function structuralCartonOverlay(
   return {
     cuts: dieline.entities.filter((entity) => CUT_OPERATIONS.has(entity.operation)).map(path),
     creases: dieline.entities.filter((entity) => CREASE_OPERATIONS.has(entity.operation)).map(path),
+    bleed: dieline.entities.filter((entity) => BLEED_OPERATIONS.has(entity.operation)).map(path),
     safety: dieline.entities.filter((entity) => SAFETY_OPERATIONS.has(entity.operation)).map(path),
   };
 }

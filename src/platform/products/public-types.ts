@@ -113,7 +113,7 @@ export type ResolvedProductSurfaceDto = {
   physical: {
     widthMm: number;
     heightMm: number;
-    displayUnit: "cm" | "in";
+    displayUnit: "mm" | "cm" | "in";
   };
   renderModes: Array<"print" | "embroidery">;
   regions: Array<{

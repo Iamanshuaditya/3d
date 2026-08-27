@@ -2,8 +2,7 @@ import sharp from "sharp";
 import type { ProductionArtworkRenderer } from "@/lib/print/types";
 import type { ProductionAssetBytes } from "@/platform/production/exporter";
 import { renderSurfaceArtworkPng } from "@/server/rendering/render-surface-artwork";
-
-const MM_PER_INCH = 25.4;
+import { pixelsForMm } from "@/lib/print/physical-resolution";
 
 function safeBackground(value: string | null | undefined) {
   return value && /^(#[0-9a-f]{3,8}|rgba?\([0-9., %]+\)|[a-z]+)$/i.test(value)
@@ -44,8 +43,8 @@ export function createServerProductionArtworkRenderer(input: {
   return async (entry, ppi) => {
     const physicalWidthMm = entry.surface.physicalWidthCm * 10;
     const physicalHeightMm = entry.surface.physicalHeightCm * 10;
-    const pixelWidth = Math.ceil((physicalWidthMm / MM_PER_INCH) * ppi);
-    const pixelHeight = Math.ceil((physicalHeightMm / MM_PER_INCH) * ppi);
+    const pixelWidth = pixelsForMm(physicalWidthMm, ppi);
+    const pixelHeight = pixelsForMm(physicalHeightMm, ppi);
     const base = await renderSurfaceArtworkPng({
       design: entry.design,
       surface: entry.surface,
@@ -91,7 +90,11 @@ export function createServerProductionArtworkRenderer(input: {
       const centreY = panel.top + panel.height / 2;
       return `<g clip-path="url(#${panel.id})"><image x="${panel.left}" y="${panel.top}" width="${panel.width}" height="${panel.height}" href="${panel.href}" preserveAspectRatio="none" transform="rotate(${panel.rotation} ${centreX} ${centreY})"/></g>`;
     });
-    const background = safeBackground(entry.design.background ?? entry.surface.defaultBackground);
+    const background = safeBackground(
+      entry.design.background ??
+      entry.surface.productionBackground ??
+      entry.surface.defaultBackground,
+    );
     const svg = `
       <svg xmlns="http://www.w3.org/2000/svg" width="${pixelWidth}" height="${pixelHeight}" viewBox="0 0 ${pixelWidth} ${pixelHeight}">
         <defs>${definitions.join("")}</defs>
@@ -107,4 +110,3 @@ export function createServerProductionArtworkRenderer(input: {
     return { pngBytes: transformed, pixelWidth, pixelHeight };
   };
 }
-

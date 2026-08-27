@@ -1,0 +1,31 @@
+{
+  "productId": "nexibles-rstz-190x265-110",
+  "referenceStatus": "private-source-required",
+  "sources": [
+    {
+      "fileName": "4. RSTZ 190X265+110 FOR LARGE POUCH (matcha) copy.pdf",
+      "sha256": "3603abf4a16992576c116ef653b64264284de6423be748aea10f362bb670408f",
+      "role": "manufacturing-drawing"
+    },
+    {
+      "fileName": "Rv Matcha pouch 150726 cc PDFX1a.pdf",
+      "sha256": "9dff8d4690d6521c78355a6b5633cca1b4c5312c82bff6b4a1426fad1370a933",
+      "role": "annotated-production-artwork"
+    }
+  ],
+  "certifiedMeasurementsMm": {
+    "nominalWidth": 190,
+    "front": 265,
+    "gussetWeb": 110,
+    "back": 265,
+    "productionWebWidth": 191.5,
+    "productionRepeat": 684,
+    "longitudinalSequence": [14, 265, 4, 4, 110, 4, 4, 265, 14]
+  },
+  "sourceReviewTodo": [
+    "Confirm the manufacturing meaning of the 10.75 mm right-edge reference.",
+    "Obtain converter semantics and exact vectors for hatched zones and circular marks.",
+    "Confirm slitting-mark and PIFA 4 unwind semantics before emitting manufacturing operations.",
+    "Confirm filled/opened gusset depth and seal, zipper, and notch construction."
+  ]
+}

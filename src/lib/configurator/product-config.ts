@@ -18,6 +18,7 @@ import spiceJarJson from "./generated/spice-jar.product.json";
 import waterBottleJson from "./generated/water-bottle.product.json";
 import tshirtJson from "./generated/tshirt.product.json";
 import counterDisplayJson from "./generated/counter-display.product.json";
+import { kraftVisitingCardProduct } from "./kraft-visiting-card-spec";
 
 
 type Vec3 = [number, number, number];
@@ -43,7 +44,7 @@ function onboardedProduct(json: typeof cameraProductJson): ProductConfig {
     articulation: (json as { articulation?: GlbArticulationSpec }).articulation,
     editableSurfaces: json.editableSurfaces.map((s) => ({
       ...s,
-      displayUnit: s.displayUnit as "cm" | "in",
+      displayUnit: s.displayUnit as "mm" | "cm" | "in",
       // Generated JSONs are typed against one sample product; dieline and
       // sections vary per layout mode, so pass them through explicitly.
       dieline: (s as { dieline?: SurfaceDieline }).dieline,
@@ -414,7 +415,10 @@ export const mailerBoxProduct: ProductConfig = {
     initial: [3.9, 3.0, 5.0],
     target: [0, 0.05, 0],
     minDistance: 1.8,
-    maxDistance: 12,
+    // The unfolded blank is 376x554 mm, a 3.34-unit bounding radius, which
+    // needs 13.81 units to frame at the studio padding. A 12-unit ceiling
+    // clamped the flat pose and clipped the dieline off the viewport.
+    maxDistance: 16,
     presets: [
       { id: "front", label: "Front", position: [0, 1.6, 5.9], target: [0, 0.05, 0] },
       { id: "angle", label: "3/4", position: [3.4, 2.6, 4.4], target: [0, 0.05, 0] },
@@ -459,16 +463,34 @@ export const genPouchTest: ProductConfig = {
  */
 import { generatedPouchSpecs } from "./pouch-spec";
 import { styledWebLayout } from "./pouch-geometry";
+import { resolvePouchProductionWeb } from "./pouch-production-web";
 import type { PouchSpec } from "@/types/pouch";
 
 const PX_PER_MM = 4;
 
 function generatedPouchProduct(spec: PouchSpec): ProductConfig {
   const style = spec.style ?? "stand_up";
+  const measuredWeb = resolvePouchProductionWeb(spec);
   let webWmm: number;
   let webHmm: number;
   let sections: NonNullable<ProductConfig["editableSurfaces"][number]["sections"]>;
-  if (style === "stand_up") {
+  if (measuredWeb) {
+    webWmm = measuredWeb.widthMm;
+    webHmm = measuredWeb.repeatMm;
+    sections = measuredWeb.segments.flatMap((segment) => {
+      if (segment.role === "technical") return [];
+      return [{
+        id: segment.role,
+        label: segment.label,
+        meshName: "POUCH",
+        xCm: 0,
+        yCm: segment.startMm / 10,
+        widthCm: measuredWeb.widthMm / 10,
+        heightCm: segment.lengthMm / 10,
+        contentRotation: segment.artworkOrientationDeg ?? 0,
+      }];
+    });
+  } else if (style === "stand_up") {
     webWmm = spec.height * 2 + spec.gusset + spec.dielineBleed * 2;
     webHmm = spec.width;
     sections = [
@@ -509,14 +531,24 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
         id: "film",
         label: "Printed film",
         meshName: "POUCH",
+        ...(measuredWeb
+          ? { presentation: { kind: "continuous-web" as const, order: 1 } }
+          : {}),
         sections,
         editorWidth: Math.round(webWmm * PX_PER_MM),
         editorHeight: Math.round(webHmm * PX_PER_MM),
         physicalWidthCm: webWmm / 10,
         physicalHeightCm: webHmm / 10,
-        displayUnit: "cm",
+        displayUnit: measuredWeb ? "mm" : "cm",
         defaultBackground: "#ffffff",
-        guides: { bleed: Math.round(spec.dielineBleed * PX_PER_MM), safeArea: Math.round((spec.dielineBleed + 4) * PX_PER_MM) },
+        ...(measuredWeb
+          ? {}
+          : {
+              guides: {
+                bleed: Math.round(spec.dielineBleed * PX_PER_MM),
+                safeArea: Math.round((spec.dielineBleed + 4) * PX_PER_MM),
+              },
+            }),
       },
     ],
     camera: {
@@ -537,6 +569,7 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
 export const generatedPouchProducts: ProductConfig[] = generatedPouchSpecs.map(generatedPouchProduct);
 
 export const PRODUCTS: Record<string, ProductConfig> = {
+  [kraftVisitingCardProduct.id]: kraftVisitingCardProduct,
   [bottleProduct.id]: bottleProduct,
   [burgerBoxProduct.id]: burgerBoxProduct,
   [mailerBoxProduct.id]: mailerBoxProduct,
