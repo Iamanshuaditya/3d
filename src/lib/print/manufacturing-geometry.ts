@@ -159,7 +159,7 @@ export function normalizeManufacturingGeometry(
           return {
             cuts: derived.cuts.map(path),
             creases: derived.creases.map(path),
-            bleed: (derived.safety ?? []).map(path),
+            bleed: (derived.bleed ?? []).map(path),
           };
         })();
     paths = [
