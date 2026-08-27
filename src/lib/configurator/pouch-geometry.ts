@@ -394,7 +394,10 @@ export function styledWebLayout(spec: PouchSpec) {
     columns.push({ id: "front", x0: b, w: W });
     columns.push({ id: "right", x0: b + W, w: D });
     columns.push({ id: "back", x0: b + W + D, w: W, mirrored: true });
-    columns.push({ id: "left", x0: b + W + 2 * D, w: D });
+    // The left gusset follows the back panel, so it starts one width and one
+    // gusset past the front: b + 2W + D. Starting it at b + W + 2D puts it
+    // inside the back panel and leaves the final W - D band of the web unmapped.
+    columns.push({ id: "left", x0: b + 2 * W + D, w: D });
     if (style === "flat_bottom") {
       webH = spec.height + D;
     }

@@ -1,6 +1,6 @@
 import type { ProductConfig } from "@/types/configurator";
 
-export type StudioLightingProfile = "clear-film" | "fabric" | "print-studio";
+export type StudioLightingProfile = "clear-film" | "fabric" | "kraft" | "print-studio";
 
 export type StudioScenePresentation = Readonly<{
   background: string;
@@ -37,6 +37,21 @@ const PRESENTATIONS: Record<StudioLightingProfile, StudioScenePresentation> = {
     shadowOpacity: 0.3,
     shadowBlur: 3.2,
   }),
+  kraft: Object.freeze({
+    // Unbleached board sits at almost exactly the luminance of the neutral
+    // print-studio grey, so on that background a kraft product loses its
+    // silhouette even though the hues differ. A deeper, cooler slate restores
+    // the edge without touching the board's own colour.
+    background: "#454c56",
+    ground: "#3b414a",
+    lighting: "kraft",
+    toneMapping: "aces",
+    exposure: 1.04,
+    environment: true,
+    framePadding: 1.14,
+    shadowOpacity: 0.38,
+    shadowBlur: 3,
+  }),
   "print-studio": Object.freeze({
     // A middle-value cool grey keeps both white stock and near-black artwork
     // legible. Contrast is created outside the product material, so customer
@@ -62,6 +77,12 @@ export function resolveStudioScenePresentation(
   }
   if (config.materialProfile === "cotton-fabric") {
     return PRESENTATIONS.fabric;
+  }
+  if (
+    config.materialProfile === "kraft-corrugated" ||
+    config.materialProfile === "kraft-cardstock"
+  ) {
+    return PRESENTATIONS.kraft;
   }
   return PRESENTATIONS["print-studio"];
 }

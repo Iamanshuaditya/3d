@@ -415,7 +415,10 @@ export const mailerBoxProduct: ProductConfig = {
     initial: [3.9, 3.0, 5.0],
     target: [0, 0.05, 0],
     minDistance: 1.8,
-    maxDistance: 12,
+    // The unfolded blank is 376x554 mm, a 3.34-unit bounding radius, which
+    // needs 13.81 units to frame at the studio padding. A 12-unit ceiling
+    // clamped the flat pose and clipped the dieline off the viewport.
+    maxDistance: 16,
     presets: [
       { id: "front", label: "Front", position: [0, 1.6, 5.9], target: [0, 0.05, 0] },
       { id: "angle", label: "3/4", position: [3.4, 2.6, 4.4], target: [0, 0.05, 0] },
