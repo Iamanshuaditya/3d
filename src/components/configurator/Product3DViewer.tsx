@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Environment, Html } from "@react-three/drei";
+import { ContactShadows, Environment, Html, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { CameraPreset, ProductConfig, ValidationResult } from "@/types/configurator";
@@ -11,8 +11,14 @@ import type { SceneDebugInfo } from "@/lib/configurator/model-validator";
 import { ProductModel } from "./ProductModel";
 import { CartonModel } from "./CartonModel";
 import { PouchModel } from "./PouchModel";
+import { FlatSheetModel } from "./FlatSheetModel";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
 import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
+import {
+  frameDistanceForSphere,
+  resolveStudioScenePresentation,
+  shouldRefitExtent,
+} from "@/lib/configurator/studio-scene-presentation";
 
 type Product3DViewerProps = {
   config: ProductConfig;
@@ -252,32 +258,48 @@ function AutoFrameRig({
   controlsRef,
   minDistance,
   maxDistance,
+  padding,
+  interactingRef,
+  interactionRevisionRef,
 }: {
   enabled: boolean;
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
   minDistance: number;
   maxDistance: number;
+  padding: number;
+  interactingRef: React.RefObject<boolean>;
+  interactionRevisionRef: React.RefObject<number>;
 }) {
   const { scene, camera, size } = useThree();
   const box = useRef(new THREE.Box3());
   const centre = useRef(new THREE.Vector3());
   const sphere = useRef(new THREE.Sphere());
   const desiredTarget = useRef(new THREE.Vector3());
+  const lastCentre = useRef(new THREE.Vector3());
   const offset = useRef(new THREE.Vector3());
   const settled = useRef(false);
-  const lastRadius = useRef(0);
+  const targetPending = useRef(false);
+  const lastRadius = useRef<number | null>(null);
   const desiredDistance = useRef(0);
   const sampleCountdown = useRef(0);
+  const seenInteractionRevision = useRef(-1);
 
   useFrame((_, delta) => {
     if (!enabled) return;
     const controls = controlsRef.current;
     if (!controls) return;
 
+    if (seenInteractionRevision.current !== interactionRevisionRef.current) {
+      seenInteractionRevision.current = interactionRevisionRef.current;
+      desiredDistance.current = 0;
+      targetPending.current = false;
+    }
+
     sampleCountdown.current -= 1;
     if (sampleCountdown.current <= 0) {
       sampleCountdown.current = 6;
       const root =
+        scene.getObjectByName("PRODUCT_PRESENTATION_ROOT") ??
         scene.getObjectByName("STRUCTURAL_PACKAGE_ROOT") ??
         scene.getObjectByName("CARTON_ROOT");
       if (root) {
@@ -289,28 +311,42 @@ function AutoFrameRig({
           settled.current = true;
 
           const radius = sphere.current.radius;
+          const centreThreshold = Math.max(radius * 0.01, 0.001);
+          if (
+            lastRadius.current === null ||
+            centre.current.distanceTo(lastCentre.current) > centreThreshold
+          ) {
+            lastCentre.current.copy(centre.current);
+            targetPending.current = true;
+          }
           // Re-fit only when the product's extent really changed, so folding
           // re-frames but a deliberate manual zoom is not fought every frame.
-          if (Math.abs(radius - lastRadius.current) > lastRadius.current * 0.05) {
+          if (shouldRefitExtent(lastRadius.current, radius)) {
             lastRadius.current = radius;
             const perspective = camera as THREE.PerspectiveCamera;
-            const vertical = (perspective.fov * Math.PI) / 180;
             const aspect = size.width / Math.max(1, size.height);
-            const horizontal = 2 * Math.atan(Math.tan(vertical / 2) * aspect);
-            const limiting = Math.min(vertical, horizontal);
-            desiredDistance.current = THREE.MathUtils.clamp(
-              (radius * 1.15) / Math.sin(limiting / 2),
+            desiredDistance.current = frameDistanceForSphere({
+              radius,
+              verticalFovDeg: perspective.fov,
+              aspect,
+              padding,
               minDistance,
               maxDistance,
-            );
+            });
           }
         }
       }
     }
 
-    if (!settled.current) return;
+    if (!settled.current || interactingRef.current) return;
     const ease = 1 - Math.pow(0.0015, delta);
-    controls.target.lerp(desiredTarget.current, ease);
+    if (targetPending.current) {
+      controls.target.lerp(desiredTarget.current, ease);
+      if (controls.target.distanceTo(desiredTarget.current) < 0.001) {
+        controls.target.copy(desiredTarget.current);
+        targetPending.current = false;
+      }
+    }
 
     if (desiredDistance.current > 0) {
       offset.current.copy(camera.position).sub(controls.target);
@@ -318,6 +354,10 @@ function AutoFrameRig({
       if (distance > 1e-4 && Math.abs(distance - desiredDistance.current) > 0.01) {
         const next = THREE.MathUtils.lerp(distance, desiredDistance.current, ease);
         camera.position.copy(controls.target).addScaledVector(offset.current.normalize(), next);
+      } else {
+        // A completed initial/re-fit is a one-shot action. Clearing this is
+        // what preserves every subsequent user wheel/pinch zoom.
+        desiredDistance.current = 0;
       }
     }
     controls.update();
@@ -365,7 +405,10 @@ export function Product3DViewer({
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
   const useClearBarrierResponse = config.materialProfile === "clear-barrier-gloss";
   const useFabricResponse = config.materialProfile === "cotton-fabric";
+  const scenePresentation = resolveStudioScenePresentation(config);
   const controlsRef = useRef<OrbitControlsImpl>(null);
+  const controlsInteractingRef = useRef(false);
+  const controlsInteractionRevisionRef = useRef(0);
 
   // Detect WebGL up front so we can show a real message (§40). Computed in a
   // lazy initializer rather than an effect — this component is client-only
@@ -395,7 +438,7 @@ export function Product3DViewer({
   }
 
   return (
-    <div className="h-full w-full overflow-hidden rounded-lg bg-[#f2f2f3]">
+    <div className="h-full w-full overflow-hidden rounded-lg bg-[#8a94a3]">
       <Canvas
         shadows
         dpr={[1, 2]}
@@ -405,17 +448,19 @@ export function Product3DViewer({
           alpha: false,
           // Vortex's Three.js build uses an untone-mapped Phong pipeline. ACES
           // compressed the highlights and made the white laminate look milky.
-          toneMapping: useClearBarrierResponse
+          toneMapping: scenePresentation.toneMapping === "none"
             ? THREE.NoToneMapping
             : THREE.ACESFilmicToneMapping,
           // White cotton under a studio rig sits right at the top of the ACES
           // curve, where highlights desaturate — a red logo turns pink. Pulling
           // the exposure back keeps thread colour where the customer put it.
-          toneMappingExposure: useFabricResponse ? 0.72 : 1,
+          toneMappingExposure: scenePresentation.exposure,
         }}
         camera={{ position: config.camera.initial, fov: 32 }}
       >
-        <color attach="background" args={["#f2f2f3"]} />
+        {/* Neutral slate gives white film, kraft stock, and clear highlights a
+            readable edge without changing the product's physical materials. */}
+        <color attach="background" args={[scenePresentation.background]} />
 
         {useClearBarrierResponse ? (
           <>
@@ -460,7 +505,9 @@ export function Product3DViewer({
               shadow-mapSize-width={1024}
               shadow-mapSize-height={1024}
             />
-            <directionalLight position={[-4, 3, -3]} intensity={0.32} />
+            {/* Rear three-quarter rim separates dark full-bleed artwork from
+                the middle-value background without adding colour to it. */}
+            <directionalLight position={[-4, 3, -3]} intensity={0.46} />
           </>
         )}
 
@@ -471,16 +518,24 @@ export function Product3DViewer({
         {dielineView && <directionalLight position={[0, -6, -2.5]} intensity={1.1} />}
 
         <Suspense fallback={<LoadingOverlay />}>
-          {pouchSpec ? (
-            <PouchModel
+          <group name="PRODUCT_PRESENTATION_ROOT">
+            {config.family === "flat-sheet" ? (
+              <FlatSheetModel
+              config={config}
+              textures={textures}
+              consumeDirty={consumeDirty}
+              onSurfaceClick={onSurfaceClick}
+            />
+            ) : pouchSpec ? (
+              <PouchModel
               spec={pouchSpec}
               config={config}
               textures={textures}
               consumeDirty={consumeDirty}
               onSurfaceClick={onSurfaceClick}
             />
-          ) : cartonSpec ? (
-            <CartonModel
+            ) : cartonSpec ? (
+              <CartonModel
               spec={cartonSpec}
               config={config}
               textures={textures}
@@ -489,8 +544,8 @@ export function Product3DViewer({
               dielineView={dielineView}
               onSurfaceClick={onSurfaceClick}
             />
-          ) : (
-            <ProductModel
+            ) : (
+              <ProductModel
               config={config}
               textures={textures}
               materialTextures={materialTextures}
@@ -502,11 +557,20 @@ export function Product3DViewer({
               onMeshHover={onMeshHover}
               onMeshClick={onMeshClick}
             />
-          )}
+            )}
+          </group>
           {/* The Vistaprint pouch already has its exact local six-face
               reflection map. Loading Drei's remote studio HDRI here both
               changes that response and can keep the whole model suspended. */}
-          {!useClearBarrierResponse && <Environment preset="studio" />}
+          {scenePresentation.environment && <Environment preset="studio" />}
+          <ContactShadows
+            position={[0, config.shadowY ?? config.modelYOffset ?? -0.5, 0]}
+            opacity={scenePresentation.shadowOpacity}
+            scale={24}
+            blur={scenePresentation.shadowBlur}
+            far={12}
+            color={scenePresentation.ground}
+          />
         </Suspense>
 
 
@@ -521,10 +585,13 @@ export function Product3DViewer({
         />
         <CaptureBridge onReady={onCaptureReady} />
         <AutoFrameRig
-          enabled={config.camera.autoFrame === true}
+          enabled={pendingPreset === null}
           controlsRef={controlsRef}
           minDistance={config.camera.minDistance}
           maxDistance={config.camera.maxDistance}
+          padding={scenePresentation.framePadding}
+          interactingRef={controlsInteractingRef}
+          interactionRevisionRef={controlsInteractionRevisionRef}
         />
 
         <OrbitControls
@@ -538,6 +605,13 @@ export function Product3DViewer({
           target={config.camera.target}
           enableDamping
           dampingFactor={0.08}
+          onStart={() => {
+            controlsInteractingRef.current = true;
+            controlsInteractionRevisionRef.current += 1;
+          }}
+          onEnd={() => {
+            controlsInteractingRef.current = false;
+          }}
         />
       </Canvas>
     </div>

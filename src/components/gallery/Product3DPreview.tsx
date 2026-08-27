@@ -8,6 +8,7 @@ import type { ProductConfig } from "@/types/configurator";
 import { ProductModel } from "@/components/configurator/ProductModel";
 import { CartonModel } from "@/components/configurator/CartonModel";
 import { PouchModel } from "@/components/configurator/PouchModel";
+import { FlatSheetModel } from "@/components/configurator/FlatSheetModel";
 import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
 import { previewBackground } from "@/lib/configurator/product-summary";
@@ -52,7 +53,7 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
   const useClearBarrierResponse = config.materialProfile === "clear-barrier-gloss";
   // A config with no generated geometry and no mesh file has nothing to draw.
-  const hasSource = Boolean(pouchSpec || cartonSpec || config.modelUrl);
+  const hasSource = Boolean(config.family === "flat-sheet" || pouchSpec || cartonSpec || config.modelUrl);
 
   if (!hasSource) {
     return (
@@ -102,7 +103,13 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
 
       <Suspense fallback={<PreviewFallback />}>
         <Turntable spin={spin}>
-          {pouchSpec ? (
+          {config.family === "flat-sheet" ? (
+            <FlatSheetModel
+              config={config}
+              textures={NO_TEXTURES}
+              consumeDirty={neverDirty}
+            />
+          ) : pouchSpec ? (
             <PouchModel
               spec={pouchSpec}
               config={config}

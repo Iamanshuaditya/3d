@@ -25,7 +25,7 @@ export function PouchModel({
   const surfaceId = config.editableSurfaces[0]?.id ?? "outside";
   const texture = textures[surfaceId] ?? null;
 
-  const { geometry, size } = useMemo(() => buildPouchGeometry(spec), [spec]);
+  const { geometry, size, surfaceGroups } = useMemo(() => buildPouchGeometry(spec), [spec]);
 
   /**
    * PET/EVOH laminate. The base coat carries the print while a restrained,
@@ -84,10 +84,12 @@ export function PouchModel({
 
   return (
     <mesh
+      name="POUCH"
       geometry={geometry}
       material={material}
       castShadow
       receiveShadow
+      userData={{ productionSurfaces: surfaceGroups ?? [] }}
       position={[0, config.modelYOffset ?? -size.height / 2, 0]}
       onPointerDown={(e: { stopPropagation: () => void }) => {
         if (!onSurfaceClick) return;
