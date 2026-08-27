@@ -18,6 +18,49 @@ export type PouchStyle =
   | "flat_bottom"
   | "side_gusset";
 
+export type PouchWebRegion = "front" | "gusset" | "back";
+
+export type PouchWebSegment = {
+  id: string;
+  label: string;
+  role: PouchWebRegion | "technical";
+  lengthMm: number;
+  /** Authored orientation in the flat production source. */
+  artworkOrientationDeg?: 0 | 180;
+};
+
+export type PouchSourceReviewItem = {
+  id: string;
+  observed: string;
+  status: "unconfirmed-meaning" | "requires-source-vector";
+  note: string;
+};
+
+export type PouchPreviewAssumption = {
+  id: string;
+  valueMm?: number;
+  note: string;
+};
+
+/** Exact measured web; deliberately separate from nominal finished dimensions. */
+export type PouchProductionWeb = {
+  widthMm: number;
+  repeatMm: number;
+  laneCount: 1;
+  longitudinalAxis: "vertical";
+  segments: PouchWebSegment[];
+  /** Measured reference guides whose manufacturing meaning is not yet certified. */
+  referenceGuides?: Array<{
+    id: string;
+    axis: "x" | "y";
+    positionMm: number;
+    label: string;
+    meaning: "unconfirmed";
+  }>;
+  sourceReview: PouchSourceReviewItem[];
+  previewAssumptions: PouchPreviewAssumption[];
+};
+
 export type PouchSpec = {
   id: string;
   name: string;
@@ -33,6 +76,9 @@ export type PouchSpec = {
   height: number;
   /** Bottom gusset, mm (unfolded width — the standing base is roughly half). */
   gusset: number;
+
+  /** Optional source-measured production web overriding generic pouch layout. */
+  productionWeb?: PouchProductionWeb;
 
   /** Bleed added to each end of the flat print web, mm. */
   dielineBleed: number;

@@ -18,6 +18,7 @@ import spiceJarJson from "./generated/spice-jar.product.json";
 import waterBottleJson from "./generated/water-bottle.product.json";
 import tshirtJson from "./generated/tshirt.product.json";
 import counterDisplayJson from "./generated/counter-display.product.json";
+import { kraftVisitingCardProduct } from "./kraft-visiting-card-spec";
 
 
 type Vec3 = [number, number, number];
@@ -43,7 +44,7 @@ function onboardedProduct(json: typeof cameraProductJson): ProductConfig {
     articulation: (json as { articulation?: GlbArticulationSpec }).articulation,
     editableSurfaces: json.editableSurfaces.map((s) => ({
       ...s,
-      displayUnit: s.displayUnit as "cm" | "in",
+      displayUnit: s.displayUnit as "mm" | "cm" | "in",
       // Generated JSONs are typed against one sample product; dieline and
       // sections vary per layout mode, so pass them through explicitly.
       dieline: (s as { dieline?: SurfaceDieline }).dieline,
@@ -459,16 +460,34 @@ export const genPouchTest: ProductConfig = {
  */
 import { generatedPouchSpecs } from "./pouch-spec";
 import { styledWebLayout } from "./pouch-geometry";
+import { resolvePouchProductionWeb } from "./pouch-production-web";
 import type { PouchSpec } from "@/types/pouch";
 
 const PX_PER_MM = 4;
 
 function generatedPouchProduct(spec: PouchSpec): ProductConfig {
   const style = spec.style ?? "stand_up";
+  const measuredWeb = resolvePouchProductionWeb(spec);
   let webWmm: number;
   let webHmm: number;
   let sections: NonNullable<ProductConfig["editableSurfaces"][number]["sections"]>;
-  if (style === "stand_up") {
+  if (measuredWeb) {
+    webWmm = measuredWeb.widthMm;
+    webHmm = measuredWeb.repeatMm;
+    sections = measuredWeb.segments.flatMap((segment) => {
+      if (segment.role === "technical") return [];
+      return [{
+        id: segment.role,
+        label: segment.label,
+        meshName: "POUCH",
+        xCm: 0,
+        yCm: segment.startMm / 10,
+        widthCm: measuredWeb.widthMm / 10,
+        heightCm: segment.lengthMm / 10,
+        contentRotation: segment.artworkOrientationDeg ?? 0,
+      }];
+    });
+  } else if (style === "stand_up") {
     webWmm = spec.height * 2 + spec.gusset + spec.dielineBleed * 2;
     webHmm = spec.width;
     sections = [
@@ -509,14 +528,24 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
         id: "film",
         label: "Printed film",
         meshName: "POUCH",
+        ...(measuredWeb
+          ? { presentation: { kind: "continuous-web" as const, order: 1 } }
+          : {}),
         sections,
         editorWidth: Math.round(webWmm * PX_PER_MM),
         editorHeight: Math.round(webHmm * PX_PER_MM),
         physicalWidthCm: webWmm / 10,
         physicalHeightCm: webHmm / 10,
-        displayUnit: "cm",
+        displayUnit: measuredWeb ? "mm" : "cm",
         defaultBackground: "#ffffff",
-        guides: { bleed: Math.round(spec.dielineBleed * PX_PER_MM), safeArea: Math.round((spec.dielineBleed + 4) * PX_PER_MM) },
+        ...(measuredWeb
+          ? {}
+          : {
+              guides: {
+                bleed: Math.round(spec.dielineBleed * PX_PER_MM),
+                safeArea: Math.round((spec.dielineBleed + 4) * PX_PER_MM),
+              },
+            }),
       },
     ],
     camera: {
@@ -537,6 +566,7 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
 export const generatedPouchProducts: ProductConfig[] = generatedPouchSpecs.map(generatedPouchProduct);
 
 export const PRODUCTS: Record<string, ProductConfig> = {
+  [kraftVisitingCardProduct.id]: kraftVisitingCardProduct,
   [bottleProduct.id]: bottleProduct,
   [burgerBoxProduct.id]: burgerBoxProduct,
   [mailerBoxProduct.id]: mailerBoxProduct,

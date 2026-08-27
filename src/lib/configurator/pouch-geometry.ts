@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { PouchSpec, ProfilePoint } from "@/types/pouch";
+import { pouchRegionUv, resolvePouchProductionWeb } from "./pouch-production-web";
 
 export const POUCH_MM = 0.01;
 
@@ -9,6 +10,19 @@ export type PouchDieline = {
   cuts: DielinePath[];
   creases: DielinePath[];
   safety: DielinePath[];
+  bleed?: DielinePath[];
+  technical?: DielinePath[];
+  regions?: Array<{
+    id: string;
+    label: string;
+    role: "artwork" | "technical" | "source-reference";
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    artworkOrientationDeg?: 0 | 180;
+  }>;
+  references?: Array<{ id: string; label: string; points: number[] }>;
 };
 
 /** Smooth, cosine-eased lookup along a measured vertical profile. */
@@ -113,6 +127,7 @@ function faceRelief(spec: PouchSpec, s: number, t: number, front: boolean): numb
 export type PouchMesh = {
   geometry: THREE.BufferGeometry;
   size: { width: number; height: number; depth: number };
+  surfaceGroups?: Array<{ id: "front" | "back" | "bottom-gusset" | "side-seals" | "top-seal"; start: number; count: number }>;
 };
 
 /**
@@ -131,7 +146,9 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
   const nx = spec.segmentsAcross;
   const ny = spec.segmentsUp;
   const ng = spec.segmentsGusset;
+  const measuredWeb = resolvePouchProductionWeb(spec);
   const totalWeb = spec.height * 2 + spec.gusset + spec.dielineBleed * 2;
+  const surfaceGroups: NonNullable<PouchMesh["surfaceGroups"]> = [];
 
   const pushVertex = (x: number, y: number, z: number, u: number, v: number) => {
     positions.push(x, y, z);
@@ -144,10 +161,19 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
     }
     return (spec.dielineBleed + (1 - t) * spec.height) / totalWeb;
   };
+  const faceUv = (t: number, s: number, front: boolean) => {
+    if (!measuredWeb) return { u: panelU(t, front), v: 1 - (s + 1) / 2 };
+    const worldLateral = (s + 1) / 2;
+    // On the back face, viewer-left is world +X. Pass face-view coordinates,
+    // then let the authored 180° web orientation rotate both axes.
+    const viewedLateral = front ? worldLateral : 1 - worldLateral;
+    return pouchRegionUv(spec, front ? "front" : "back", viewedLateral, t);
+  };
 
   // Printed front and back panels.
   for (const front of [true, false]) {
     const start = positions.length / 3;
+    const groupStart = indices.length;
     const sign = front ? 1 : -1;
     for (let j = 0; j <= ny; j++) {
       const t = j / ny;
@@ -159,7 +185,8 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
         const edgeY = bottomEdgeY(s);
         const y = edgeY + (spec.height - edgeY) * t;
         const depth = Math.max(0, b * shape + faceRelief(spec, s, t, front));
-        pushVertex(a * s, y, sign * depth, panelU(t, front), 1 - (s + 1) / 2);
+        const uv = faceUv(t, s, front);
+        pushVertex(a * s, y, sign * depth, uv.u, uv.v);
       }
     }
 
@@ -173,6 +200,11 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
         else indices.push(p0, p2, p1, p1, p2, p3);
       }
     }
+    surfaceGroups.push({
+      id: front ? "front" : "back",
+      start: groupStart,
+      count: indices.length - groupStart,
+    });
   }
 
   // Double-layer heat-sealed side fins. Pulling the outer edge inward at the
@@ -180,6 +212,7 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
   const notchT = 1 - spec.notchOffset / spec.height;
   const notchHalfT = spec.notchSize / spec.height / 2;
   const filmLayer = 0.045;
+  const finGroupStart = indices.length;
   for (const side of [-1, 1] as const) {
     for (const frontLayer of [true, false]) {
       const start = positions.length / 3;
@@ -188,7 +221,9 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
         const a = sampleProfile(spec.halfWidth, t);
         const edgeY = bottomEdgeY(side);
         const y = edgeY + (spec.height - edgeY) * t;
-        const notch = Math.max(0, 1 - Math.abs(t - notchT) / notchHalfT);
+        const notch = spec.notchSize > 0
+          ? Math.max(0, 1 - Math.abs(t - notchT) / notchHalfT)
+          : 0;
         const baseTuck = smoothstep(0, 0.045, t);
         const innerX = side * a;
         const outerWidth = a + spec.sealFin * baseTuck - spec.notchSize * notch;
@@ -196,9 +231,22 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
         const z = frontLayer ? filmLayer : -filmLayer;
         const edgeV = side < 0 ? 1 : 0;
         const insetV = side < 0 ? 0.985 : 0.015;
-        const u = panelU(t, frontLayer);
-        pushVertex(innerX, y, z, u, insetV);
-        pushVertex(outerX, y, z, u, edgeV);
+        if (measuredWeb) {
+          const worldLateral = side < 0 ? 0 : 1;
+          const viewedLateral = frontLayer ? worldLateral : 1 - worldLateral;
+          const uv = pouchRegionUv(
+            spec,
+            frontLayer ? "front" : "back",
+            viewedLateral,
+            t,
+          );
+          pushVertex(innerX, y, z, uv.u, uv.v);
+          pushVertex(outerX, y, z, uv.u, uv.v);
+        } else {
+          const u = panelU(t, frontLayer);
+          pushVertex(innerX, y, z, u, insetV);
+          pushVertex(outerX, y, z, u, edgeV);
+        }
       }
       for (let j = 0; j < ny; j++) {
         const p0 = start + j * 2;
@@ -210,10 +258,12 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
       }
     }
   }
+  surfaceGroups.push({ id: "side-seals", start: finGroupStart, count: indices.length - finGroupStart });
 
   // Open bottom gusset. This is a curved membrane with a raised inner fold,
   // not a fan to one centre vertex; it stays convincing from below and side-on.
   const gussetStart = positions.length / 3;
+  const gussetGroupStart = indices.length;
   const baseHalfWidth = sampleProfile(spec.halfWidth, 0);
   const baseHalfDepth = sampleProfile(spec.halfDepth, 0);
   for (let k = 0; k <= ng; k++) {
@@ -229,8 +279,13 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
         * (1 - q * q)
         * Math.max(0, 1 - Math.abs(s));
       const y = bottomEdgeY(s) + membrane + rings;
-      const u = (spec.dielineBleed + spec.height + ((q + 1) / 2) * spec.gusset) / totalWeb;
-      pushVertex(baseHalfWidth * s, y, q * baseHalfDepth * shape, u, 1 - (s + 1) / 2);
+      if (measuredWeb) {
+        const uv = pouchRegionUv(spec, "gusset", (s + 1) / 2, (1 - q) / 2);
+        pushVertex(baseHalfWidth * s, y, q * baseHalfDepth * shape, uv.u, uv.v);
+      } else {
+        const u = (spec.dielineBleed + spec.height + ((q + 1) / 2) * spec.gusset) / totalWeb;
+        pushVertex(baseHalfWidth * s, y, q * baseHalfDepth * shape, u, 1 - (s + 1) / 2);
+      }
     }
   }
   for (let k = 0; k < ng; k++) {
@@ -242,10 +297,16 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
       indices.push(p0, p1, p2, p1, p3, p2);
     }
   }
+  surfaceGroups.push({
+    id: "bottom-gusset",
+    start: gussetGroupStart,
+    count: indices.length - gussetGroupStart,
+  });
 
   // Thin sealed top edge. It closes the front/back layers without adding a
   // rigid rim, while the separate vertices keep a sharp heat-seal highlight.
   const topStart = positions.length / 3;
+  const topGroupStart = indices.length;
   const topHalfWidth = sampleProfile(spec.halfWidth, 1);
   const topHalfDepth = sampleProfile(spec.halfDepth, 1);
   for (let k = 0; k <= 2; k++) {
@@ -253,10 +314,18 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
     for (let i = 0; i <= nx; i++) {
       const s = (i / nx) * 2 - 1;
       const shape = Math.pow(Math.max(0, 1 - s * s), spec.cuspExponent);
-      const u = q <= 0
-        ? spec.dielineBleed / totalWeb
-        : (totalWeb - spec.dielineBleed) / totalWeb;
-      pushVertex(topHalfWidth * s, spec.height, q * topHalfDepth * shape, u, 1 - (s + 1) / 2);
+      if (measuredWeb) {
+        const front = q > 0;
+        const worldLateral = (s + 1) / 2;
+        const viewedLateral = front ? worldLateral : 1 - worldLateral;
+        const uv = pouchRegionUv(spec, front ? "front" : "back", viewedLateral, 1);
+        pushVertex(topHalfWidth * s, spec.height, q * topHalfDepth * shape, uv.u, uv.v);
+      } else {
+        const u = q <= 0
+          ? spec.dielineBleed / totalWeb
+          : (totalWeb - spec.dielineBleed) / totalWeb;
+        pushVertex(topHalfWidth * s, spec.height, q * topHalfDepth * shape, u, 1 - (s + 1) / 2);
+      }
     }
   }
   for (let k = 0; k < 2; k++) {
@@ -268,11 +337,18 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
       indices.push(p0, p2, p1, p1, p2, p3);
     }
   }
+  surfaceGroups.push({
+    id: "top-seal",
+    start: topGroupStart,
+    count: indices.length - topGroupStart,
+  });
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
+  for (const group of surfaceGroups) geometry.addGroup(group.start, group.count, 0);
+  geometry.userData.productionSurfaces = surfaceGroups.map((group) => ({ ...group }));
   geometry.computeVertexNormals();
   geometry.scale(POUCH_MM, POUCH_MM, POUCH_MM);
   geometry.computeBoundingBox();
@@ -286,6 +362,7 @@ export function buildPouchGeometry(spec: PouchSpec): PouchMesh {
       height: spec.height * POUCH_MM,
       depth: maxDepth * 2 * POUCH_MM,
     },
+    surfaceGroups,
   };
 }
 
@@ -642,7 +719,7 @@ export function styledPouchDieline(
   if (style === "flat_bottom") {
     hline(first.x0, first.x0 + first.w, H);
   }
-  return { cuts, creases, safety };
+  return { cuts, creases, safety: [], bleed: safety };
 }
 
 /** 2D production guides generated from the same millimetre measurements. */
@@ -651,6 +728,53 @@ export function pouchDielineOverlay(
   canvasWidth: number,
   canvasHeight: number,
 ): PouchDieline {
+  const measuredWeb = resolvePouchProductionWeb(spec);
+  if (measuredWeb) {
+    const x = (mm: number) => (mm / measuredWeb.widthMm) * canvasWidth;
+    const y = (mm: number) => (mm / measuredWeb.repeatMm) * canvasHeight;
+    const references = measuredWeb.segments.slice(1).map((segment) => ({
+      id: `boundary-${segment.id}`,
+      label: `${segment.startMm} mm`,
+      points: [0, y(segment.startMm), canvasWidth, y(segment.startMm)],
+    }));
+    for (const guide of measuredWeb.referenceGuides ?? []) {
+      if (guide.axis === "x") {
+        references.push({
+          id: guide.id,
+          label: guide.label,
+          points: [x(guide.positionMm), 0, x(guide.positionMm), canvasHeight],
+        });
+      } else {
+        references.push({
+          id: guide.id,
+          label: guide.label,
+          points: [0, y(guide.positionMm), canvasWidth, y(guide.positionMm)],
+        });
+      }
+    }
+    return {
+      cuts: [
+        {
+          points: [0, 0, canvasWidth, 0, canvasWidth, canvasHeight, 0, canvasHeight],
+          closed: true,
+        },
+      ],
+      creases: [],
+      safety: [],
+      regions: measuredWeb.segments.map((segment) => ({
+        id: segment.id,
+        label: segment.label,
+        role: segment.role === "technical" ? "technical" : "artwork",
+        x: 0,
+        y: y(segment.startMm),
+        width: canvasWidth,
+        height: y(segment.lengthMm),
+        artworkOrientationDeg: segment.artworkOrientationDeg,
+      })),
+      references,
+    };
+  }
+
   if (spec.style && spec.style !== "stand_up") {
     return styledPouchDieline(spec, canvasWidth, canvasHeight);
   }

@@ -23,6 +23,7 @@ const FAMILY_LABELS: Record<ProductConfig["family"], string> = {
   glb: "Mesh model",
   "folded-carton": "Generated carton",
   pouch: "Generated pouch",
+  "flat-sheet": "Physical flat sheet",
 };
 
 export function familyLabel(config: ProductConfig): string {
@@ -47,7 +48,9 @@ export function summarize(
 ): ProductSummary {
   const surface = config.editableSurfaces[0];
   const inches = surface.displayUnit === "in";
-  const size = (cm: number) => (inches ? cm / 2.54 : cm).toFixed(inches ? 2 : 1);
+  const millimetres = surface.displayUnit === "mm";
+  const size = (cm: number) =>
+    (inches ? cm / 2.54 : millimetres ? cm * 10 : cm).toFixed(inches ? 2 : 1);
 
   return {
     id: config.id,
@@ -59,7 +62,7 @@ export function summarize(
       0,
     ),
     printSize: `${size(surface.physicalWidthCm)} × ${size(surface.physicalHeightCm)} ${
-      inches ? "in" : "cm"
+      inches ? "in" : millimetres ? "mm" : "cm"
     }`,
     canvasSize: `${surface.editorWidth} × ${surface.editorHeight} px`,
     modelBytes,

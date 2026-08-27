@@ -1,4 +1,5 @@
 import type { PouchSpec } from "@/types/pouch";
+import { nexiblesRstzPouchSpec } from "./nexibles-rstz-pouch";
 
 /**
  * VistaPrint stand-up pouch selected by the supplied Studio URL:
@@ -164,6 +165,7 @@ export function makePouchSpec(params: PouchParams): PouchSpec {
 }
 
 export const generatedPouchSpecs: PouchSpec[] = [
+  nexiblesRstzPouchSpec,
   makePouchSpec({ id: "pouch-su-160", name: "Stand-Up Pouch 160\u00d7240+90", style: "stand_up", width: 160, height: 240, depth: 90 }),
   makePouchSpec({ id: "pouch-su-zip-160", name: "Stand-Up Zipper Pouch 160\u00d7240+90", style: "stand_up", width: 160, height: 240, depth: 90, zipper: true }),
   makePouchSpec({ id: "pouch-3ss-130", name: "3-Side-Seal Pouch 130\u00d7180", style: "three_side_seal", width: 130, height: 180, depth: 46 }),

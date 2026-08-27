@@ -5,6 +5,7 @@ import { resolveStudioPresentation } from "@/platform/presentation/resolve-studi
 import type { ProductValidationIssueDto } from "@/platform/products/operations-types";
 import type { ProductPresentationMode } from "@/platform/products/types";
 import type { ProductConfig } from "@/types/configurator";
+import { deriveFlatSheetGeometry } from "@/lib/configurator/flat-sheet";
 
 const PHYSICAL_TOLERANCE_MM = 0.01;
 
@@ -80,6 +81,30 @@ export function validateResolvedProductContract(
       severity: "error",
       message: "A GLB product must resolve a model URL.",
     });
+  }
+  if (config.family === "flat-sheet") {
+    if (!config.flatSheetSpec || config.editableSurfaces.length !== 1) {
+      issues.push({
+        code: "FLAT_SHEET_SPEC_REQUIRED",
+        severity: "error",
+        message: "A flat-sheet product requires one physical specification and one surface.",
+      });
+    } else {
+      const geometry = deriveFlatSheetGeometry(config.flatSheetSpec);
+      const surface = config.editableSurfaces[0];
+      const matches =
+        surface.editorWidth === geometry.editorWidth &&
+        surface.editorHeight === geometry.editorHeight &&
+        Math.abs(surface.physicalWidthCm * 10 - geometry.fullWidthMm) <= PHYSICAL_TOLERANCE_MM &&
+        Math.abs(surface.physicalHeightCm * 10 - geometry.fullHeightMm) <= PHYSICAL_TOLERANCE_MM;
+      if (!matches) {
+        issues.push({
+          code: "FLAT_SHEET_SURFACE_MISMATCH",
+          severity: "error",
+          message: "Flat-sheet editor/export dimensions do not match its physical specification.",
+        });
+      }
+    }
   }
   if (config.printProfileId && !PRINTER_PROFILES[config.printProfileId]) {
     issues.push({
