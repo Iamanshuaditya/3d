@@ -2,6 +2,7 @@ import type {
   DesignDocument,
   DesignElement,
   ImageElement,
+  ImageCrop,
   SurfaceDesign,
   TextElement,
 } from "@/types/configurator";
@@ -69,6 +70,15 @@ function optionalPositiveInteger(record: JsonRecord, key: string): number | unde
   return value as number;
 }
 
+function optionalBoolean(record: JsonRecord, key: string): boolean | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean") {
+    throw new ValidationError("INVALID_DESIGN", `${key} must be a boolean.`);
+  }
+  return value;
+}
+
 function parseTreatment(value: unknown): ImageElement["treatment"] {
   if (value === undefined) return undefined;
   if (!isRecord(value) || (value.mode !== "print" && value.mode !== "embroidery")) {
@@ -91,6 +101,23 @@ function parseTreatment(value: unknown): ImageElement["treatment"] {
       reliefMm: boundedNumber(settings, "reliefMm", { min: 0, max: 10 }),
     },
   };
+}
+
+function parseCrop(value: unknown): ImageCrop | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) {
+    throw new ValidationError("INVALID_DESIGN", "Image crop is invalid.");
+  }
+  const crop = {
+    x: boundedNumber(value, "x", { min: 0, max: 1 }),
+    y: boundedNumber(value, "y", { min: 0, max: 1 }),
+    width: boundedNumber(value, "width", { min: 0.01, max: 1 }),
+    height: boundedNumber(value, "height", { min: 0.01, max: 1 }),
+  };
+  if (crop.x + crop.width > 1.000_001 || crop.y + crop.height > 1.000_001) {
+    throw new ValidationError("INVALID_DESIGN", "Image crop falls outside its source asset.");
+  }
+  return crop;
 }
 
 function transform(record: JsonRecord) {
@@ -143,9 +170,11 @@ function parseElement(value: unknown): DesignElement {
       sourcePixelHeight: optionalPositiveInteger(value, "sourcePixelHeight"),
       sourceName: optionalString(value, "sourceName", 255),
       sourceMimeType: optionalString(value, "sourceMimeType", 128),
+      crop: parseCrop(value.crop),
       width: boundedNumber(value, "width", { min: 0.001, max: 10_000_000 }),
       height: boundedNumber(value, "height", { min: 0.001, max: 10_000_000 }),
       ...transform(value),
+      locked: optionalBoolean(value, "locked"),
       treatment: parseTreatment(value.treatment),
     };
   }
@@ -162,6 +191,7 @@ function parseElement(value: unknown): DesignElement {
       fontSize: boundedNumber(value, "fontSize", { min: 0.1, max: 10_000 }),
       fill: requiredString(value, "fill", 128),
       ...transform(value),
+      locked: optionalBoolean(value, "locked"),
       binding: parseBinding(value.binding),
     };
     return parsed;

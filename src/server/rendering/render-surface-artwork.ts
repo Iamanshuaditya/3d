@@ -79,6 +79,16 @@ export async function renderSurfaceArtworkPng(input: {
       }
       const href = embedded.get(element.assetId);
       if (!href) throw new Error(`Production artwork asset ${element.assetId} is unavailable.`);
+      if (element.crop) {
+        if (!element.sourcePixelWidth || !element.sourcePixelHeight) {
+          throw new Error(`Cropped production artwork ${element.id} has no source dimensions.`);
+        }
+        const cropX = element.crop.x * element.sourcePixelWidth;
+        const cropY = element.crop.y * element.sourcePixelHeight;
+        const cropWidth = element.crop.width * element.sourcePixelWidth;
+        const cropHeight = element.crop.height * element.sourcePixelHeight;
+        return `<g ${common}><svg width="${element.width}" height="${element.height}" viewBox="${cropX} ${cropY} ${cropWidth} ${cropHeight}" preserveAspectRatio="none" overflow="hidden"><image width="${element.sourcePixelWidth}" height="${element.sourcePixelHeight}" href="${href}" preserveAspectRatio="none"/></svg></g>`;
+      }
       return `<image ${common} width="${element.width}" height="${element.height}" href="${href}" preserveAspectRatio="none"/>`;
     }
     const fill = safeCssColor(element.fill, "#111111");
@@ -93,7 +103,10 @@ export async function renderSurfaceArtworkPng(input: {
 
   const background = safeCssColor(
     design.background,
-    safeCssColor(surface.defaultBackground, "#ffffff"),
+    safeCssColor(
+      surface.productionBackground,
+      safeCssColor(surface.defaultBackground, "#ffffff"),
+    ),
   );
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg"
@@ -109,4 +122,3 @@ export async function renderSurfaceArtworkPng(input: {
     limitInputPixels: maximumRasterPixels,
   }).png().toBuffer();
 }
-

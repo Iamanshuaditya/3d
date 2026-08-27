@@ -13,6 +13,8 @@ export type History<T> = {
   past: T[];
   present: T;
   future: T[];
+  /** Snapshot before the first transient update in the active gesture. */
+  transientBase?: T;
 };
 
 const HISTORY_LIMIT = 50;
@@ -114,10 +116,15 @@ export function reduceHistory(
   if (nextPresent === state.present) return state;
 
   if (options.transient) {
-    return { ...state, present: nextPresent };
+    return {
+      ...state,
+      present: nextPresent,
+      transientBase: state.transientBase ?? state.present,
+    };
   }
 
-  const past = [...state.past, state.present].slice(-HISTORY_LIMIT);
+  const base = state.transientBase ?? state.present;
+  const past = [...state.past, base].slice(-HISTORY_LIMIT);
   return { past, present: nextPresent, future: [] };
 }
 
@@ -128,19 +135,38 @@ export function undo(state: History<DesignDocument>): History<DesignDocument> {
     past: state.past.slice(0, -1),
     present: previous,
     future: [state.present, ...state.future],
+    transientBase: undefined,
   };
 }
 
 export function redo(state: History<DesignDocument>): History<DesignDocument> {
   if (!state.future.length) return state;
   const [next, ...rest] = state.future;
-  return { past: [...state.past, state.present], present: next, future: rest };
+  return {
+    past: [...state.past, state.present],
+    present: next,
+    future: rest,
+    transientBase: undefined,
+  };
 }
 
 /** Commits the current present as a history checkpoint (used at drag end). */
 export function commit(state: History<DesignDocument>): History<DesignDocument> {
-  const past = [...state.past, state.present].slice(-HISTORY_LIMIT);
+  if (state.transientBase === undefined) return state;
+  const past = [...state.past, state.transientBase].slice(-HISTORY_LIMIT);
   return { past, present: state.present, future: [] };
+}
+
+/** Abandons an in-progress gesture without creating an undo checkpoint. */
+export function cancelTransient(
+  state: History<DesignDocument>,
+): History<DesignDocument> {
+  if (state.transientBase === undefined) return state;
+  return {
+    past: state.past,
+    present: state.transientBase,
+    future: state.future,
+  };
 }
 
 /** Centred, aspect-preserving placement for freshly uploaded artwork (§13). */

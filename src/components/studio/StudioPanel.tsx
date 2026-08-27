@@ -1,11 +1,17 @@
 "use client";
 
-import { useRef } from "react";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { useMemo, useRef } from "react";
+import { Check, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import type { StudioTool } from "./StudioToolRail";
 import { LayersPanel } from "@/components/configurator/LayersPanel";
 import { ArtworkTreatmentControls } from "@/components/configurator/ArtworkTreatmentControls";
 import type { useCustomizer } from "@/lib/configurator/use-customizer";
+import {
+  cropToFillFrame,
+  cropZoom,
+  setCropCenter,
+  setCropZoom,
+} from "@/lib/configurator/image-crop";
 
 type StudioPanelProps = {
   tool: StudioTool;
@@ -92,6 +98,33 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
   const selected = c.selectedElement;
   const selectedText = selected?.type === "text" ? selected : null;
   const selectedImage = selected?.type === "image" ? selected : null;
+  const cropState = useMemo(() => {
+    if (!selectedImage) return null;
+    const sourceWidth = selectedImage.sourcePixelWidth ?? selectedImage.width;
+    const sourceHeight = selectedImage.sourcePixelHeight ?? selectedImage.height;
+    const base = cropToFillFrame(
+      sourceWidth,
+      sourceHeight,
+      selectedImage.width,
+      selectedImage.height,
+    );
+    const current = selectedImage.crop ?? base;
+    return {
+      base,
+      current,
+      zoom: cropZoom(base, current),
+      centerX: current.x + current.width / 2,
+      centerY: current.y + current.height / 2,
+    };
+  }, [selectedImage]);
+  const quality = c.selectedImageQuality;
+  const qualityTone = quality?.state === "good"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+    : quality?.state === "warning"
+      ? "border-amber-200 bg-amber-50 text-amber-900"
+      : quality?.state === "poor"
+        ? "border-red-200 bg-red-50 text-red-800"
+        : "border-slate-200 bg-slate-50 text-slate-700";
 
   return (
     <aside
@@ -104,6 +137,30 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
       <p className="mt-1.5 text-[13px] leading-[1.5] text-[var(--st-dim)]">{HINTS[tool]}</p>
 
       <div className="mt-5 flex flex-col gap-3">
+        {selectedImage && quality && (tool === "Uploads" || tool === "Editor") && (
+          <div className={`rounded-xl border px-3 py-2.5 ${qualityTone}`}>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[12px] font-semibold capitalize">
+                {quality.state === "unknown" ? "Resolution unknown" : `${quality.state} print quality`}
+              </span>
+              {quality.ppi && (
+                <span className="text-[12px] font-semibold tabular-nums">
+                  {Math.floor(quality.ppi.minimum)} PPI
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] leading-4 opacity-80">
+              {quality.state === "good"
+                ? `Meets the recommended ${quality.warningPpi} PPI at this physical size.`
+                : quality.state === "warning"
+                  ? `Printable, but ${quality.warningPpi} PPI is recommended for best results.`
+                  : quality.state === "poor"
+                    ? `Below the ${quality.minimumPpi} PPI production minimum. Reduce its printed size or use a larger source.`
+                    : "The original pixel dimensions are unavailable, so print resolution cannot be checked."}
+            </p>
+          </div>
+        )}
+
         {tool === "Uploads" && (
           <>
             <input
@@ -234,23 +291,115 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
 
         {tool === "Editor" && (
           <>
-            <Button onClick={c.centerSelected} disabled={!selected}>
-              Centre in print area
-            </Button>
-            <Button onClick={c.fitSelected} disabled={selected?.type !== "image"}>
-              Fit to print area
-            </Button>
-            <Button onClick={c.fillSelected} disabled={selected?.type !== "image"}>
-              Fill print area
-            </Button>
-            <Button variant="danger" onClick={c.deleteSelected} disabled={!selected}>
-              <Trash2 className="h-[17px] w-[17px]" />
-              Delete selected
-            </Button>
-            <div className="my-1 h-px bg-[var(--st-line)]" />
-            <Button variant="danger" onClick={c.resetSurface}>
-              Clear this surface
-            </Button>
+            {c.cropMode && selectedImage && cropState ? (
+              <div className="flex flex-col gap-4 rounded-xl border border-[var(--st-line)] bg-[var(--st-raised)]/55 p-3">
+                <div>
+                  <h3 className="text-[14px] font-semibold text-[var(--st-text)]">Crop image</h3>
+                  <p className="mt-1 text-[11px] leading-4 text-[var(--st-dim)]">
+                    The frame stays fixed while you move and zoom the original image underneath it.
+                  </p>
+                </div>
+                <Field label="Zoom">
+                  <input
+                    type="range"
+                    min={1}
+                    max={4}
+                    step={0.01}
+                    value={Math.min(4, cropState.zoom)}
+                    onChange={(event) =>
+                      c.updateSelectedCrop(
+                        setCropZoom(cropState.base, cropState.current, Number(event.target.value)),
+                      )
+                    }
+                    className="w-full accent-[var(--st-accent)]"
+                  />
+                </Field>
+                <Field label="Horizontal position">
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.001}
+                    value={cropState.centerX}
+                    onChange={(event) =>
+                      c.updateSelectedCrop(
+                        setCropCenter(
+                          cropState.current,
+                          Number(event.target.value),
+                          cropState.centerY,
+                        ),
+                      )
+                    }
+                    className="w-full accent-[var(--st-accent)]"
+                  />
+                </Field>
+                <Field label="Vertical position">
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.001}
+                    value={cropState.centerY}
+                    onChange={(event) =>
+                      c.updateSelectedCrop(
+                        setCropCenter(
+                          cropState.current,
+                          cropState.centerX,
+                          Number(event.target.value),
+                        ),
+                      )
+                    }
+                    className="w-full accent-[var(--st-accent)]"
+                  />
+                </Field>
+                <button
+                  type="button"
+                  onClick={() => c.updateSelectedCrop(cropState.base)}
+                  className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-[var(--st-dim)] transition-colors hover:bg-[var(--st-line)] hover:text-[var(--st-text)]"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset crop
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={c.cancelCrop}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--st-surface)] px-3 py-2 text-[13px] font-medium text-[var(--st-text)] ring-1 ring-[var(--st-line)]"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={c.finishCrop}
+                    className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--st-accent)] px-3 py-2 text-[13px] font-medium text-[var(--st-accent-ink)]"
+                  >
+                    <Check className="h-4 w-4" />
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Button onClick={c.centerSelected} disabled={!selected}>
+                  Centre in print area
+                </Button>
+                <Button onClick={c.fitSelected} disabled={selected?.type !== "image"}>
+                  Fit to print area
+                </Button>
+                <Button onClick={c.fillSelected} disabled={selected?.type !== "image"}>
+                  Fill print area
+                </Button>
+                <Button variant="danger" onClick={c.deleteSelected} disabled={!selected}>
+                  <Trash2 className="h-[17px] w-[17px]" />
+                  Delete selected
+                </Button>
+                <div className="my-1 h-px bg-[var(--st-line)]" />
+                <Button variant="danger" onClick={c.resetSurface}>
+                  Clear this surface
+                </Button>
+              </>
+            )}
           </>
         )}
       </div>

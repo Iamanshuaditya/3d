@@ -16,6 +16,7 @@ import { useEmbroidery } from "@/lib/embroidery/use-embroidery";
 import { useProjectSession } from "@/lib/projects/use-project-session";
 import { configureDesignTexture } from "@/lib/configurator/texture-manager";
 import {
+  cancelTransient,
   commit,
   centeredOrigin,
   createEmptyDocument,
@@ -30,11 +31,16 @@ import {
   type DesignAction,
   type History,
 } from "@/lib/configurator/design-state";
+import { cropToFillFrame } from "@/lib/configurator/image-crop";
+import type { ImageCrop } from "@/types/configurator";
+import { effectiveImagePpi, imageQualityState } from "@/lib/print/preflight";
+import { getPrinterProfile } from "@/lib/print/printer-profiles";
 
 type HistoryAction =
   | { kind: "apply"; action: DesignAction; transient?: boolean }
   | { kind: "replace"; document: DesignDocument }
   | { kind: "commit" }
+  | { kind: "cancelTransient" }
   | { kind: "undo" }
   | { kind: "redo" };
 
@@ -51,6 +57,8 @@ function historyReducer(
       return createHistory(action.document);
     case "commit":
       return commit(state);
+    case "cancelTransient":
+      return cancelTransient(state);
     case "undo":
       return undo(state);
     case "redo":
@@ -82,6 +90,8 @@ export function useCustomizer(
   const [hoveredMeshName, setHoveredMeshName] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showGuides, setShowGuides] = useState(true);
+  const [cropMode, setCropMode] = useState(false);
+  const [croppingElementId, setCroppingElementId] = useState<string | null>(null);
   const [canvases, setCanvases] = useState<Record<string, HTMLCanvasElement | null>>({});
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [debugInfo, setDebugInfo] = useState<SceneDebugInfo[]>([]);
@@ -126,6 +136,23 @@ export function useCustomizer(
     [activeSection, activeSurface],
   );
   const selectedElement = activeDesign?.elements.find((el) => el.id === selectedId) ?? null;
+  const selectedImageQuality = useMemo(() => {
+    if (!selectedElement || selectedElement.type !== "image") return null;
+    const profile = getPrinterProfile(config.printProfileId);
+    const ppi = effectiveImagePpi(
+      selectedElement,
+      activeSurface.editorWidth,
+      activeSurface.editorHeight,
+      activeSurface.physicalWidthCm * 10,
+      activeSurface.physicalHeightCm * 10,
+    );
+    return {
+      ppi,
+      state: imageQualityState(ppi, profile.minimumImagePpi, profile.warningImagePpi),
+      minimumPpi: profile.minimumImagePpi,
+      warningPpi: profile.warningImagePpi,
+    };
+  }, [activeSurface, config.printProfileId, selectedElement]);
 
   // ---- Textures: one per canvas, updated in place (§15/§38) -----------------
   const textures = useMemo(() => {
@@ -247,6 +274,45 @@ export function useCustomizer(
     markCommitted();
   }, [markCommitted]);
 
+  const beginCrop = useCallback(() => {
+    if (!selectedElement || selectedElement.type !== "image" || selectedElement.locked) return;
+    setCroppingElementId(selectedElement.id);
+    setCropMode(true);
+  }, [selectedElement]);
+
+  const updateSelectedCrop = useCallback(
+    (crop: ImageCrop | undefined) => {
+      if (
+        !cropMode ||
+        !selectedElement ||
+        selectedElement.type !== "image" ||
+        selectedElement.id !== croppingElementId
+      ) return;
+      applyChange(selectedElement.id, { crop }, true);
+      scheduleDirty(activeSurfaceId);
+    },
+    [activeSurfaceId, applyChange, cropMode, croppingElementId, scheduleDirty, selectedElement],
+  );
+
+  const finishCrop = useCallback(() => {
+    if (!cropMode) return;
+    commitHistory();
+    setCroppingElementId(null);
+    setCropMode(false);
+  }, [commitHistory, cropMode]);
+
+  const cancelCrop = useCallback(() => {
+    if (!cropMode) return;
+    dispatch({ kind: "cancelTransient" });
+    scheduleDirty(activeSurfaceId);
+    setCroppingElementId(null);
+    setCropMode(false);
+  }, [activeSurfaceId, cropMode, scheduleDirty]);
+
+  useEffect(() => {
+    if (cropMode && croppingElementId !== selectedId) cancelCrop();
+  }, [cancelCrop, cropMode, croppingElementId, selectedId]);
+
   const uploadFiles = useCallback(
     async (files: FileList) => {
       for (const file of Array.from(files)) {
@@ -356,6 +422,63 @@ export function useCustomizer(
     if (selectedId) removeElement(selectedId);
   }, [selectedId, removeElement]);
 
+  const duplicateSelected = useCallback(() => {
+    if (!selectedElement) return;
+    const duplicate: DesignElement = {
+      ...selectedElement,
+      id: nextId(selectedElement.type === "image" ? "img" : "txt"),
+      x: selectedElement.x + 16,
+      y: selectedElement.y + 16,
+      locked: false,
+    };
+    dispatch({
+      kind: "apply",
+      action: { type: "add", surfaceId: activeSurfaceId, element: duplicate },
+    });
+    setSelectedId(duplicate.id);
+    scheduleDirty(activeSurfaceId);
+    markCommitted();
+  }, [activeSurfaceId, markCommitted, scheduleDirty, selectedElement]);
+
+  const toggleSelectedLock = useCallback(() => {
+    if (!selectedElement) return;
+    applyChange(selectedElement.id, { locked: !selectedElement.locked }, false);
+  }, [applyChange, selectedElement]);
+
+  const replaceSelectedImage = useCallback(
+    async (file: File) => {
+      if (!selectedElement || selectedElement.type !== "image" || !file.type.startsWith("image/")) {
+        return;
+      }
+      try {
+        const asset = await uploadProjectAsset(file);
+        if (!asset.width || !asset.height) throw new Error("Replacement image has no dimensions.");
+        applyChange(
+          selectedElement.id,
+          {
+            assetId: asset.id,
+            src: asset.readUrl,
+            sourcePixelWidth: asset.width,
+            sourcePixelHeight: asset.height,
+            sourceName: asset.filename,
+            sourceMimeType: asset.mimeType,
+            crop: cropToFillFrame(
+              asset.width,
+              asset.height,
+              selectedElement.width,
+              selectedElement.height,
+            ),
+          },
+          false,
+        );
+        scheduleDirty(activeSurfaceId);
+      } catch (cause) {
+        window.alert(cause instanceof Error ? cause.message : "Could not replace this artwork.");
+      }
+    },
+    [activeSurfaceId, applyChange, scheduleDirty, selectedElement, uploadProjectAsset],
+  );
+
   const reorderElement = useCallback(
     (id: string, direction: "up" | "down") => {
       dispatch({
@@ -403,18 +526,20 @@ export function useCustomizer(
 
   const fitSelected = useCallback(() => {
     if (!selectedElement || selectedElement.type !== "image") return;
+    const sourceWidth = selectedElement.sourcePixelWidth ?? selectedElement.width;
+    const sourceHeight = selectedElement.sourcePixelHeight ?? selectedElement.height;
     const placement = activeSection && activeSectionBox
       ? fitElementToSection(
-          selectedElement.width,
-          selectedElement.height,
+          sourceWidth,
+          sourceHeight,
           activeSectionBox,
           activeSection.contentRotation,
           0.8,
         )
       : {
           ...fitElement(
-            selectedElement.width,
-            selectedElement.height,
+            sourceWidth,
+            sourceHeight,
             activeSurface.editorWidth,
             activeSurface.editorHeight,
             0.8,
@@ -423,7 +548,7 @@ export function useCustomizer(
         };
     applyChange(
       selectedElement.id,
-      { ...placement, scaleX: 1, scaleY: 1 },
+      { ...placement, scaleX: 1, scaleY: 1, crop: undefined },
       false,
     );
     scheduleDirty(activeSurfaceId);
@@ -461,6 +586,12 @@ export function useCustomizer(
           scaleX: 1,
           scaleY: 1,
           rotation: activeSection.contentRotation,
+          crop: cropToFillFrame(
+            selectedElement.sourcePixelWidth ?? selectedElement.width,
+            selectedElement.sourcePixelHeight ?? selectedElement.height,
+            width,
+            height,
+          ),
         },
         false,
       );
@@ -477,6 +608,12 @@ export function useCustomizer(
         scaleX: 1,
         scaleY: 1,
         rotation: 0,
+        crop: cropToFillFrame(
+          selectedElement.sourcePixelWidth ?? selectedElement.width,
+          selectedElement.sourcePixelHeight ?? selectedElement.height,
+          activeSurface.editorWidth,
+          activeSurface.editorHeight,
+        ),
       },
       false,
     );
@@ -604,9 +741,37 @@ export function useCustomizer(
         markCommitted();
         return;
       }
+      if (e.key === "Escape" && cropMode) {
+        e.preventDefault();
+        cancelCrop();
+        return;
+      }
+      if (e.key === "Enter" && cropMode) {
+        e.preventDefault();
+        finishCrop();
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         e.preventDefault();
         removeElement(selectedId);
+        return;
+      }
+      if (mod && e.key.toLowerCase() === "d" && selectedElement) {
+        e.preventDefault();
+        duplicateSelected();
+        return;
+      }
+      if (
+        selectedElement &&
+        !selectedElement.locked &&
+        ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)
+      ) {
+        e.preventDefault();
+        const distance = e.shiftKey ? 10 : 1;
+        const x = selectedElement.x + (e.key === "ArrowLeft" ? -distance : e.key === "ArrowRight" ? distance : 0);
+        const y = selectedElement.y + (e.key === "ArrowUp" ? -distance : e.key === "ArrowDown" ? distance : 0);
+        applyChange(selectedElement.id, { x, y }, false);
+        scheduleDirty(activeSurfaceId);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -618,6 +783,12 @@ export function useCustomizer(
     keyboardShortcutsEnabled,
     markCommitted,
     scheduleDirty,
+    selectedElement,
+    duplicateSelected,
+    applyChange,
+    cropMode,
+    cancelCrop,
+    finishCrop,
   ]);
 
   useEffect(() => {
@@ -645,6 +816,12 @@ export function useCustomizer(
     selectedId,
     setSelectedId,
     selectedElement,
+    selectedImageQuality,
+    cropMode,
+    beginCrop,
+    updateSelectedCrop,
+    finishCrop,
+    cancelCrop,
     showGuides,
     setShowGuides,
     textures,
@@ -663,6 +840,9 @@ export function useCustomizer(
     addText,
     removeElement,
     deleteSelected,
+    duplicateSelected,
+    toggleSelectedLock,
+    replaceSelectedImage,
     reorderElement,
     setBackground,
     centerSelected,

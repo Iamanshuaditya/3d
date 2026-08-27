@@ -295,6 +295,30 @@ export type GenerateProductionPdfOptions = {
   preflightReport?: PreflightReport;
 };
 
+export function productionPageBoxesMm(
+  surface: NormalizedPrintJob["surfaces"][number]["surface"],
+) {
+  const media = {
+    x: 0,
+    y: 0,
+    width: surface.physicalWidthCm * 10,
+    height: surface.physicalHeightCm * 10,
+  };
+  const trim = surface.rectangularLayout
+    ? {
+        x: surface.rectangularLayout.trimBoxMm.x,
+        // Editor geometry is top-down; PDF page boxes originate bottom-left.
+        y:
+          media.height -
+          surface.rectangularLayout.trimBoxMm.y -
+          surface.rectangularLayout.trimBoxMm.height,
+        width: surface.rectangularLayout.trimBoxMm.width,
+        height: surface.rectangularLayout.trimBoxMm.height,
+      }
+    : media;
+  return { media, bleed: media, trim, art: trim };
+}
+
 export async function generateProductionPdf(
   job: NormalizedPrintJob,
   options: GenerateProductionPdfOptions = {},
@@ -331,14 +355,25 @@ export async function generateProductionPdf(
   configureOptionalContent(pdf, layers);
 
   for (const entry of job.surfaces) {
-    const pageWidthPt = entry.surface.physicalWidthCm * 10 * POINTS_PER_MM;
-    const pageHeightPt = entry.surface.physicalHeightCm * 10 * POINTS_PER_MM;
+    const boxes = productionPageBoxesMm(entry.surface);
+    const pageWidthPt = boxes.media.width * POINTS_PER_MM;
+    const pageHeightPt = boxes.media.height * POINTS_PER_MM;
     const page = pdf.addPage([pageWidthPt, pageHeightPt]);
     page.setMediaBox(0, 0, pageWidthPt, pageHeightPt);
     page.setCropBox(0, 0, pageWidthPt, pageHeightPt);
     page.setBleedBox(0, 0, pageWidthPt, pageHeightPt);
-    page.setTrimBox(0, 0, pageWidthPt, pageHeightPt);
-    page.setArtBox(0, 0, pageWidthPt, pageHeightPt);
+    page.setTrimBox(
+      boxes.trim.x * POINTS_PER_MM,
+      boxes.trim.y * POINTS_PER_MM,
+      boxes.trim.width * POINTS_PER_MM,
+      boxes.trim.height * POINTS_PER_MM,
+    );
+    page.setArtBox(
+      boxes.art.x * POINTS_PER_MM,
+      boxes.art.y * POINTS_PER_MM,
+      boxes.art.width * POINTS_PER_MM,
+      boxes.art.height * POINTS_PER_MM,
+    );
     addPageResources(pdf, page, iccRef, layers);
 
     const artwork = await (options.renderArtwork ?? renderProductionArtwork)(

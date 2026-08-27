@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
+import { ChevronUp, Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import type { ProductPresentationMode } from "@/platform/products/types";
 import { resolveStudioPresentation } from "@/platform/presentation/resolve-studio-presentation";
@@ -20,6 +20,12 @@ import { ProjectApiError } from "@/lib/projects/client";
 import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
 import { supportsManufacturingSvg } from "@/lib/print/manufacturing-geometry";
 import type { ProductionArtifactKind } from "@/platform/production/types";
+import { DielineGuideControls } from "@/components/configurator/DielineGuideControls";
+import {
+  DEFAULT_DIELINE_GUIDE_VISIBILITY,
+  type DielineGuideClass,
+  type DielineGuideVisibility,
+} from "@/lib/configurator/dieline-presentation";
 
 const DesignEditor = dynamic(
   () => import("@/components/configurator/DesignEditor").then((m) => m.DesignEditor),
@@ -71,6 +77,12 @@ export function StudioShell({
   const [pan, setPan] = useState<PanPoint>({ x: 0, y: 0 });
   const [panMode, setPanMode] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
+  const [guideControlsOpen, setGuideControlsOpen] = useState(false);
+  const [highlightedGuideClass, setHighlightedGuideClass] =
+    useState<DielineGuideClass | null>(null);
+  const [guideVisibility, setGuideVisibility] = useState<DielineGuideVisibility>({
+    ...DEFAULT_DIELINE_GUIDE_VISIBILITY,
+  });
   // Passive camera motion is opt-in in an editing tool. Manual orbit remains
   // available at all times and is the predictable default.
   const [animated, setAnimated] = useState(false);
@@ -112,11 +124,20 @@ export function StudioShell({
   const formatPhysical = (centimetres: number) =>
     surface.displayUnit === "in"
       ? `${(centimetres / 2.54).toFixed(2)}in`
+      : surface.displayUnit === "mm"
+        ? `${(centimetres * 10).toFixed(1)}mm`
       : `${centimetres.toFixed(1)}cm`;
   const editorDisplayHeight =
     EDITOR_DISPLAY_WIDTH * (surface.editorHeight / surface.editorWidth);
   const workspaceWidth = EDITOR_DISPLAY_WIDTH + VERTICAL_RULE_WIDTH + WORKSPACE_GAP;
   const workspaceHeight = editorDisplayHeight + HORIZONTAL_RULE_HEIGHT;
+
+  const toggleGuideClass = useCallback((guideClass: DielineGuideClass) => {
+    setGuideVisibility((current) => ({
+      ...current,
+      [guideClass]: !current[guideClass],
+    }));
+  }, []);
 
   const computeFitZoom = useCallback(() => {
     const viewport = workspaceViewportRef.current;
@@ -439,10 +460,14 @@ export function StudioShell({
                     <div className="relative" data-design-editor>
                       <div className="pointer-events-none absolute -top-7 right-0 z-10 flex gap-2 text-[11px]">
                         <span className="rounded-full bg-white px-2.5 py-0.5 ring-1 ring-inset ring-black/10">
-                          Safety area
+                          {surface.presentation?.kind === "continuous-web"
+                            ? "Production regions"
+                            : "Safety area"}
                         </span>
                         <span className="rounded-full bg-white px-2.5 py-0.5 ring-1 ring-inset ring-black/10">
-                          Bleed
+                          {surface.presentation?.kind === "continuous-web"
+                            ? "Technical guides"
+                            : "Bleed"}
                         </span>
                       </div>
 
@@ -476,6 +501,26 @@ export function StudioShell({
                               onSectionHover={c.setHoveredMeshName}
                               showProductionChrome={false}
                               dieline={isActive ? dieline : undefined}
+                              guideVisibility={guideVisibility}
+                              highlightedGuideClass={highlightedGuideClass}
+                              onGuideHover={setHighlightedGuideClass}
+                              onDeleteSelected={c.deleteSelected}
+                              onDuplicateSelected={c.duplicateSelected}
+                              onToggleSelectedLock={c.toggleSelectedLock}
+                              onLayerUp={() => {
+                                if (c.selectedId) c.reorderElement(c.selectedId, "up");
+                              }}
+                              onLayerDown={() => {
+                                if (c.selectedId) c.reorderElement(c.selectedId, "down");
+                              }}
+                              onCropSelected={() => {
+                                setTool("Editor");
+                                c.beginCrop();
+                              }}
+                              onReplaceSelectedFile={(file) => {
+                                void c.replaceSelectedImage(file);
+                              }}
+                              cropMode={c.cropMode}
                             />
                           </div>
                         );
@@ -499,6 +544,15 @@ export function StudioShell({
 
             {/* workspace controls */}
             <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
+              {guideControlsOpen && (
+                <div className="pointer-events-auto absolute bottom-14 left-1/2 -translate-x-1/2">
+                  <DielineGuideControls
+                    visibility={guideVisibility}
+                    onToggle={toggleGuideClass}
+                    onHighlight={setHighlightedGuideClass}
+                  />
+                </div>
+              )}
               <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-[var(--st-surface)] p-1 shadow-[0_6px_24px_rgba(16,18,22,0.14)] ring-1 ring-[var(--st-line)]">
                 <button
                   type="button"
@@ -527,6 +581,22 @@ export function StudioShell({
                   }`}
                 >
                   <Ruler className="h-[18px] w-[18px]" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Choose print guide classes"
+                  aria-expanded={guideControlsOpen}
+                  title="Guide options"
+                  onClick={() => setGuideControlsOpen((current) => !current)}
+                  className={`flex h-9 w-7 items-center justify-center rounded-full transition-colors ${
+                    guideControlsOpen
+                      ? "bg-[var(--st-raised)] text-[var(--st-text)]"
+                      : "text-[var(--st-dim)] hover:bg-[var(--st-raised)]"
+                  }`}
+                >
+                  <ChevronUp
+                    className={`h-4 w-4 transition-transform ${guideControlsOpen ? "rotate-180" : ""}`}
+                  />
                 </button>
 
                 <div className="mx-1 h-5 w-px bg-[var(--st-line)]" aria-hidden="true" />
