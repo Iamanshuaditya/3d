@@ -462,6 +462,55 @@ rolled/double front wall, a centre locking tongue, and matching lock slots.
 Those parts are present in both the canonical blank and the folded 3D assembly.
 They remain research geometry—not a copied or certified Pacdora die.
 
+### Mailer cut profiles and hinge correction
+
+A later open-box comparison exposed two separate faults in the first mailer
+prototype:
+
+1. Flaps were plain boxes, so the 0% state looked like a grid of rectangles
+   instead of a packaging die with tapered dust flaps, relieved shoulders,
+   locking ears, and tongue profiles.
+2. Several flaps interpolated in world space. At intermediate fold values they
+   could detach visually from their score line and appear beneath the base.
+
+The corrected lab stores an optional local polygon outline on every shaped
+panel. The SVG dieline renders that exact polygon, while Three.js extrudes the
+same points to the resolved board caliper. `/test` exposes three deliberately
+different research constructions:
+
+- **Roll-end** — tapered wings and chamfered roll-over closure.
+- **Ear-lock** — rounded locking ears, relieved dust flaps, and dovetail tongue.
+- **Display** — angular wings with a notched display-front closure.
+
+The 3D assembly is now a nested crease graph rather than a list of independently
+positioned meshes:
+
+```text
+base
+├── back wall
+│   └── lid
+│       ├── left wing
+│       ├── right wing
+│       └── lid tuck
+├── left wall
+│   ├── back dust flap
+│   └── front dust flap
+├── right wall
+│   ├── back dust flap
+│   └── front dust flap
+└── front wall
+    └── front roll
+        └── locking tongue
+```
+
+At 0%, all relative hinge angles are zero and the model is the same continuous
+net as the dieline. During folding, a child inherits its parent's transform, so
+its crease cannot drift. At 100%, internal dust flaps, wings, tuck, and front
+roll receive a small caliper-derived stacking offset; this removes coplanar
+flicker and leaves a clean exterior. Tuck and lock depths are also capped below
+wall height, including at the UI's minimum box dimensions, so closure parts
+cannot project below the base.
+
 ## Why GLB alone is not the answer
 
 GLB is a compact runtime asset container. It may include node hierarchies,
@@ -503,6 +552,7 @@ src/lib/pacdora-lab/
 ├── types.ts       shared contracts
 ├── materials.ts   caliper and preview material profiles
 ├── box.ts         dimension conversion + multi-part mailer dieline solver
+├── box-fold.ts    staged, bounded crease-relative mailer fold schedule
 ├── pouch.ts       center-seal + stand-up web/mesh generators
 ├── pouch-limits.ts coupled editor safety ranges
 ├── studio-adapter.ts continuous-web adapter for the production Studio engine
@@ -529,8 +579,9 @@ The `/test` route provides:
 
 - Mailer, center-seal pillow, and stand-up construction switching.
 - Box inner/knife/outer size modes.
+- Roll-end, rounded ear-lock, and notched display mailer styles.
 - Multiple board calipers.
-- A live carton fold slider.
+- A live carton fold slider driven by parent-child crease hinges.
 - A live pouch inflation slider.
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
 - Dynamic minimum/maximum guidance in mm and inches for every pouch dimension.

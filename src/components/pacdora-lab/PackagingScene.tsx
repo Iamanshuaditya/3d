@@ -5,7 +5,9 @@ import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import {
+  resolvePacdoraLabBoxFoldPose,
   type BoxLabSolution,
+  type DielinePanel,
   type PouchLabSolution,
 } from "@/lib/pacdora-lab";
 import { configureDesignTexture } from "@/lib/configurator/texture-manager";
@@ -14,10 +16,11 @@ import { ProceduralPouchModel } from "@/components/configurator/ProceduralPouchM
 const MM = 0.01;
 
 type BoardPanelProps = {
-  widthMm: number;
-  depthMm: number;
+  panel: DielinePanel;
   thicknessMm: number;
   color: string;
+  roughness: number;
+  metalness: number;
   position: [number, number, number];
   rotationX?: number;
   rotationY?: number;
@@ -25,208 +28,163 @@ type BoardPanelProps = {
 };
 
 function BoardPanel({
-  widthMm,
-  depthMm,
+  panel,
   thicknessMm,
   color,
+  roughness,
+  metalness,
   position,
   rotationX = 0,
   rotationY = 0,
   rotationZ = 0,
 }: BoardPanelProps) {
+  const geometry = useMemo(() => {
+    const points = panel.outline ?? [
+      { x: 0, y: 0 },
+      { x: panel.width, y: 0 },
+      { x: panel.width, y: panel.height },
+      { x: 0, y: panel.height },
+    ];
+    const shape = new THREE.Shape();
+    points.forEach((point, index) => {
+      const x = (point.x - panel.width * 0.5) * MM;
+      const y = (point.y - panel.height * 0.5) * MM;
+      if (index === 0) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    });
+    shape.closePath();
+    const thickness = Math.max(thicknessMm * MM, 0.003);
+    const result = new THREE.ExtrudeGeometry(shape, {
+      bevelEnabled: false,
+      curveSegments: 1,
+      depth: thickness,
+      steps: 1,
+    });
+    result.translate(0, 0, -thickness * 0.5);
+    result.rotateX(Math.PI * 0.5);
+    result.computeVertexNormals();
+    return result;
+  }, [panel.height, panel.outline, panel.width, thicknessMm]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
   return (
-    <mesh position={position} rotation={[rotationX, rotationY, rotationZ]} castShadow receiveShadow>
-      <boxGeometry args={[widthMm * MM, Math.max(thicknessMm * MM, 0.006), depthMm * MM]} />
-      <meshStandardMaterial color={color} roughness={0.82} metalness={0} />
+    <mesh
+      geometry={geometry}
+      position={position}
+      rotation={[rotationX, rotationY, rotationZ]}
+      castShadow
+      receiveShadow
+    >
+      <meshStandardMaterial color={color} roughness={roughness} metalness={metalness} side={THREE.DoubleSide} />
       <Edges scale={1.002} threshold={18} color="#766a55" />
     </mesh>
   );
 }
 
-function ease01(value: number): number {
-  const t = Math.min(1, Math.max(0, value));
-  return t * t * (3 - 2 * t);
-}
-
 function BoxModel({ solution, fold }: { solution: BoxLabSolution; fold: number }) {
   const { length, width, height } = solution.manufacture;
   const thickness = solution.material.caliperMm;
-  const wallProgress = ease01(fold / 0.43);
-  const theta = wallProgress * Math.PI * 0.5;
+  const pose = resolvePacdoraLabBoxFoldPose(fold);
   const raised = Math.max(thickness * MM * 0.5, 0.003);
-  const wallY = Math.sin(theta) * height * MM * 0.5 + raised;
-  const wallRun = Math.cos(theta) * height * MM * 0.5;
-  const frontZ = width * MM * 0.5 + wallRun;
-  const backZ = -width * MM * 0.5 - wallRun;
-  const sideX = length * MM * 0.5 + wallRun;
-  const backTop = {
-    y: Math.sin(theta) * height * MM + raised,
-    z: -width * MM * 0.5 - Math.cos(theta) * height * MM,
+  const panel = (id: string) => {
+    const match = solution.panels.find((candidate) => candidate.id === id);
+    if (!match) throw new Error(`Missing mailer panel: ${id}`);
+    return match;
   };
-  const lidAngle = fold <= 0.56
-    ? ease01(fold / 0.56) * Math.PI * 0.5
-    : Math.PI * 0.5 + ease01((fold - 0.56) / 0.44) * Math.PI * 0.5;
-  const lidDirection = {
-    y: Math.sin(lidAngle),
-    z: -Math.cos(lidAngle),
+  const base = panel("base");
+  const back = panel("back");
+  const front = panel("front");
+  const left = panel("left");
+  const right = panel("right");
+  const lid = panel("lid");
+  const lidTuck = panel("lid-tuck");
+  const lidLeft = panel("lid-left");
+  const lidRight = panel("lid-right");
+  const frontTuck = panel("front-tuck");
+  const frontLock = panel("front-lock");
+  const boardProps = {
+    thicknessMm: thickness,
+    color: solution.material.color,
+    roughness: solution.material.roughness,
+    metalness: solution.material.metalness,
   };
-  const lidCenter = {
-    y: backTop.y + lidDirection.y * width * MM * 0.5,
-    z: backTop.z + lidDirection.z * width * MM * 0.5,
-  };
-  const tuckDepth = solution.panels.find((panel) => panel.id === "lid-tuck")?.height ?? height * 0.58;
-  const lockDepth = solution.panels.find((panel) => panel.id === "front-lock")?.height ?? height * 0.18;
-  const lockWidth = solution.panels.find((panel) => panel.id === "front-lock")?.width ?? length * 0.34;
-  const frontTuck = solution.panels.find((panel) => panel.id === "front-tuck")?.height ?? height * 0.42;
-  const lidWingFold = Math.PI * 0.46 * wallProgress;
-  const tuckFold = Math.PI * 0.58 * wallProgress;
-  const dustWidth = Math.min(height * 0.58, length * 0.19);
-  const dustHeight = height * 0.82;
-  const frontTop = {
-    y: Math.sin(theta) * height * MM + raised,
-    z: width * MM * 0.5 + Math.cos(theta) * height * MM,
-  };
-  const wallDirection = { y: Math.sin(theta), z: Math.cos(theta) };
-  const rollCenter = {
-    y: frontTop.y - wallDirection.y * frontTuck * MM * 0.5,
-    z: frontTop.z - wallDirection.z * frontTuck * MM * 0.5 - thickness * MM * 1.4,
-  };
-  const lockCenter = {
-    y: frontTop.y - wallDirection.y * (frontTuck + lockDepth * 0.5) * MM,
-    z: frontTop.z - wallDirection.z * (frontTuck + lockDepth * 0.5) * MM - thickness * MM * 1.6,
-  };
+  const dustStackOffset = (pose.dustAngle / (Math.PI * 0.5)) * thickness * MM * 1.6;
+  const lidStackOffset = (pose.lidCloseAngle / (Math.PI * 0.5)) * thickness * MM * 1.6;
+  const rollStackOffset = (pose.frontRollAngle / (Math.PI * 0.5)) * thickness * MM * 1.6;
+  const modelTurn = -0.18 * (pose.wallAngle / (Math.PI * 0.5));
 
   return (
-    <group rotation={[0, -0.18, 0]} position={[0, -height * MM * 0.5, 0]}>
+    <group rotation={[0, modelTurn, 0]} position={[0, -height * MM * 0.5, 0]}>
       <BoardPanel
-        widthMm={length}
-        depthMm={width}
-        thicknessMm={thickness}
-        color={solution.material.color}
+        {...boardProps}
+        panel={base}
         position={[0, raised, 0]}
       />
-      <BoardPanel
-        widthMm={length}
-        depthMm={height}
-        thicknessMm={thickness}
-        color={solution.material.color}
-        position={[0, wallY, frontZ]}
-        rotationX={-theta}
-      />
-      <BoardPanel
-        widthMm={length}
-        depthMm={height}
-        thicknessMm={thickness}
-        color={solution.material.color}
-        position={[0, wallY, backZ]}
-        rotationX={theta}
-      />
-      <BoardPanel
-        widthMm={height}
-        depthMm={width}
-        thicknessMm={thickness}
-        color={solution.material.color}
-        position={[-sideX, wallY, 0]}
-        rotationZ={-theta}
-      />
-      <BoardPanel
-        widthMm={height}
-        depthMm={width}
-        thicknessMm={thickness}
-        color={solution.material.color}
-        position={[sideX, wallY, 0]}
-        rotationZ={theta}
-      />
 
-      {/* Lid assembly: main lid, folded side wings, and terminal tuck flap. */}
-      <group position={[0, lidCenter.y, lidCenter.z]} rotation={[lidAngle, 0, 0]}>
-        <BoardPanel
-          widthMm={length}
-          depthMm={width}
-          thicknessMm={thickness}
-          color={solution.material.color}
-          position={[0, 0, 0]}
-        />
-        <group position={[-length * MM * 0.5, 0, 0]} rotation={[0, 0, -lidWingFold]}>
-          <BoardPanel
-            widthMm={height}
-            depthMm={width}
-            thicknessMm={thickness}
-            color={solution.material.color}
-            position={[-height * MM * 0.5, 0, 0]}
-          />
-        </group>
-        <group position={[length * MM * 0.5, 0, 0]} rotation={[0, 0, lidWingFold]}>
-          <BoardPanel
-            widthMm={height}
-            depthMm={width}
-            thicknessMm={thickness}
-            color={solution.material.color}
-            position={[height * MM * 0.5, 0, 0]}
-          />
-        </group>
-        <group position={[0, 0, -width * MM * 0.5]} rotation={[tuckFold, 0, 0]}>
-          <BoardPanel
-            widthMm={length}
-            depthMm={tuckDepth}
-            thicknessMm={thickness}
-            color={solution.material.color}
-            position={[0, 0, -tuckDepth * MM * 0.5]}
-          />
+      {/* Back wall owns the lid; the lid owns both wings and its terminal tuck. */}
+      <group position={[0, raised, -width * MM * 0.5]} rotation={[pose.wallAngle, 0, 0]}>
+        <BoardPanel {...boardProps} panel={back} position={[0, 0, -height * MM * 0.5]} />
+        <group position={[0, 0, -height * MM]} rotation={[pose.lidCloseAngle, 0, 0]}>
+          <BoardPanel {...boardProps} panel={lid} position={[0, 0, -width * MM * 0.5]} />
+          <group position={[-length * MM * 0.5 + lidStackOffset, 0, 0]} rotation={[0, 0, -pose.lidWingAngle]}>
+            <BoardPanel {...boardProps} panel={lidLeft} position={[-height * MM * 0.5, 0, -width * MM * 0.5]} />
+          </group>
+          <group position={[length * MM * 0.5 - lidStackOffset, 0, 0]} rotation={[0, 0, pose.lidWingAngle]}>
+            <BoardPanel {...boardProps} panel={lidRight} position={[height * MM * 0.5, 0, -width * MM * 0.5]} />
+          </group>
+          <group position={[0, 0, -width * MM + lidStackOffset]} rotation={[pose.tuckAngle, 0, 0]}>
+            <BoardPanel {...boardProps} panel={lidTuck} position={[0, 0, -lidTuck.height * MM * 0.5]} />
+          </group>
         </group>
       </group>
 
-      {/* Corner dust flaps and the double-wall front make this a real mailer construction. */}
-      {wallProgress > 0.08 ? (
-        <>
-          {[-1, 1].map((side) => (
+      {/* Side walls own their dust flaps, keeping every flap on its crease. */}
+      {([-1, 1] as const).map((side) => {
+        const sidePanel = side === -1 ? left : right;
+        const backDust = panel(side === -1 ? "back-left-dust" : "back-right-dust");
+        const frontDust = panel(side === -1 ? "front-left-dust" : "front-right-dust");
+        return (
+          <group
+            key={`side-${side}`}
+            position={[side * length * MM * 0.5, raised, 0]}
+            rotation={[0, 0, side * pose.wallAngle]}
+          >
+            <BoardPanel {...boardProps} panel={sidePanel} position={[side * height * MM * 0.5, 0, 0]} />
+            <group position={[0, 0, -width * MM * 0.5 + dustStackOffset]} rotation={[pose.dustAngle, 0, 0]}>
+              <BoardPanel
+                {...boardProps}
+                thicknessMm={thickness * 0.86}
+                panel={backDust}
+                position={[side * height * MM * 0.5, 0, -backDust.height * MM * 0.5]}
+              />
+            </group>
+            <group position={[0, 0, width * MM * 0.5 - dustStackOffset]} rotation={[-pose.dustAngle, 0, 0]}>
+              <BoardPanel
+                {...boardProps}
+                thicknessMm={thickness * 0.86}
+                panel={frontDust}
+                position={[side * height * MM * 0.5, 0, frontDust.height * MM * 0.5]}
+              />
+            </group>
+          </group>
+        );
+      })}
+
+      {/* The front roll and tongue are descendants of the front-wall hinge. */}
+      <group position={[0, raised, width * MM * 0.5]} rotation={[-pose.wallAngle, 0, 0]}>
+        <BoardPanel {...boardProps} panel={front} position={[0, 0, height * MM * 0.5]} />
+        <group position={[0, 0, height * MM - rollStackOffset]} rotation={[-pose.frontRollAngle, 0, 0]}>
+          <BoardPanel {...boardProps} panel={frontTuck} position={[0, 0, frontTuck.height * MM * 0.5]} />
+          <group position={[0, 0, frontTuck.height * MM]} rotation={[-pose.lockAngle, 0, 0]}>
             <BoardPanel
-              key={`back-dust-${side}`}
-              widthMm={dustWidth}
-              depthMm={dustHeight}
-              thicknessMm={thickness * 0.82}
-              color={solution.material.color}
-              position={[
-                side * (length * 0.5 - dustWidth * 0.5) * MM,
-                (raised + height * 0.47 * wallProgress * MM),
-                -width * MM * 0.5 + thickness * MM * 1.2,
-              ]}
-              rotationX={Math.PI * 0.5}
+              {...boardProps}
+              thicknessMm={thickness * 0.86}
+              panel={frontLock}
+              position={[0, 0, frontLock.height * MM * 0.5]}
             />
-          ))}
-          {[-1, 1].map((side) => (
-            <BoardPanel
-              key={`front-dust-${side}`}
-              widthMm={dustWidth}
-              depthMm={dustHeight}
-              thicknessMm={thickness * 0.82}
-              color={solution.material.color}
-              position={[
-                side * (length * 0.5 - dustWidth * 0.5) * MM,
-                (raised + height * 0.45 * wallProgress * MM),
-                width * MM * 0.5 - thickness * MM * 1.2,
-              ]}
-              rotationX={Math.PI * 0.5}
-            />
-          ))}
-        </>
-      ) : null}
-      <BoardPanel
-        widthMm={length}
-        depthMm={frontTuck}
-        thicknessMm={thickness * 0.9}
-        color={solution.material.color}
-        position={[0, rollCenter.y, rollCenter.z]}
-        rotationX={-theta}
-      />
-      <BoardPanel
-        widthMm={lockWidth}
-        depthMm={lockDepth}
-        thicknessMm={thickness * 0.86}
-        color={solution.material.color}
-        position={[0, lockCenter.y, lockCenter.z]}
-        rotationX={-theta}
-      />
+          </group>
+        </group>
+      </group>
     </group>
   );
 }
@@ -276,25 +234,73 @@ export function PackagingScene({
 }) {
   const bodyHeight = box?.outer.height ?? pouch?.input.height ?? 180;
   const visualHeight = box ? box.outer.height + box.outer.width * 0.72 : bodyHeight;
+  const clampedFold = Math.min(1, Math.max(0, fold));
+  const boxViewProgress = box ? Math.min(1, clampedFold / 0.42) : 1;
+  const boxCloseProgress = box ? Math.min(1, Math.max(0, (clampedFold - 0.5) / 0.5)) : 1;
+  const boxLidTuckHeight = box?.panels.find((panel) => panel.id === "lid-tuck")?.height ?? 0;
+  const boxFlatBack = box
+    ? box.manufacture.width * 0.5
+      + box.manufacture.height
+      + box.manufacture.width
+      + boxLidTuckHeight
+    : 0;
+  const boxFlatFront = box
+    ? box.manufacture.width * 0.5
+      + box.manufacture.height
+      + (box.panels.find((panel) => panel.id === "front-tuck")?.height ?? 0)
+      + (box.panels.find((panel) => panel.id === "front-lock")?.height ?? 0)
+    : 0;
+  const boxFlatSpan = box ? Math.max(
+    boxFlatBack + boxFlatFront,
+    box.manufacture.length + box.manufacture.height * 2,
+  ) * MM : 0;
+  const foldedCameraDistance = Math.max(5.8, visualHeight * MM * 2.35);
+  const flatCameraDistance = Math.max(9, boxFlatSpan * 2.65);
+  const openCameraDistance = box
+    ? Math.max(9.6, (box.manufacture.height + box.manufacture.width + boxLidTuckHeight) * MM * 2.6)
+    : foldedCameraDistance;
   const cameraDistance = box
-    ? Math.max(5.1, visualHeight * MM * 2.25)
+    ? clampedFold <= 0.5
+      ? THREE.MathUtils.lerp(flatCameraDistance, openCameraDistance, boxViewProgress)
+      : THREE.MathUtils.lerp(openCameraDistance, foldedCameraDistance, boxCloseProgress)
     : Math.max(3.45, visualHeight * MM * 1.72);
+  const openCameraTargetY = box
+    ? (box.manufacture.width + boxLidTuckHeight) * MM * 0.5
+    : 0;
+  const cameraTarget: [number, number, number] = box
+    ? [
+        0,
+        clampedFold <= 0.5
+          ? THREE.MathUtils.lerp(-box.manufacture.height * MM * 0.5, openCameraTargetY, boxViewProgress)
+          : THREE.MathUtils.lerp(openCameraTargetY, 0, boxCloseProgress),
+        THREE.MathUtils.lerp((boxFlatFront - boxFlatBack) * MM * 0.5, 0, boxViewProgress),
+      ]
+    : [0, 0, 0];
+  const boxViewStage = clampedFold < 0.2 ? "flat" : clampedFold < 0.78 ? "open" : "closed";
   const pouchZoom = Math.min(270, Math.max(120, 430 / (bodyHeight * MM)));
 
   return (
     <Canvas
-      key={box ? "mailer-scene" : pouch?.style ?? "packaging-scene"}
+      key={box
+        ? `mailer-scene-${box.construction}-${boxViewStage}`
+        : pouch?.style ?? "packaging-scene"}
       shadows
       dpr={[1, 1.75]}
       orthographic={!box}
       camera={{
         position: [
-          cameraDistance * (box ? 0.72 : 0.34),
+          cameraTarget[0] + cameraDistance * (box
+            ? THREE.MathUtils.lerp(0.38, 0.62, boxViewProgress)
+            : 0.34),
           // Flexible pouches are judged by their seal and gusset silhouettes.
           // Start exactly on the pouch midline so a level bottom edge cannot
           // read as a diagonal cut; OrbitControls still allow full inspection.
-          cameraDistance * (box ? 0.58 : 0),
-          cameraDistance,
+          cameraTarget[1] + cameraDistance * (box
+            ? THREE.MathUtils.lerp(0.98, 0.72, boxViewProgress)
+            : 0),
+          cameraTarget[2] + cameraDistance * (box
+            ? THREE.MathUtils.lerp(0.48, 0.92, boxViewProgress)
+            : 1),
         ],
         fov: 34,
         zoom: box ? 1 : pouchZoom,
@@ -328,11 +334,11 @@ export function PackagingScene({
       />
       <OrbitControls
         makeDefault
-        target={[0, box ? box.manufacture.height * MM * 0.52 : 0, 0]}
+        target={cameraTarget}
         enableDamping
         dampingFactor={0.08}
         minDistance={2.3}
-        maxDistance={10}
+        maxDistance={box ? 30 : 10}
         minZoom={90}
         maxZoom={440}
       />

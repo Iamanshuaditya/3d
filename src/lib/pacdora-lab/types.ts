@@ -2,6 +2,8 @@ export type DimensionMode = "inner" | "manufacture" | "outer";
 
 export type PackagingKind = "box" | "center-seal" | "stand-up";
 
+export type BoxConstruction = "roll-end" | "ear-lock" | "display";
+
 export type PouchStyle = "center-seal" | "stand-up";
 
 export type PouchArtworkPlacement = "front" | "back" | "both";
@@ -53,6 +55,8 @@ export type DielinePanel = {
   width: number;
   height: number;
   role: "body" | "wall" | "lid" | "flap" | "film" | "seal";
+  /** Local cut contour in millimetres from the panel's top-left corner. */
+  outline?: Array<{ x: number; y: number }>;
 };
 
 export type DielineLine = {
@@ -68,10 +72,13 @@ export type BoxLabInput = {
   dimensions: Dimensions3;
   dimensionMode: DimensionMode;
   materialId: string;
+  /** Defaults to the conventional roll-end mailer for older callers. */
+  construction?: BoxConstruction;
 };
 
 export type BoxLabSolution = {
   kind: "box";
+  construction: BoxConstruction;
   material: MaterialProfile;
   input: BoxLabInput;
   inner: Dimensions3;

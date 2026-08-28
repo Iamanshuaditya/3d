@@ -9,6 +9,7 @@ import {
   PACDORA_LAB_EDITOR_PX_PER_MM,
   constrainPouchLabInput,
   getPouchDimensionLimits,
+  resolvePacdoraLabBoxFoldPose,
   samplePacdoraLabStandUpSurface,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
@@ -85,6 +86,63 @@ test("caliper changes both the dimension conversion and the generated blank", ()
   assert.ok(bFlute.manufacture.height > eFlute.manufacture.height);
   assert.ok(bFlute.blank.width > eFlute.blank.width);
   assert.ok(bFlute.blank.height > eFlute.blank.height);
+});
+
+test("mailer variants share shaped cut profiles between the dieline and 3D model", () => {
+  const constructions = ["roll-end", "ear-lock", "display"] as const;
+  const signatures = new Set<string>();
+
+  for (const construction of constructions) {
+    const solution = solvePacdoraLabBox({
+      dimensions: { length: 169, width: 169, height: 117.5 },
+      dimensionMode: "manufacture",
+      materialId: "folding-board",
+      construction,
+    });
+    const shaped = solution.panels.filter((panel) => panel.outline);
+    assert.equal(solution.construction, construction);
+    assert.ok(shaped.length >= 9);
+    assert.ok(shaped.some((panel) => panel.id === "lid-tuck"));
+    assert.ok(shaped.some((panel) => panel.id === "front-lock"));
+    for (const panel of shaped) {
+      assert.ok(panel.outline && panel.outline.length >= 6);
+      for (const point of panel.outline) {
+        assert.ok(Number.isFinite(point.x) && point.x >= 0 && point.x <= panel.width);
+        assert.ok(Number.isFinite(point.y) && point.y >= 0 && point.y <= panel.height);
+      }
+    }
+    signatures.add(JSON.stringify(shaped.map((panel) => panel.outline)));
+  }
+
+  assert.equal(signatures.size, constructions.length);
+});
+
+test("mailer flaps stay connected to their crease and cannot extend below the base", () => {
+  const solution = solvePacdoraLabBox({
+    dimensions: { length: 60, width: 50, height: 20 },
+    dimensionMode: "manufacture",
+    materialId: "folding-board",
+    construction: "ear-lock",
+  });
+  const lidTuck = solution.panels.find((panel) => panel.id === "lid-tuck")!;
+  const backDust = solution.panels.find((panel) => panel.id === "back-left-dust")!;
+  const frontDust = solution.panels.find((panel) => panel.id === "front-left-dust")!;
+  const frontLock = solution.panels.find((panel) => panel.id === "front-lock")!;
+  assert.ok(lidTuck.height < solution.manufacture.height);
+  assert.ok(frontLock.height < solution.manufacture.height);
+  assert.ok(lidTuck.outline?.some((point) => Math.abs(point.y - lidTuck.height) < 0.001));
+  assert.ok(backDust.outline?.some((point) => Math.abs(point.y - backDust.height) < 0.001));
+  assert.ok(frontDust.outline?.some((point) => Math.abs(point.y) < 0.001));
+
+  for (const fold of [-1, 0, 0.18, 0.43, 0.72, 1, 2]) {
+    const pose = resolvePacdoraLabBoxFoldPose(fold);
+    for (const angle of Object.values(pose)) {
+      assert.ok(Number.isFinite(angle));
+      assert.ok(angle >= 0 && angle <= Math.PI * 0.5);
+    }
+  }
+  assert.ok(Object.values(resolvePacdoraLabBoxFoldPose(0)).every((angle) => angle === 0));
+  assert.ok(Object.values(resolvePacdoraLabBoxFoldPose(1)).every((angle) => Math.abs(angle - Math.PI * 0.5) < 1e-12));
 });
 
 test("center-seal pouch keeps its flat web while inflation changes body depth", () => {

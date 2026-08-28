@@ -9,6 +9,7 @@ import {
   getPouchDimensionLimits,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
+  type BoxConstruction,
   type BoxLabInput,
   type DimensionMode,
   type PackagingKind,
@@ -22,6 +23,12 @@ const inputClass = "h-10 w-full rounded-lg border border-[var(--st-line)] bg-whi
 const labelClass = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.13em] text-[var(--st-faint)]";
 const MM_PER_INCH = 25.4;
 type MeasurementUnit = "mm" | "in";
+
+const BOX_CONSTRUCTION_LABELS: Record<BoxConstruction, { short: string; description: string }> = {
+  "roll-end": { short: "Roll-end", description: "Tapered roll-over closure" },
+  "ear-lock": { short: "Ear-lock", description: "Rounded locking ears" },
+  display: { short: "Display", description: "Notched display front" },
+};
 
 function formatMeasurement(value: number, unit: MeasurementUnit): string {
   const converted = unit === "mm" ? value : value / MM_PER_INCH;
@@ -129,6 +136,7 @@ export function PacdoraLab() {
     dimensions: { length: 169, width: 169, height: 117.5 },
     dimensionMode: "manufacture",
     materialId: "folding-board",
+    construction: "roll-end",
   });
   const [pouchInput, setPouchInput] = useState<PouchLabInput>({
     style: "stand-up",
@@ -216,6 +224,30 @@ export function PacdoraLab() {
 
           {kind === "box" ? (
             <div className="mt-6 space-y-5">
+              <div>
+                <span className={labelClass}>Mailer style</span>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(Object.keys(BOX_CONSTRUCTION_LABELS) as BoxConstruction[]).map((construction) => {
+                    const option = BOX_CONSTRUCTION_LABELS[construction];
+                    const selected = boxInput.construction === construction;
+                    return (
+                      <button
+                        key={construction}
+                        type="button"
+                        aria-pressed={selected}
+                        title={option.description}
+                        onClick={() => setBoxInput((current) => ({ ...current, construction }))}
+                        className={`min-h-14 rounded-xl border px-2 py-2 text-[10px] font-semibold leading-4 transition ${selected ? "border-slate-900 bg-slate-900 text-white" : "border-[var(--st-line)] bg-white text-slate-600 hover:bg-slate-50"}`}
+                      >
+                        {option.short}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[10px] leading-4 text-slate-400">
+                  {BOX_CONSTRUCTION_LABELS[boxInput.construction ?? "roll-end"].description} · shared 2D/3D cut profile
+                </p>
+              </div>
               <div>
                 <span className={labelClass}>Size mode</span>
                 <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">

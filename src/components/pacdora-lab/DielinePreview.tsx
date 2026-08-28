@@ -126,15 +126,25 @@ export function DielinePreview({
       ) : null}
       {solution.panels.map((panel) => (
         <g key={panel.id}>
-          <rect
-            x={panel.x}
-            y={panel.y}
-            width={panel.width}
-            height={panel.height}
-            fill={artworkPreviewUrl ? "transparent" : roleFill[panel.role]}
-            stroke="#1f2937"
-            strokeWidth={Math.max(0.45, width * 0.0015)}
-          />
+          {panel.outline ? (
+            <polygon
+              points={panel.outline.map((point) => `${panel.x + point.x},${panel.y + point.y}`).join(" ")}
+              fill={artworkPreviewUrl ? "transparent" : roleFill[panel.role]}
+              stroke="#1f2937"
+              strokeLinejoin="round"
+              strokeWidth={Math.max(0.45, width * 0.0015)}
+            />
+          ) : (
+            <rect
+              x={panel.x}
+              y={panel.y}
+              width={panel.width}
+              height={panel.height}
+              fill={artworkPreviewUrl ? "transparent" : roleFill[panel.role]}
+              stroke="#1f2937"
+              strokeWidth={Math.max(0.45, width * 0.0015)}
+            />
+          )}
           {panel.width > fontSize * 3
           && panel.height > fontSize * 1.8
           && !(artworkPreviewUrl && panel.role === "film") ? (
@@ -144,7 +154,11 @@ export function DielinePreview({
               textAnchor="middle"
               dominantBaseline="middle"
               fill="#64748b"
-              fontSize={fontSize}
+              fontSize={Math.min(
+                fontSize,
+                panel.width / Math.max(4, panel.label.length * 0.58),
+                panel.height * 0.22,
+              )}
               fontWeight={600}
             >
               {panel.label}
