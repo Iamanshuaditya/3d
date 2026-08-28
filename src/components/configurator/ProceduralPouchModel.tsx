@@ -27,6 +27,7 @@ function StandUpZipperRidge({
       const u = 0.055 + index / 48 * 0.89;
       const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
       point.y += offsetMm * MM;
+      point.z += face * 0.0048;
       return point;
     });
     return new THREE.CatmullRomCurve3(points);
@@ -46,46 +47,35 @@ function StandUpZipperRidge({
 
 function StandUpTopSeal({ solution }: { solution: PouchLabSolution }) {
   const sealedWidth = (solution.input.width + solution.input.endSealMm * 2) * MM;
-  const sealedHeight = solution.input.endSealMm * MM * 0.72;
   const laminateThickness = Math.max(solution.material.caliperMm * MM, 0.0012);
   const hangHole = getPacdoraLabStandUpHangHole(solution.input);
-  const geometry = useMemo(() => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-sealedWidth * 0.5, -sealedHeight * 0.5);
-    shape.lineTo(sealedWidth * 0.5, -sealedHeight * 0.5);
-    shape.lineTo(sealedWidth * 0.5, sealedHeight * 0.5);
-    shape.lineTo(-sealedWidth * 0.5, sealedHeight * 0.5);
-    shape.closePath();
-
-    if (solution.input.hangHole) {
-      const aperture = new THREE.Path();
-      aperture.absarc(0, 0, hangHole.radiusMm * MM, 0, Math.PI * 2, true);
-      shape.holes.push(aperture);
-    }
-
-    const sealGeometry = new THREE.ExtrudeGeometry(shape, {
-      depth: laminateThickness,
-      bevelEnabled: false,
-      curveSegments: 48,
-      steps: 1,
-    });
-    sealGeometry.translate(0, 0, -laminateThickness * 0.5);
-    sealGeometry.computeVertexNormals();
-    return sealGeometry;
-  }, [hangHole.radiusMm, laminateThickness, sealedHeight, sealedWidth, solution.input.hangHole]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
+  const cutEdgeY = solution.input.height * MM * 0.5;
 
   return (
-    <mesh geometry={geometry} position={[0, hangHole.centreYmm * MM, 0]} castShadow>
-      <meshPhysicalMaterial
-        color={solution.material.color}
-        roughness={Math.min(0.9, solution.material.roughness + 0.14)}
-        metalness={solution.material.metalness}
-        clearcoat={0.08}
-        clearcoatRoughness={0.7}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
+    <group>
+      {/* The heat-seal band is already part of the textured body surface. Only
+          its cut edge and aperture rim need separate geometry. The old full
+          rectangle sat coplanar over the artwork and caused shimmer/blur. */}
+      <mesh position={[0, cutEdgeY, 0]} castShadow>
+        <boxGeometry args={[sealedWidth, 0.0035, laminateThickness * 1.5]} />
+        <meshStandardMaterial
+          color={solution.material.color}
+          roughness={Math.min(0.9, solution.material.roughness + 0.14)}
+          metalness={solution.material.metalness}
+        />
+      </mesh>
+      {solution.input.hangHole ? (
+        <mesh position={[0, hangHole.centreYmm * MM, 0]}>
+          <torusGeometry args={[hangHole.radiusMm * MM, 0.0015, 8, 48]} />
+          <meshStandardMaterial
+            color={solution.material.color}
+            roughness={Math.min(0.9, solution.material.roughness + 0.14)}
+            metalness={solution.material.metalness}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+      ) : null}
+    </group>
   );
 }
 

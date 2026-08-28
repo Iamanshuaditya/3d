@@ -4,22 +4,56 @@ import {
   buildPacdoraLabPouchGeometry,
   getPacdoraLabMaterial,
   getPacdoraLabPouchPanelUv,
+  constrainPouchLabInput,
+  getPouchDimensionLimits,
   samplePacdoraLabStandUpSurface,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
 } from "@/lib/pacdora-lab";
-import { standUpEllipticDepthMask } from "@/lib/packaging/stand-up-profile";
+import {
+  standUpFaceCrownMask,
+  standUpLensDepthMask,
+} from "@/lib/packaging/stand-up-profile";
 
 test("research assets start with neutral white board and film", () => {
   assert.equal(getPacdoraLabMaterial("folding-board", "rigid").color, "#ffffff");
   assert.equal(getPacdoraLabMaterial("matte-film", "film").color, "#ffffff");
 });
 
-test("stand-up gusset depth is generated outward from the centreline", () => {
-  assert.equal(standUpEllipticDepthMask(0), 1);
-  assert.ok(Math.abs(standUpEllipticDepthMask(0.5) - Math.sqrt(0.75)) < 1e-12);
-  assert.equal(standUpEllipticDepthMask(-1), 0);
-  assert.equal(standUpEllipticDepthMask(1), 0);
+test("stand-up gusset is a sharp-ended lens with one centre crown", () => {
+  assert.equal(standUpLensDepthMask(0), 1);
+  assert.ok(Math.abs(standUpLensDepthMask(0.5) - Math.SQRT1_2) < 1e-12);
+  assert.equal(standUpLensDepthMask(-1), 0);
+  assert.equal(standUpLensDepthMask(1), 0);
+  assert.equal(standUpFaceCrownMask(0), 1);
+  assert.ok(standUpFaceCrownMask(0.25) > standUpFaceCrownMask(0.5));
+  assert.ok(standUpFaceCrownMask(0.5) > standUpFaceCrownMask(0.75));
+});
+
+test("pouch UI limits clamp coupled dimensions before geometry can collapse", () => {
+  const unsafe = {
+    style: "stand-up" as const,
+    width: -500,
+    height: 9999,
+    depth: 999,
+    materialId: "matte-film",
+    inflation: 8,
+    endSealMm: 400,
+    backSealMm: -3,
+    gussetMm: 900,
+    zipper: true,
+    hangHole: true,
+  };
+  const safe = constrainPouchLabInput(unsafe);
+  const limits = getPouchDimensionLimits(safe);
+
+  assert.equal(safe.width, limits.width.min);
+  assert.equal(safe.height, limits.height.max);
+  assert.equal(safe.gussetMm, limits.gussetMm.max);
+  assert.equal(safe.depth, limits.depth.max);
+  assert.equal(safe.endSealMm, limits.endSealMm.max);
+  assert.equal(safe.backSealMm, limits.backSealMm.min);
+  assert.equal(safe.inflation, 1);
 });
 
 test("E-flute research profile reproduces the observed Pacdora dimension triplet", () => {
@@ -141,7 +175,8 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   assert.ok(bottomSeal.z > middleBody.z * 1.05);
   assert.ok(bottomSeal.z < lowerBody.z * 0.93);
   assert.ok(topSeal.z < middleBody.z * 0.05);
-  assert.ok(quarterFace.z > middleBody.z * 0.94);
+  assert.ok(quarterFace.z > middleBody.z * 0.84);
+  assert.ok(quarterFace.z < middleBody.z * 0.89);
   assert.ok(sideSeal.z < upperBody.z * 0.1);
   assert.ok(bottomCorner.y > bottomCentre.y);
   assert.ok(Math.abs(leftBottomEdge.x - leftLowerEdge.x) < 1e-12);
@@ -170,6 +205,9 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.equal(geometry.userData.pacdoraLab.kind, "procedural-stand-up-pouch");
   assert.equal(geometry.userData.pacdoraLab.topology, "front-back-bottom-gusset");
   assert.equal(geometry.userData.pacdoraLab.features.hangHole, true);
+  assert.equal(geometry.userData.pacdoraLab.features.inflationProfile, "single-centre-crown");
+  assert.equal(geometry.userData.pacdoraLab.features.gussetProfile, "sharp-lens-two-facet");
+  assert.equal(geometry.userData.pacdoraLab.features.sideSealTopology, "single-fused-rail");
   assert.ok(geometry.getAttribute("position").count > 2 * 15 * 19);
   assert.ok(geometry.boundingBox);
   const sealedWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
@@ -186,7 +224,7 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   geometry.dispose();
 });
 
-test("stand-up bottom perimeter is an ellipse, not a rounded rectangle", () => {
+test("stand-up bottom perimeter is a centre-driven lens, not a rounded rectangle", () => {
   const solution = solvePacdoraLabPouch({
     style: "stand-up",
     width: 150,
@@ -209,7 +247,7 @@ test("stand-up bottom perimeter is an ellipse, not a rounded rectangle", () => {
   assert.ok(centre > quarter && quarter > nearEdge && nearEdge > edge);
   assert.ok(Math.abs(edge - filmHalfScene) < 1e-12);
   const quarterRatio = (quarter - filmHalfScene) / (centre - filmHalfScene);
-  assert.ok(quarterRatio > 0.85 && quarterRatio < 0.875);
+  assert.ok(quarterRatio > 0.70 && quarterRatio < 0.715);
 });
 
 test("stand-up requested depth is capped by the gusset and package proportions", () => {

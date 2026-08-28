@@ -25,21 +25,24 @@ function drawImageIntoPanel(
   context: CanvasRenderingContext2D,
   image: HTMLImageElement,
   rect: { x: number; y: number; width: number; height: number },
-  fit: PouchArtwork["fit"],
+  artwork: Pick<PouchArtwork, "fit" | "scale" | "offsetX" | "offsetY" | "rotationDeg">,
 ) {
-  const scale = fit === "cover"
+  const fittedScale = artwork.fit === "cover"
     ? Math.max(rect.width / image.naturalWidth, rect.height / image.naturalHeight)
     : Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
+  const scale = fittedScale * artwork.scale;
   const width = image.naturalWidth * scale;
   const height = image.naturalHeight * scale;
-  const x = rect.x + (rect.width - width) * 0.5;
-  const y = rect.y + (rect.height - height) * 0.5;
+  const centreX = rect.x + rect.width * (0.5 + artwork.offsetX);
+  const centreY = rect.y + rect.height * (0.5 + artwork.offsetY);
 
   context.save();
   context.beginPath();
   context.rect(rect.x, rect.y, rect.width, rect.height);
   context.clip();
-  context.drawImage(image, x, y, width, height);
+  context.translate(centreX, centreY);
+  context.rotate(artwork.rotationDeg * Math.PI / 180);
+  context.drawImage(image, -width * 0.5, -height * 0.5, width, height);
   context.restore();
 }
 
@@ -108,8 +111,8 @@ export function usePouchArtworkCanvas(
         return;
       }
       const pixelsPerMm = Math.max(
-        0.5,
-        Math.min(4, 1600 / Math.max(webWidth, webHeight)),
+        0.75,
+        Math.min(5, 1800 / Math.max(webWidth, webHeight)),
       );
       const canvas = document.createElement("canvas");
       canvas.width = Math.max(1, Math.round(webWidth * pixelsPerMm));
@@ -142,15 +145,24 @@ export function usePouchArtworkCanvas(
             width: widthMm * pixelsPerMm,
             height: heightMm * pixelsPerMm,
           },
-          artwork.fit,
+          artwork,
         );
       }
 
       if (!cancelled) {
+        // The WebGL texture keeps the high-resolution source. The SVG editor
+        // only needs a compact raster; encoding the full canvas on every drag
+        // made artwork positioning stall and appear to jitter.
+        const previewScale = Math.min(1, 650 / Math.max(canvas.width, canvas.height));
+        const previewCanvas = document.createElement("canvas");
+        previewCanvas.width = Math.max(1, Math.round(canvas.width * previewScale));
+        previewCanvas.height = Math.max(1, Math.round(canvas.height * previewScale));
+        const previewContext = previewCanvas.getContext("2d", { alpha: false });
+        previewContext?.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
         setResult({
           requestToken,
           canvas,
-          previewUrl: canvas.toDataURL("image/png"),
+          previewUrl: previewCanvas.toDataURL("image/jpeg", 0.92),
           status: "ready",
           error: null,
         });

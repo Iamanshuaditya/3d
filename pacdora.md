@@ -329,8 +329,8 @@ its first two iterations:
    projected below the body as an unrelated oval foot.
 
 The corrected research mesh now uses an open lower body, an upper seal taper, a
-broad central artwork plateau across width, explicit doubled side fins, a
-caliper-scale top seal, and an inflation-dependent folded gusset membrane. Its
+single centre-driven artwork crown across width, one fused side-seal rail per
+edge, and an inflation-dependent folded gusset membrane. Its
 default filled-depth ratio is `42 / 210 = 0.20`, while the control remains fully
 adjustable. At low inflation it is a vertical rectangle. At full inflation the
 lower front and back remain separated, and the gusset unfolds between their
@@ -345,26 +345,25 @@ lower-body profile within the bottom `18%` of the pouch. This preserves a broad
 standing footprint while avoiding both an outward blob and the previous
 two-thirds-depth funnel.
 
-The underside comparison exposed a separate cross-width error. Reusing the
-broad face's nearly constant depth plateau at the bottom generated a
-rounded-rectangle footprint: most lateral points moved outward by the same
-amount and only the last shoulder near each side seal tapered. Pacdora's
-underside instead reads as an eye/ellipse whose greatest opening is on the
-centreline and whose depth falls continuously to film caliper at the two side
-seals. The standing perimeter is now driven by:
+The final underside comparison exposed two separate cross-width errors. First,
+reusing a nearly constant depth plateau generated a rounded rectangle. Second,
+using an actual ellipse removed that plateau but made the two ends smoothly
+round. Pacdora model `430041` instead shows a lens: two curved gusset facets
+meet at a visible angle at each side heat seal and retain one shallow centre
+fold. The greatest opening still lies on the centreline and falls monotonically
+to film caliper at the two tips. The standing perimeter is now driven by:
 
 ```text
 s = 2u - 1
-bottomDepthMask(s) = sqrt(max(0, 1 - s²))
-
-(x / halfWidth)² + (z / bottomHalfDepth)² = 1
+bottomLensMask(s) = sin(π(s + 1) / 2)
+faceCrownMask(s) = bottomLensMask(s)^0.42
 ```
 
-Only the bottom transition uses this elliptical mask. Over the lower `20%` of
-the body it blends into the broad printable-face profile, keeping the artwork
-panel comparatively planar while the gusset opens from its centre fold. This
-distinction is what prevents both the former rounded rectangle and a fully
-ballooned face.
+Only the bottom transition uses the sharper lens exponent. Over the lower
+`22%` of the body it blends into the broader single-crown face profile. The
+finite, opposing slopes at each mirrored lens tip create the visible corner;
+the centre remains the only depth maximum, preventing the two shoulder lobes
+that previously read as independent left/right inflation.
 
 The pouch viewport now starts with an orthographic product camera. This is a
 rendering choice, not a deformation shortcut: it removes perspective
@@ -383,18 +382,19 @@ The corrected center-seal construction now has:
 The corrected stand-up construction now has:
 
 - Independent front and back face membranes.
-- An open lower-body gusset entry, broad artwork face, and full-width top seal.
-- Flat side-seal rails built into the membrane topology rather than decorative
-  bars placed over the surface.
+- An open lower-body gusset entry, one smooth artwork crown, and a flat upper
+  headspace that closes into the heat-seal band.
+- One double-sided fused rail per side seal. The earlier front and back fin
+  wedges produced a duplicate inflation line and have been removed.
 - Optional paired zipper tracks sampled from the same curved face, so they do
   not float or poke through when the pouch is viewed from the side.
-- An optional round hang hole cut through both face membranes and the
-  caliper-scale top-seal ring. The flat web shows the two registered cuts that
-  align when the front and back top seals are joined.
+- An optional round hang hole cut through both face membranes with a narrow
+  aperture rim. The former full overlapping top-seal rectangle was removed;
+  it covered the artwork at the same depth and caused the reported shimmer.
 - A separately tessellated bottom-gusset membrane. Its front and back edges
-  meet the separated face membranes; its centre folds upward only in the flat
-  state and settles toward a broad base as inflation rises. A sub-millimetre
-  corner lift preserves the Doypack fold cue without making the bottom slant.
+  meet the separated face membranes; its two facets retain a shallow upward
+  centre fold even at full inflation. A sub-millimetre corner lift preserves
+  the Doypack fold cue without making the bottom slant.
 
 The two stable flat webs are consequently different:
 
@@ -412,8 +412,9 @@ The artwork test now follows the same single-authority rule as the structure.
 An uploaded raster or SVG is decoded once and painted into the selected front,
 back, or both named panel rectangles on one canvas whose aspect ratio is the
 resolved continuous film web. `Fill panel` uses a cover transform; `Fit inside`
-uses contain. The 2D dieline displays that exact canvas below cut, crease, and
-seal guides.
+uses contain. The editor adds scale, horizontal position, vertical position,
+and rotation controls, plus direct dragging inside the blue 2D panel. The 2D
+dieline and 3D laminate both update from that exact transformed canvas.
 
 The procedural mesh does not stretch the image independently. Every generated
 face vertex converts its manufacturing-web position to UV coordinates:
@@ -439,11 +440,13 @@ with `Number("")` produced zero and reached the box dimension solver; outer or
 manufacture mode then subtracted material allowances from the invalid value.
 
 The lab now keeps an editable local draft for each numeric field. Only finite
-values within that field's construction range reach the solver. Blur clamps an
-unfinished draft to its supported minimum and Escape restores the last resolved
-value. Chrome regression testing cleared the width field, switched modes,
-selected every board stock, and exercised the minimum dimensions without a
-runtime overlay.
+values within that field's construction range reach the solver. Width, height,
+target depth, bottom gusset, heat seal, and back fin seal expose their minimum
+and maximum beneath the field in both millimetres and inches. The mm/in toggle
+changes entry units without changing the millimetre source of truth. Depth,
+gusset, and seal maxima are recalculated after width or height changes, and the
+whole input is constrained together before React state is committed. Blur
+clamps an unfinished draft and Escape restores the last resolved value.
 
 The mailer comparison also showed that base + four walls + lid was too simple.
 The experimental mailer now includes two lid wings, four corner dust flaps, a
@@ -493,6 +496,7 @@ src/lib/pacdora-lab/
 ├── materials.ts   caliper and preview material profiles
 ├── box.ts         dimension conversion + multi-part mailer dieline solver
 ├── pouch.ts       center-seal + stand-up web/mesh generators
+├── pouch-limits.ts coupled editor safety ranges
 └── index.ts       public library boundary
 ```
 
@@ -519,8 +523,10 @@ The `/test` route provides:
 - A live carton fold slider.
 - A live pouch inflation slider.
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
+- Dynamic minimum/maximum guidance in mm and inches for every pouch dimension.
 - Pouch film-material switching.
-- Artwork upload with front/back/both placement and cover/contain fitting.
+- Artwork upload with front/back/both placement, cover/contain fitting, direct
+  2D dragging, scale, position, rotation, and reset.
 - One canonical 2D artwork web mapped by UV to the regenerated 3D pouch.
 - A generated 3D preview.
 - A generated flat dieline/film web.

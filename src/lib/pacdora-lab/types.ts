@@ -13,6 +13,12 @@ export type PouchArtwork = {
   name: string;
   placement: PouchArtworkPlacement;
   fit: PouchArtworkFit;
+  /** Additional scale after cover/contain fitting. 1 = fitted size. */
+  scale: number;
+  /** Panel-relative offsets; 0.1 moves the artwork by 10% of that panel. */
+  offsetX: number;
+  offsetY: number;
+  rotationDeg: number;
 };
 
 export type PackagingMaterialKind = "paperboard" | "corrugated" | "film";

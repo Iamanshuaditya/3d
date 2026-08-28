@@ -1,10 +1,12 @@
 "use client";
 
-import { Box, ImagePlus, PackageOpen, ScanLine, Sparkles, Trash2, Upload } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Box, ImagePlus, Move, PackageOpen, RotateCcw, ScanLine, Sparkles, Trash2, Upload } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   PACDORA_LAB_BOX_MATERIALS,
   PACDORA_LAB_POUCH_MATERIALS,
+  constrainPouchLabInput,
+  getPouchDimensionLimits,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
   type BoxLabInput,
@@ -19,6 +21,13 @@ import { usePouchArtworkCanvas } from "./usePouchArtworkCanvas";
 
 const inputClass = "h-10 w-full rounded-lg border border-[var(--st-line)] bg-white px-3 text-sm font-medium text-[var(--st-text)] outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200";
 const labelClass = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.13em] text-[var(--st-faint)]";
+const MM_PER_INCH = 25.4;
+type MeasurementUnit = "mm" | "in";
+
+function formatMeasurement(value: number, unit: MeasurementUnit): string {
+  const converted = unit === "mm" ? value : value / MM_PER_INCH;
+  return Number(converted.toFixed(unit === "mm" ? 1 : 3)).toString();
+}
 
 function NumericField({
   label,
@@ -26,6 +35,7 @@ function NumericField({
   min,
   max,
   step = 1,
+  unit = "mm",
   onChange,
 }: {
   label: string;
@@ -33,23 +43,29 @@ function NumericField({
   min: number;
   max: number;
   step?: number;
+  unit?: MeasurementUnit;
   onChange: (value: number) => void;
 }) {
-  const [draft, setDraft] = useState(String(value));
-  const [resolvedValue, setResolvedValue] = useState(value);
-  if (value !== resolvedValue) {
-    setResolvedValue(value);
-    setDraft(String(value));
-  }
+  const [draft, setDraft] = useState(formatMeasurement(value, unit));
+  useEffect(() => {
+    setDraft(formatMeasurement(value, unit));
+  }, [unit, value]);
+
+  const fromDisplayUnit = (displayValue: number) => (
+    unit === "mm" ? displayValue : displayValue * MM_PER_INCH
+  );
+  const displayMin = unit === "mm" ? min : min / MM_PER_INCH;
+  const displayMax = unit === "mm" ? max : max / MM_PER_INCH;
+  const displayStep = unit === "mm" ? step : Math.max(0.001, step / MM_PER_INCH);
 
   const commitDraft = () => {
     const parsed = Number(draft);
     if (!Number.isFinite(parsed)) {
-      setDraft(String(value));
+      setDraft(formatMeasurement(value, unit));
       return;
     }
-    const next = Math.min(max, Math.max(min, parsed));
-    setDraft(String(next));
+    const next = Math.min(max, Math.max(min, fromDisplayUnit(parsed)));
+    setDraft(formatMeasurement(next, unit));
     onChange(next);
   };
 
@@ -61,28 +77,32 @@ function NumericField({
           className={`${inputClass} pr-11`}
           type="number"
           value={draft}
-          min={min}
-          max={max}
-          step={step}
+          min={displayMin}
+          max={displayMax}
+          step={displayStep}
           onChange={(event) => {
             const nextDraft = event.currentTarget.value;
             setDraft(nextDraft);
             const parsed = Number(nextDraft);
+            const parsedMm = fromDisplayUnit(parsed);
             if (nextDraft !== ""
               && Number.isFinite(parsed)
-              && parsed >= min
-              && parsed <= max) {
-              onChange(parsed);
+              && parsedMm >= min
+              && parsedMm <= max) {
+              onChange(parsedMm);
             }
           }}
           onBlur={commitDraft}
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
-            if (event.key === "Escape") setDraft(String(value));
+            if (event.key === "Escape") setDraft(formatMeasurement(value, unit));
           }}
         />
-        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-[var(--st-faint)]">mm</span>
+        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-[var(--st-faint)]">{unit}</span>
       </div>
+      <span className="mt-1 block text-[9px] leading-4 text-slate-400">
+        {formatMeasurement(min, "mm")}&ndash;{formatMeasurement(max, "mm")} mm · {formatMeasurement(min, "in")}&ndash;{formatMeasurement(max, "in")} in
+      </span>
     </label>
   );
 }
@@ -99,8 +119,9 @@ function DimensionTriplet({ label, values }: { label: string; values: { length: 
 }
 
 export function PacdoraLab() {
-  const [kind, setKind] = useState<PackagingKind>("box");
+  const [kind, setKind] = useState<PackagingKind>("stand-up");
   const [fold, setFold] = useState(0.43);
+  const [measurementUnit, setMeasurementUnit] = useState<MeasurementUnit>("mm");
   const [artworkDragActive, setArtworkDragActive] = useState(false);
   const [boxInput, setBoxInput] = useState<BoxLabInput>({
     dimensions: { length: 169, width: 169, height: 117.5 },
@@ -108,17 +129,17 @@ export function PacdoraLab() {
     materialId: "folding-board",
   });
   const [pouchInput, setPouchInput] = useState<PouchLabInput>({
-    style: "center-seal",
+    style: "stand-up",
     width: 150,
     height: 210,
     depth: 42,
     materialId: "matte-film",
-    inflation: 0.1,
+    inflation: 0.78,
     endSealMm: 12,
     backSealMm: 14,
     gussetMm: 62,
-    zipper: false,
-    hangHole: false,
+    zipper: true,
+    hangHole: true,
   });
   const [artwork, setArtwork] = useState<PouchArtwork | null>(null);
   const [artworkError, setArtworkError] = useState<string | null>(null);
@@ -126,6 +147,7 @@ export function PacdoraLab() {
   const pouch = useMemo(() => solvePacdoraLabPouch(pouchInput), [pouchInput]);
   const artworkCanvas = usePouchArtworkCanvas(pouch, artwork);
   const activeSolution = kind === "box" ? box : pouch;
+  const pouchLimits = useMemo(() => getPouchDimensionLimits(pouchInput), [pouchInput]);
 
   const updateBoxDimension = (key: keyof BoxLabInput["dimensions"], value: number) => {
     setBoxInput((current) => ({
@@ -137,12 +159,12 @@ export function PacdoraLab() {
     setBoxInput((current) => ({ ...current, materialId }));
   };
   const updatePouch = (key: keyof PouchLabInput, value: number | string | boolean) => {
-    setPouchInput((current) => ({ ...current, [key]: value }));
+    setPouchInput((current) => constrainPouchLabInput({ ...current, [key]: value }));
   };
   const selectConstruction = (candidate: PackagingKind) => {
     setKind(candidate);
     if (candidate !== "box") {
-      setPouchInput((current) => ({
+      setPouchInput((current) => constrainPouchLabInput({
         ...current,
         style: candidate,
         zipper: candidate === "stand-up" ? true : current.zipper,
@@ -168,6 +190,10 @@ export function PacdoraLab() {
         name: file.name,
         placement: current?.placement ?? "front",
         fit: current?.fit ?? "cover",
+        scale: current?.scale ?? 1,
+        offsetX: current?.offsetX ?? 0,
+        offsetY: current?.offsetY ?? 0,
+        rotationDeg: current?.rotationDeg ?? 0,
       }));
       setArtworkError(null);
     };
@@ -180,6 +206,10 @@ export function PacdoraLab() {
       name: "Citrus demo artwork",
       placement: current?.placement ?? "front",
       fit: current?.fit ?? "cover",
+      scale: current?.scale ?? 1,
+      offsetX: current?.offsetX ?? 0,
+      offsetY: current?.offsetY ?? 0,
+      rotationDeg: current?.rotationDeg ?? 0,
     }));
     setArtworkError(null);
   };
@@ -205,6 +235,25 @@ export function PacdoraLab() {
       applyArtworkFile(event.dataTransfer.files[0]);
     },
   };
+  const updateArtworkTransform = (updates: Partial<Pick<
+    PouchArtwork,
+    "scale" | "offsetX" | "offsetY" | "rotationDeg"
+  >>) => {
+    setArtwork((current) => current ? { ...current, ...updates } : current);
+  };
+  const dragArtwork = (deltaX: number, deltaY: number) => {
+    setArtwork((current) => current ? {
+      ...current,
+      offsetX: Math.min(1, Math.max(-1, current.offsetX + deltaX)),
+      offsetY: Math.min(1, Math.max(-1, current.offsetY + deltaY)),
+    } : current);
+  };
+  const resetArtworkTransform = () => updateArtworkTransform({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    rotationDeg: 0,
+  });
 
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-[var(--st-text)]">
@@ -274,16 +323,32 @@ export function PacdoraLab() {
             </div>
           ) : (
             <div className="mt-6 space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <span className={labelClass}>Dimensions</span>
+                <div className="grid grid-cols-2 rounded-lg bg-slate-100 p-1" aria-label="Measurement unit">
+                  {(["mm", "in"] as const).map((unit) => (
+                    <button
+                      key={unit}
+                      type="button"
+                      aria-pressed={measurementUnit === unit}
+                      onClick={() => setMeasurementUnit(unit)}
+                      className={`rounded-md px-3 py-1 text-[10px] font-semibold uppercase transition ${measurementUnit === unit ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
+                    >
+                      {unit}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <NumericField label="Face width" value={pouchInput.width} min={50} max={400} onChange={(value) => updatePouch("width", Math.max(1, value || 1))} />
-                <NumericField label="Height" value={pouchInput.height} min={80} max={600} onChange={(value) => updatePouch("height", Math.max(1, value || 1))} />
-                <NumericField label="Target depth" value={pouchInput.depth} min={10} max={180} onChange={(value) => updatePouch("depth", Math.max(1, value || 1))} />
+                <NumericField label="Face width" value={pouchInput.width} {...pouchLimits.width} unit={measurementUnit} onChange={(value) => updatePouch("width", value)} />
+                <NumericField label="Height" value={pouchInput.height} {...pouchLimits.height} unit={measurementUnit} onChange={(value) => updatePouch("height", value)} />
+                <NumericField label="Target depth" value={pouchInput.depth} {...pouchLimits.depth} unit={measurementUnit} onChange={(value) => updatePouch("depth", value)} />
                 {kind === "stand-up" ? (
-                  <NumericField label="Bottom gusset" value={pouchInput.gussetMm} min={20} max={160} onChange={(value) => updatePouch("gussetMm", Math.max(1, value || 1))} />
+                  <NumericField label="Bottom gusset" value={pouchInput.gussetMm} {...pouchLimits.gussetMm} unit={measurementUnit} onChange={(value) => updatePouch("gussetMm", value)} />
                 ) : (
-                  <NumericField label="Back fin seal" value={pouchInput.backSealMm} min={6} max={35} onChange={(value) => updatePouch("backSealMm", Math.max(1, value || 1))} />
+                  <NumericField label="Back fin seal" value={pouchInput.backSealMm} {...pouchLimits.backSealMm} unit={measurementUnit} onChange={(value) => updatePouch("backSealMm", value)} />
                 )}
-                <NumericField label="Heat seal" value={pouchInput.endSealMm} min={6} max={30} onChange={(value) => updatePouch("endSealMm", Math.max(1, value || 1))} />
+                <NumericField label="Heat seal" value={pouchInput.endSealMm} {...pouchLimits.endSealMm} unit={measurementUnit} onChange={(value) => updatePouch("endSealMm", value)} />
               </div>
               {kind === "stand-up" ? (
                 <div className="grid grid-cols-2 gap-3">
@@ -384,6 +449,43 @@ export function PacdoraLab() {
                       </div>
                     </div>
 
+                    <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-800">
+                          <Move className="size-3.5" /> 2D placement
+                        </span>
+                        <button
+                          type="button"
+                          onClick={resetArtworkTransform}
+                          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-blue-700 transition hover:bg-white"
+                        >
+                          <RotateCcw className="size-3" /> Reset
+                        </button>
+                      </div>
+                      <p className="text-[10px] leading-4 text-blue-700">Drag the blue panel in the 2D dieline, or use these precise controls. Every change updates the 3D UV texture.</p>
+                      {([
+                        ["Scale", "scale", 0.5, 2.5, 0.01, `${Math.round(artwork.scale * 100)}%`],
+                        ["Horizontal", "offsetX", -1, 1, 0.01, `${Math.round(artwork.offsetX * 100)}%`],
+                        ["Vertical", "offsetY", -1, 1, 0.01, `${Math.round(artwork.offsetY * 100)}%`],
+                        ["Rotation", "rotationDeg", -180, 180, 1, `${Math.round(artwork.rotationDeg)}°`],
+                      ] as const).map(([label, key, min, max, step, display]) => (
+                        <label key={key} className="block">
+                          <span className="mb-1 flex items-center justify-between text-[10px] font-medium text-slate-600">
+                            <span>{label}</span><span className="font-mono text-slate-800">{display}</span>
+                          </span>
+                          <input
+                            className="w-full accent-blue-600"
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={artwork[key]}
+                            onChange={(event) => updateArtworkTransform({ [key]: Number(event.currentTarget.value) })}
+                          />
+                        </label>
+                      ))}
+                    </div>
+
                     <label
                       {...artworkDropProps}
                       className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-semibold text-slate-700 transition ${artworkDragActive ? "border-slate-900 bg-slate-100 ring-2 ring-slate-300" : "border-slate-300 bg-white hover:border-slate-500 hover:bg-slate-50"}`}
@@ -445,43 +547,59 @@ export function PacdoraLab() {
           </div>
         </aside>
 
-        <section className="grid min-w-0 gap-5 xl:grid-rows-[minmax(520px,1fr)_auto]">
-          <div className="relative min-h-[500px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
-            <div className="absolute left-5 top-5 z-10 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-sm backdrop-blur">
-              Generated mesh · orbit to inspect
+        <section className="grid min-w-0 gap-5">
+          <div className="grid gap-5 2xl:grid-cols-2">
+            <div className="relative min-h-[520px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
+              <div className="absolute left-5 top-5 z-10 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-sm backdrop-blur">
+                3D preview · orbit every angle
+              </div>
+              <PackagingScene
+                box={kind === "box" ? box : undefined}
+                pouch={kind === "box" ? undefined : pouch}
+                fold={fold}
+                artworkCanvas={kind === "box" ? null : artworkCanvas.canvas}
+              />
             </div>
-            <PackagingScene
-              box={kind === "box" ? box : undefined}
-              pouch={kind === "box" ? undefined : pouch}
-              fold={fold}
-              artworkCanvas={kind === "box" ? null : artworkCanvas.canvas}
-            />
-          </div>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(330px,0.7fr)]">
-            <div className="min-h-[360px] rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
+            <div className="min-h-[520px] rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-semibold">Canonical flat web</p>
-                  <p className="mt-1 text-xs text-[var(--st-faint)]">Black = cut · red = crease · green = heat seal</p>
+                  <p className="text-sm font-semibold">2D dieline artwork editor</p>
+                  <p className="mt-1 text-xs text-[var(--st-faint)]">
+                    {artwork ? "Drag inside the blue face; 3D updates from the same UV canvas." : "Upload artwork in the left panel or drop it here."}
+                  </p>
                 </div>
                 <span className="font-mono text-xs text-[var(--st-dim)]">
                   {kind === "box" ? `${box.blank.width.toFixed(1)} × ${box.blank.height.toFixed(1)} mm` : `${pouch.web.width.toFixed(1)} × ${pouch.web.height.toFixed(1)} mm`}
                 </span>
               </div>
-              <div className="h-[290px] rounded-xl bg-slate-50 p-4">
+              <div
+                {...(kind === "box" ? {} : artworkDropProps)}
+                className={`relative h-[440px] rounded-xl border p-4 transition ${artworkDragActive ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" : "border-slate-100 bg-slate-50"}`}
+              >
                 <DielinePreview
                   solution={activeSolution}
                   artworkPreviewUrl={kind === "box" ? null : artworkCanvas.previewUrl}
+                  artworkPlacement={artwork?.placement}
+                  onArtworkDrag={kind === "box" || !artwork ? undefined : dragArtwork}
                 />
+                {!artwork && kind !== "box" ? (
+                  <div className="pointer-events-none absolute inset-x-5 bottom-5 rounded-lg border border-dashed border-slate-300 bg-white/90 px-3 py-2 text-center text-[10px] font-semibold text-slate-500 shadow-sm">
+                    Drop PNG, JPEG, WebP, or SVG here
+                  </div>
+                ) : null}
               </div>
             </div>
+          </div>
 
-            <div className="rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
+            <div className="grid gap-5 xl:grid-cols-[minmax(220px,0.45fr)_minmax(0,1fr)]">
+              <div>
               <p className="text-sm font-semibold">Resolved structure</p>
               <p className="mt-1 text-xs leading-5 text-[var(--st-faint)]">The values below and both previews come from the same solver output.</p>
+              </div>
               {kind === "box" ? (
-                <div className="mt-5 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <DimensionTriplet label="Inner" values={box.inner} />
                   <DimensionTriplet label="Manufacture / knife" values={box.manufacture} />
                   <DimensionTriplet label="Outer" values={box.outer} />
@@ -491,7 +609,7 @@ export function PacdoraLab() {
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-xl border border-[var(--st-line)] p-4"><p className={labelClass}>Flat web</p><p className="font-mono text-sm font-semibold">{pouch.web.width.toFixed(1)} × {pouch.web.height.toFixed(1)} mm</p></div>
                   <div className="rounded-xl border border-[var(--st-line)] p-4"><p className={labelClass}>{pouch.style === "stand-up" ? "Standing body" : "Inflated pillow"}</p><p className="font-mono text-sm font-semibold">{pouch.input.width.toFixed(1)} × {pouch.input.height.toFixed(1)} × {pouch.inflatedDepth.toFixed(1)} mm</p></div>
                   <div className="rounded-xl bg-slate-900 px-4 py-3 text-white"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Film caliper</p><p className="mt-1 font-mono text-sm font-semibold">{pouch.material.caliperMm.toFixed(2)} mm</p></div>

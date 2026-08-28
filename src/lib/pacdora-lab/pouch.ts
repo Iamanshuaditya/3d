@@ -1,7 +1,10 @@
 import * as THREE from "three";
 import { getPacdoraLabMaterial } from "./materials";
 import type { PouchLabInput, PouchLabSolution } from "./types";
-import { standUpEllipticDepthMask } from "@/lib/packaging/stand-up-profile";
+import {
+  standUpFaceCrownMask,
+  standUpLensDepthMask,
+} from "@/lib/packaging/stand-up-profile";
 
 const MM_TO_SCENE = 0.01;
 
@@ -219,6 +222,11 @@ function finishGeometry(
     features: {
       zipper: solution.input.zipper,
       hangHole: solution.style === "stand-up" && solution.input.hangHole,
+      ...(solution.style === "stand-up" ? {
+        inflationProfile: "single-centre-crown",
+        gussetProfile: "sharp-lens-two-facet",
+        sideSealTopology: "single-fused-rail",
+      } : {}),
     },
     artworkUv: "canonical-flat-web",
     topology: solution.style === "stand-up" ? "front-back-bottom-gusset" : "front-back-fin-seal",
@@ -350,22 +358,20 @@ function standUpDepthFactorAt(v: number, sealFraction: number): number {
 }
 
 function standUpBroadFaceMaskAt(s: number): number {
-  // Most of a filled pouch is still a broad, printable face. Curvature is
-  // concentrated in a shoulder close to the side heat seals instead of being
-  // spread across the entire panel like a balloon.
-  const shoulder = smoothstep(0.42, 0.97, Math.abs(s));
-  return Math.pow(Math.max(0, 1 - shoulder), 0.82);
+  // One smooth crown grows from the physical centreline and falls
+  // monotonically into the side seals. The previous flat plateau created two
+  // separate shoulder highlights, which made the pouch read as if it were
+  // being inflated independently from the left and right.
+  return standUpFaceCrownMask(s);
 }
 
 function standUpSideMaskAt(s: number, v: number): number {
-  // The broad artwork panel transitions into a genuinely elliptical bottom
-  // boundary. Depth is therefore generated from the pouch centreline and
-  // falls continuously toward both side seals. Reusing the broad-face plateau
-  // at v=0 was the source of the rounded-rectangle gusset.
+  // The broad artwork crown transitions into the sharper bottom lens. Both
+  // profiles have one maximum on the pouch centreline and no secondary lobes.
   const broadFace = standUpBroadFaceMaskAt(s);
-  const gussetEllipse = standUpEllipticDepthMask(s);
-  const gussetInfluence = 1 - smoothstep(0.025, 0.2, clamp01(v));
-  return lerp(broadFace, gussetEllipse, gussetInfluence);
+  const gussetLens = standUpLensDepthMask(s);
+  const gussetInfluence = 1 - smoothstep(0.035, 0.22, clamp01(v));
+  return lerp(broadFace, gussetLens, gussetInfluence);
 }
 
 function standUpMaximumCornerLift(width: number, gussetMm: number): number {
@@ -375,28 +381,10 @@ function standUpMaximumCornerLift(width: number, gussetMm: number): number {
   return Math.min(gussetMm * 0.006, width * 0.003);
 }
 
-function standUpLowerReliefMm(
-  s: number,
-  v: number,
-  depthFactor: number,
-  inflationProgress: number,
-): number {
-  const lowerFade = Math.pow(Math.max(0, 1 - v / 0.5), 1.45);
-  const leftGussetPull = -0.46
-    * Math.exp(-Math.pow((s - (-0.72 + v * 0.25)) / 0.06, 2))
-    * lowerFade;
-  const rightGussetPull = -0.42
-    * Math.exp(-Math.pow((s - (0.7 - v * 0.22)) / 0.064, 2))
-    * lowerFade;
-  return (leftGussetPull + rightGussetPull)
-    * inflationProgress
-    * Math.min(1, depthFactor * 1.8);
-}
-
 /**
- * Samples the smooth construction surface (before small wrinkle relief). It is
- * shared by the body mesh and closure details so zipper rails sit on the film
- * instead of floating in front of a curved face.
+ * Samples the smooth construction surface. It is shared by the body mesh and
+ * closure details so every feature follows the same single centre-driven
+ * crown rather than adding independent left/right deformation lobes.
  */
 export function samplePacdoraLabStandUpSurface(
   solution: PouchLabSolution,
@@ -455,18 +443,9 @@ function buildStandUpGeometry(
   for (const face of [1, -1] as const) {
     for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
       const v = yIndex / segmentsUp;
-      const depthFactor = standUpDepthFactorAt(v, sealFraction);
       for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
         const u = xIndex / segmentsAcross;
-        const s = u * 2 - 1;
-        const relief = standUpLowerReliefMm(
-          s,
-          v,
-          depthFactor,
-          inflationProgress,
-        );
         const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
-        point.z += face * relief * MM_TO_SCENE;
         const artworkUv = getPacdoraLabPouchPanelUv(
           solution,
           face > 0 ? "front-film" : "back-film",
@@ -517,42 +496,37 @@ function buildStandUpGeometry(
     }
   }
 
-  // Separate double-layer side fins keep their laminate thickness while the
-  // body opens behind them. These rails are part of the final silhouette and
-  // account for the side-seal allowance already present in the flat web.
+  // A heat seal is one fused rail, not two independently inflated ribbons.
+  // Use one centred, double-sided strip per edge. This removes the duplicate
+  // silhouette line that previously appeared next to the body crown.
   for (const side of [-1, 1] as const) {
     const u = side < 0 ? 0 : 1;
-    for (const face of [1, -1] as const) {
-      const finOffset = positions.length / 3;
-      for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
-        const v = yIndex / segmentsUp;
-        const inner = samplePacdoraLabStandUpSurface(solution, u, v, face);
-        // The outer cut edge is set by the canonical web, not by the deformed
-        // body vertex. Keeping it nominal makes the heat-seal rail a stable,
-        // vertical datum even if the chamber profile evolves independently.
-        const outerX = side * (width * 0.5 + endSealMm) * MM_TO_SCENE;
-        const panel = solution.panels.find((candidate) => (
-          candidate.id === (face > 0 ? "front-film" : "back-film")
-        ));
-        if (!panel) throw new Error("Pouch web is missing an artwork panel.");
-        const viewedSide = face > 0 ? side : -side;
-        const edgeX = viewedSide < 0 ? panel.x : panel.x + panel.width;
-        const outerWebX = edgeX + viewedSide * endSealMm;
-        const webY = panel.y + (1 - v) * panel.height;
-        const innerUv = getPacdoraLabPouchWebUv(solution, edgeX, webY);
-        const outerUv = getPacdoraLabPouchWebUv(solution, outerWebX, webY);
-        positions.push(inner.x, inner.y, inner.z);
-        positions.push(outerX, inner.y, face * filmHalf * MM_TO_SCENE);
-        uvs.push(innerUv.x, innerUv.y, outerUv.x, outerUv.y);
-      }
-      for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
-        const a = finOffset + yIndex * 2;
-        const b = a + 1;
-        const c = a + 2;
-        const d = a + 3;
-        if (face > 0) indices.push(a, b, c, b, d, c);
-        else indices.push(a, c, b, b, c, d);
-      }
+    const finOffset = positions.length / 3;
+    const panel = solution.panels.find((candidate) => candidate.id === "front-film");
+    if (!panel) throw new Error("Pouch web is missing an artwork panel.");
+    for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
+      const v = yIndex / segmentsUp;
+      const inner = samplePacdoraLabStandUpSurface(solution, u, v, 1);
+      const bottomTaper = smoothstep(0, 0.095, v);
+      const finExtension = endSealMm * lerp(0.18, 1, bottomTaper);
+      const innerX = side * width * 0.5 * MM_TO_SCENE;
+      const outerX = side * (width * 0.5 + finExtension) * MM_TO_SCENE;
+      const edgeX = side < 0 ? panel.x : panel.x + panel.width;
+      const outerWebX = edgeX + side * finExtension;
+      const webY = panel.y + (1 - v) * panel.height;
+      const innerUv = getPacdoraLabPouchWebUv(solution, edgeX, webY);
+      const outerUv = getPacdoraLabPouchWebUv(solution, outerWebX, webY);
+      positions.push(innerX, inner.y, 0);
+      positions.push(outerX, inner.y, 0);
+      uvs.push(innerUv.x, innerUv.y, outerUv.x, outerUv.y);
+    }
+    for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
+      const a = finOffset + yIndex * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      if (side < 0) indices.push(a, b, c, b, d, c);
+      else indices.push(a, c, b, b, c, d);
     }
   }
 
@@ -565,37 +539,35 @@ function buildStandUpGeometry(
     indices.push(f0, b0, f1, b0, b1, f1);
   }
 
-  const gussetRows = Math.max(10, Math.round(segmentsAcross * 0.42));
+  const requestedGussetRows = Math.max(10, Math.round(segmentsAcross * 0.42));
+  const gussetRows = requestedGussetRows % 2 === 0
+    ? requestedGussetRows
+    : requestedGussetRows + 1;
+  const qSamples = Array.from({ length: gussetRows + 1 }, (_, index) => index / gussetRows);
+  // Duplicate the centre row so each gusset facet owns its normals. Connecting
+  // both halves through one smoothed row erased the only physical fold line.
+  qSamples.splice(gussetRows / 2 + 1, 0, 0.5);
   const gussetOffset = positions.length / 3;
   const bottomWidthScale = standUpWidthScaleAt();
   const bottomDepthFactor = standUpDepthFactorAt(0, sealFraction);
   const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
-  for (let qIndex = 0; qIndex <= gussetRows; qIndex++) {
-    const q = qIndex / gussetRows;
+  for (const q of qSamples) {
     const frontBack = q * 2 - 1;
     for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
       const u = xIndex / segmentsAcross;
       const s = u * 2 - 1;
       const sideMask = standUpSideMaskAt(s, 0);
       const panelCrown = 1 - 0.018 * s * s;
-      const lowerRelief = standUpLowerReliefMm(
-        s,
-        0,
-        bottomDepthFactor,
-        inflationProgress,
-      );
       const gussetDepth = filmHalf
-        + halfDepth * sideMask * bottomDepthFactor * panelCrown
-        + lowerRelief;
+        + halfDepth * sideMask * bottomDepthFactor * panelCrown;
       const centreFold = Math.pow(Math.max(0, 1 - Math.abs(frontBack)), 0.72);
-      // The unused gusset folds upward between the two face membranes. As the
-      // pouch opens, that fold settles into the broad standing base. It never
-      // moves below the face boundary, which prevents the oval protrusion seen
-      // in the earlier mesh.
+      // The two gusset facets retain a shallow central fold even at full fill.
+      // That fold is the single structural line visible from underneath in the
+      // Pacdora reference; flattening it entirely made our base read as a solid
+      // oval plate.
       const foldedCentreLift = centreFold
         * gussetMm
-        * 0.11
-        * (1 - inflationProgress);
+        * lerp(0.15, 0.034, inflationProgress);
       const cornerLift = Math.pow(Math.abs(s), 3)
         * maximumCornerLift
         * inflationProgress;
@@ -612,7 +584,8 @@ function buildStandUpGeometry(
       uvs.push(artworkUv.x, artworkUv.y);
     }
   }
-  for (let qIndex = 0; qIndex < gussetRows; qIndex++) {
+  for (let qIndex = 0; qIndex < qSamples.length - 1; qIndex++) {
+    if (qSamples[qIndex] === qSamples[qIndex + 1]) continue;
     for (let xIndex = 0; xIndex < segmentsAcross; xIndex++) {
       const a = gussetOffset + qIndex * row + xIndex;
       const b = a + 1;
