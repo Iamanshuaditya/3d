@@ -15,7 +15,13 @@ const roleFill = {
   seal: "#eaf8f4",
 } as const;
 
-export function DielinePreview({ solution }: { solution: BoxLabSolution | PouchLabSolution }) {
+export function DielinePreview({
+  solution,
+  artworkPreviewUrl = null,
+}: {
+  solution: BoxLabSolution | PouchLabSolution;
+  artworkPreviewUrl?: string | null;
+}) {
   const width = solution.kind === "box" ? solution.blank.width : solution.web.width;
   const height = solution.kind === "box" ? solution.blank.height : solution.web.height;
   const padding = Math.max(width, height) * 0.04;
@@ -40,6 +46,16 @@ export function DielinePreview({ solution }: { solution: BoxLabSolution | PouchL
       className="h-full w-full"
     >
       <rect x={0} y={0} width={width} height={height} fill="#ffffff" />
+      {solution.kind === "pouch" && artworkPreviewUrl ? (
+        <image
+          href={artworkPreviewUrl}
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          preserveAspectRatio="none"
+        />
+      ) : null}
       {solution.panels.map((panel) => (
         <g key={panel.id}>
           <rect
@@ -47,11 +63,13 @@ export function DielinePreview({ solution }: { solution: BoxLabSolution | PouchL
             y={panel.y}
             width={panel.width}
             height={panel.height}
-            fill={roleFill[panel.role]}
+            fill={artworkPreviewUrl ? "transparent" : roleFill[panel.role]}
             stroke="#1f2937"
             strokeWidth={Math.max(0.45, width * 0.0015)}
           />
-          {panel.width > fontSize * 3 && panel.height > fontSize * 1.8 ? (
+          {panel.width > fontSize * 3
+          && panel.height > fontSize * 1.8
+          && !(artworkPreviewUrl && panel.role === "film") ? (
             <text
               x={panel.x + panel.width / 2}
               y={panel.y + panel.height / 2}

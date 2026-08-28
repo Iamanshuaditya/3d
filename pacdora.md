@@ -286,6 +286,25 @@ The important deformation is easier to see from the side than the front:
   approximately one fifth of overall height. This is a visual benchmark, not a
   converter-approved capacity formula.
 
+A same-camera three-position pass exposed one more detail that is easy to miss
+from the front. Pacdora behaves more like a **partly filled product chamber**
+than a uniformly pressurized balloon:
+
+- At minimum, the laminate pair is an almost coincident vertical rectangle.
+- Around the midpoint, visible separation is concentrated below the pouch
+  midpoint; the upper artwork area and zipper remain close together.
+- At maximum, the greatest separation remains in the lower third. At roughly
+  60% of body height the opening is already about half that maximum, and by
+  roughly 70–78% it is only a small fraction. The top seal then closes to film
+  caliper instead of forming a pointed, inflated shoulder.
+
+The `/test` surface therefore uses a vertical fill profile in addition to the
+cross-face shoulder profile. The requested depth is also bounded by the face,
+height, and gusset proportions before inflation. This prevents an input such as
+a very narrow pouch with a very large nominal depth from turning into an
+impossible self-intersecting balloon. At the current regression benchmark, the
+depth at 72% of body height is below 28% of the lower product chamber.
+
 This agrees with Pacdora's own description that filling swells the gusset,
 changes the zipper/headspace region, and bends the lower artwork area; those
 effects are construction features rather than generic mesh scaling. See
@@ -357,6 +376,45 @@ stand-up web width     = face width + 2 × side seal
 stand-up web height    = back face + bottom gusset + front face + 2 × end seal
 ```
 
+### One canonical artwork canvas for 2D and 3D
+
+The artwork test now follows the same single-authority rule as the structure.
+An uploaded raster or SVG is decoded once and painted into the selected front,
+back, or both named panel rectangles on one canvas whose aspect ratio is the
+resolved continuous film web. `Fill panel` uses a cover transform; `Fit inside`
+uses contain. The 2D dieline displays that exact canvas below cut, crease, and
+seal guides.
+
+The procedural mesh does not stretch the image independently. Every generated
+face vertex converts its manufacturing-web position to UV coordinates:
+
+```text
+u = web-x / web-width
+v = 1 - web-y / web-height
+```
+
+Front, back, side-fin, and bottom-gusset vertices all address the same canonical
+web. A single Three.js `CanvasTexture` is then attached to the pouch laminate.
+Changing inflation regenerates only geometry; it does not re-decode or repaint
+the unchanged artwork. Changing dimensions repaints the canonical web and
+regenerates UVs together, so the 2D and 3D views cannot drift onto different
+coordinate systems.
+
+### Dimension-input failure correction
+
+The reported `Resolved width must be a finite positive number` error was caused
+before WebGL rendering. A controlled number field temporarily becomes an empty
+string while the user replaces its value. Converting that transient string
+with `Number("")` produced zero and reached the box dimension solver; outer or
+manufacture mode then subtracted material allowances from the invalid value.
+
+The lab now keeps an editable local draft for each numeric field. Only finite
+values within that field's construction range reach the solver. Blur clamps an
+unfinished draft to its supported minimum and Escape restores the last resolved
+value. Chrome regression testing cleared the width field, switched modes,
+selected every board stock, and exercised the minimum dimensions without a
+runtime overlay.
+
 The mailer comparison also showed that base + four walls + lid was too simple.
 The experimental mailer now includes two lid wings, four corner dust flaps, a
 rolled/double front wall, a centre locking tongue, and matching lock slots.
@@ -416,6 +474,8 @@ The `/test` route provides:
 - A live pouch inflation slider.
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
 - Pouch film-material switching.
+- Artwork upload with front/back/both placement and cover/contain fitting.
+- One canonical 2D artwork web mapped by UV to the regenerated 3D pouch.
 - A generated 3D preview.
 - A generated flat dieline/film web.
 - Resolved dimensions and material caliper.

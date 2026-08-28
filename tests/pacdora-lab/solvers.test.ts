@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildPacdoraLabPouchGeometry,
+  getPacdoraLabPouchPanelUv,
   samplePacdoraLabStandUpSurface,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
@@ -72,11 +73,17 @@ test("pouch geometry is regenerated with finite positions and manufacturing meta
   });
   const geometry = buildPacdoraLabPouchGeometry(solution, 12, 16);
   const positions = geometry.getAttribute("position");
+  const uvs = geometry.getAttribute("uv");
   assert.ok(positions.count > 0);
+  assert.equal(uvs.count, positions.count);
   for (let index = 0; index < positions.count; index++) {
     assert.ok(Number.isFinite(positions.getX(index)));
     assert.ok(Number.isFinite(positions.getY(index)));
     assert.ok(Number.isFinite(positions.getZ(index)));
+    assert.ok(Number.isFinite(uvs.getX(index)));
+    assert.ok(Number.isFinite(uvs.getY(index)));
+    assert.ok(uvs.getX(index) >= 0 && uvs.getX(index) <= 1);
+    assert.ok(uvs.getY(index) >= 0 && uvs.getY(index) <= 1);
   }
   assert.equal(geometry.userData.pacdoraLab.kind, "procedural-center-seal-pouch");
   assert.equal(geometry.userData.pacdoraLab.dimensionsMm.depth, solution.inflatedDepth);
@@ -100,6 +107,8 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   const bottomSeal = samplePacdoraLabStandUpSurface(solution, 0.5, 0, 1);
   const lowerBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.28, 1);
   const middleBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.5, 1);
+  const fillShoulder = samplePacdoraLabStandUpSurface(solution, 0.5, 0.6, 1);
+  const headspace = samplePacdoraLabStandUpSurface(solution, 0.5, 0.72, 1);
   const quarterFace = samplePacdoraLabStandUpSurface(solution, 0.25, 0.5, 1);
   const upperBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.78, 1);
   const topSeal = samplePacdoraLabStandUpSurface(solution, 0.5, 0.98, 1);
@@ -108,6 +117,8 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   const bottomCorner = samplePacdoraLabStandUpSurface(solution, 0.01, 0, 1);
 
   assert.ok(lowerBody.z > middleBody.z * 0.98);
+  assert.ok(fillShoulder.z < lowerBody.z * 0.62);
+  assert.ok(headspace.z < lowerBody.z * 0.28);
   assert.ok(lowerBody.z > upperBody.z);
   assert.ok(upperBody.z > topSeal.z);
   assert.ok(bottomSeal.z > middleBody.z * 0.7);
@@ -154,6 +165,64 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.ok(geometry.getIndex()!.count < solidGeometry.getIndex()!.count);
   solidGeometry.dispose();
   geometry.dispose();
+});
+
+test("stand-up requested depth is capped by the gusset and package proportions", () => {
+  const solution = solvePacdoraLabPouch({
+    style: "stand-up",
+    width: 50,
+    height: 80,
+    depth: 180,
+    materialId: "matte-film",
+    inflation: 1,
+    endSealMm: 6,
+    backSealMm: 14,
+    gussetMm: 20,
+    zipper: true,
+    hangHole: false,
+  });
+  assert.equal(solution.inflatedDepth, 17.6);
+  assert.ok(solution.assumptions.some((item) => item.includes("resolves to 17.6 mm")));
+  const geometry = buildPacdoraLabPouchGeometry(solution, 12, 16);
+  const positions = geometry.getAttribute("position");
+  for (let index = 0; index < positions.count; index++) {
+    assert.ok(Number.isFinite(positions.getX(index)));
+    assert.ok(Number.isFinite(positions.getY(index)));
+    assert.ok(Number.isFinite(positions.getZ(index)));
+  }
+  geometry.dispose();
+});
+
+test("stand-up face UVs address the same canonical web shown by the dieline", () => {
+  const solution = solvePacdoraLabPouch({
+    style: "stand-up",
+    width: 150,
+    height: 210,
+    depth: 42,
+    materialId: "matte-film",
+    inflation: 1,
+    endSealMm: 12,
+    backSealMm: 14,
+    gussetMm: 62,
+    zipper: true,
+    hangHole: true,
+  });
+  const frontCentre = getPacdoraLabPouchPanelUv(
+    solution,
+    "front-film",
+    0.5,
+    0.5,
+  );
+  const backCentre = getPacdoraLabPouchPanelUv(
+    solution,
+    "back-film",
+    0.5,
+    0.5,
+  );
+  assert.ok(Math.abs(frontCentre.x - 0.5) < 1e-12);
+  assert.ok(Math.abs(frontCentre.y - (1 - 389 / 506)) < 1e-12);
+  assert.ok(Math.abs(backCentre.x - 0.5) < 1e-12);
+  assert.ok(Math.abs(backCentre.y - (1 - 117 / 506)) < 1e-12);
 });
 
 test("stand-up inflation opens the lower gusset while preserving the flat web", () => {

@@ -11,6 +11,7 @@ import {
   type BoxLabSolution,
   type PouchLabSolution,
 } from "@/lib/pacdora-lab";
+import { configureDesignTexture } from "@/lib/configurator/texture-manager";
 
 const MM = 0.01;
 
@@ -313,9 +314,51 @@ function StandUpTopSeal({ solution }: { solution: PouchLabSolution }) {
   );
 }
 
-function PouchModel({ solution }: { solution: PouchLabSolution }) {
+function PouchModel({
+  solution,
+  artworkCanvas,
+}: {
+  solution: PouchLabSolution;
+  artworkCanvas: HTMLCanvasElement | null;
+}) {
   const geometry = useMemo(() => buildPacdoraLabPouchGeometry(solution), [solution]);
   useEffect(() => () => geometry.dispose(), [geometry]);
+  const artworkTexture = useMemo(() => {
+    if (!artworkCanvas) return null;
+    const texture = new THREE.CanvasTexture(artworkCanvas);
+    configureDesignTexture(texture);
+    return texture;
+  }, [artworkCanvas]);
+  useEffect(() => () => artworkTexture?.dispose(), [artworkTexture]);
+  const laminateMaterial = useMemo(
+    () => new THREE.MeshPhysicalMaterial({
+      name: "PacdoraLabPouchLaminate",
+      color: solution.material.color,
+      roughness: solution.material.roughness,
+      metalness: solution.material.metalness,
+      clearcoat: solution.material.metalness > 0 ? 0.45 : 0.12,
+      clearcoatRoughness: 0.42,
+      envMapIntensity: 0.42,
+      side: THREE.DoubleSide,
+    }),
+    [
+      solution.material.color,
+      solution.material.metalness,
+      solution.material.roughness,
+    ],
+  );
+
+  // The texture arrives after the browser has decoded and painted the source
+  // image. Assign it to one stable Three.js material explicitly so the shader
+  // is recompiled when `map` changes from null to a CanvasTexture.
+  /* eslint-disable react-hooks/immutability */
+  useEffect(() => {
+    laminateMaterial.map = artworkTexture;
+    laminateMaterial.color.set(artworkTexture ? 0xffffff : solution.material.color);
+    laminateMaterial.needsUpdate = true;
+  }, [artworkTexture, laminateMaterial, solution.material.color]);
+  /* eslint-enable react-hooks/immutability */
+  useEffect(() => () => laminateMaterial.dispose(), [laminateMaterial]);
 
   const halfDepth = Math.max(solution.inflatedDepth * MM * 0.5, 0.012);
   const sealY = solution.input.height * MM * 0.5 - solution.input.endSealMm * MM;
@@ -323,16 +366,12 @@ function PouchModel({ solution }: { solution: PouchLabSolution }) {
 
   return (
     <group rotation={[0, -0.22, 0]}>
-      <mesh geometry={geometry} castShadow receiveShadow>
-        <meshPhysicalMaterial
-          color={solution.material.color}
-          roughness={solution.material.roughness}
-          metalness={solution.material.metalness}
-          clearcoat={solution.material.metalness > 0 ? 0.45 : 0.12}
-          clearcoatRoughness={0.42}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
+      <mesh
+        geometry={geometry}
+        material={laminateMaterial}
+        castShadow
+        receiveShadow
+      />
       {solution.style === "center-seal" ? (
         <>
           <mesh position={[0, 0, -halfDepth - 0.004]}>
@@ -376,10 +415,12 @@ export function PackagingScene({
   box,
   pouch,
   fold,
+  artworkCanvas = null,
 }: {
   box?: BoxLabSolution;
   pouch?: PouchLabSolution;
   fold: number;
+  artworkCanvas?: HTMLCanvasElement | null;
 }) {
   const bodyHeight = box?.outer.height ?? pouch?.input.height ?? 180;
   const visualHeight = box ? box.outer.height + box.outer.width * 0.72 : bodyHeight;
@@ -419,7 +460,7 @@ export function PackagingScene({
       />
       <directionalLight intensity={1.1} position={[-4, 2, -3]} />
       {box ? <BoxModel solution={box} fold={fold} /> : null}
-      {pouch ? <PouchModel solution={pouch} /> : null}
+      {pouch ? <PouchModel solution={pouch} artworkCanvas={artworkCanvas} /> : null}
       <ContactShadows
         position={[0, -bodyHeight * MM * 0.52, 0]}
         opacity={0.32}

@@ -25,6 +25,33 @@ export function getPacdoraLabStandUpHangHole(input: PouchLabInput): {
   };
 }
 
+export function getPacdoraLabPouchPanelUv(
+  solution: PouchLabSolution,
+  panelId: "front-film" | "back-film" | "bottom-gusset",
+  lateral: number,
+  bottomToTop: number,
+): THREE.Vector2 {
+  const panel = solution.panels.find((candidate) => candidate.id === panelId);
+  if (!panel) throw new Error(`Pouch web is missing ${panelId}.`);
+  const xMm = panel.x + clamp01(lateral) * panel.width;
+  const yMm = panel.y + (1 - clamp01(bottomToTop)) * panel.height;
+  return new THREE.Vector2(
+    xMm / solution.web.width,
+    1 - yMm / solution.web.height,
+  );
+}
+
+function getPacdoraLabPouchWebUv(
+  solution: PouchLabSolution,
+  xMm: number,
+  yMm: number,
+): THREE.Vector2 {
+  return new THREE.Vector2(
+    clamp01(xMm / solution.web.width),
+    1 - clamp01(yMm / solution.web.height),
+  );
+}
+
 export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
   const material = getPacdoraLabMaterial(input.materialId, "film");
   positive(input.width, "Pouch width");
@@ -35,6 +62,9 @@ export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
   positive(input.gussetMm, "Bottom gusset");
   const inflation = clamp01(input.inflation);
   const standUp = input.style === "stand-up";
+  const formingDepth = standUp
+    ? Math.min(input.depth, input.width * 0.72, input.gussetMm * 0.88, input.height * 0.32)
+    : Math.min(input.depth, input.width * 0.78, input.height * 0.42);
   const webWidth = standUp
     ? input.width + input.endSealMm * 2
     : input.width * 2 + input.backSealMm;
@@ -131,7 +161,7 @@ export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
     material,
     input: { ...input, inflation },
     style: input.style,
-    inflatedDepth: input.depth * inflation,
+    inflatedDepth: formingDepth * inflation,
     web: { width: webWidth, height: webHeight },
     panels,
     lines,
@@ -139,11 +169,17 @@ export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
       ? [
           "Research construction: stand-up doypack with a generated bottom-gusset membrane.",
           "The broad face, tapered shoulders, zipper ridge, cut-through hang hole, and standing base are separate geometric features.",
+          ...(formingDepth < input.depth - 0.001
+            ? [`The ${input.depth.toFixed(1)} mm target depth resolves to ${formingDepth.toFixed(1)} mm because the gusset and face proportions limit forming.`]
+            : []),
           "Gusset depth, zipper offset, seal widths, and forming shrink require converter confirmation.",
         ]
       : [
           "Research construction: center/back-seal pillow pouch with wide end-seal fins.",
           "The hourglass body and flat heat-seal bands are generated independently from the stable film web.",
+          ...(formingDepth < input.depth - 0.001
+            ? [`The ${input.depth.toFixed(1)} mm target depth resolves to ${formingDepth.toFixed(1)} mm because the face proportions limit forming.`]
+            : []),
           "Seal widths and forming shrink must be confirmed with the film converter before production.",
         ],
   };
@@ -183,6 +219,7 @@ function finishGeometry(
       zipper: solution.input.zipper,
       hangHole: solution.style === "stand-up" && solution.input.hangHole,
     },
+    artworkUv: "canonical-flat-web",
     topology: solution.style === "stand-up" ? "front-back-bottom-gusset" : "front-back-fin-seal",
   };
   return geometry;
@@ -228,8 +265,14 @@ function buildCenterSealGeometry(
         const z = face * (filmHalf + halfDepth * bodyMask * sideMask * crown + wrinkle);
         const x = s * width * 0.5 * widthScale;
         const y = (v - 0.5) * height;
+        const artworkUv = getPacdoraLabPouchPanelUv(
+          solution,
+          face > 0 ? "front-film" : "back-film",
+          face > 0 ? u : 1 - u,
+          v,
+        );
         positions.push(x * MM_TO_SCENE, y * MM_TO_SCENE, z * MM_TO_SCENE);
-        uvs.push(face > 0 ? u : 1 - u, v);
+        uvs.push(artworkUv.x, artworkUv.y);
       }
     }
   }
@@ -289,14 +332,17 @@ function standUpDepthFactorAt(v: number, sealFraction: number): number {
   // panels apart. Pinching both ends produces a diamond silhouette and forces
   // the gusset to escape underneath as a false "foot".
   const clampedV = clamp01(v);
-  const gussetOpening = lerp(0.78, 1, smoothstep(0, 0.18, clampedV));
-  const upperLean = lerp(1, 0.68, smoothstep(0.46, 0.78, clampedV));
+  const gussetOpening = lerp(0.66, 1, smoothstep(0, 0.22, clampedV));
+  // Pacdora's slider behaves like a fill amount, not a uniform pressure
+  // modifier. The product chamber swells below the visual fill line while the
+  // empty headspace has already collapsed well before it reaches the zipper.
+  const productChamber = lerp(1, 0.14, smoothstep(0.38, 0.78, clampedV));
   const sealClosure = 1 - smoothstep(
-    1 - sealFraction * 3.2,
+    1 - sealFraction * 4,
     1 - sealFraction * 0.75,
     clampedV,
   );
-  return gussetOpening * upperLean * sealClosure;
+  return gussetOpening * productChamber * sealClosure;
 }
 
 function standUpSideMaskAt(s: number): number {
@@ -406,8 +452,14 @@ function buildStandUpGeometry(
         );
         const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
         point.z += face * relief * MM_TO_SCENE;
+        const artworkUv = getPacdoraLabPouchPanelUv(
+          solution,
+          face > 0 ? "front-film" : "back-film",
+          face > 0 ? u : 1 - u,
+          v,
+        );
         positions.push(point.x, point.y, point.z);
-        uvs.push(face > 0 ? u : 1 - u, v);
+        uvs.push(artworkUv.x, artworkUv.y);
       }
     }
   }
@@ -461,9 +513,19 @@ function buildStandUpGeometry(
         const v = yIndex / segmentsUp;
         const inner = samplePacdoraLabStandUpSurface(solution, u, v, face);
         const outerX = inner.x + side * endSealMm * MM_TO_SCENE;
+        const panel = solution.panels.find((candidate) => (
+          candidate.id === (face > 0 ? "front-film" : "back-film")
+        ));
+        if (!panel) throw new Error("Pouch web is missing an artwork panel.");
+        const viewedSide = face > 0 ? side : -side;
+        const edgeX = viewedSide < 0 ? panel.x : panel.x + panel.width;
+        const outerWebX = edgeX + viewedSide * endSealMm;
+        const webY = panel.y + (1 - v) * panel.height;
+        const innerUv = getPacdoraLabPouchWebUv(solution, edgeX, webY);
+        const outerUv = getPacdoraLabPouchWebUv(solution, outerWebX, webY);
         positions.push(inner.x, inner.y, inner.z);
         positions.push(outerX, inner.y, face * filmHalf * MM_TO_SCENE);
-        uvs.push(u, v, u, v);
+        uvs.push(innerUv.x, innerUv.y, outerUv.x, outerUv.y);
       }
       for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
         const a = finOffset + yIndex * 2;
@@ -522,8 +584,14 @@ function buildStandUpGeometry(
       const x = s * width * 0.5 * bottomWidthScale;
       const y = -height * 0.5 + cornerLift + foldedCentreLift;
       const z = frontBack * gussetDepth;
+      const artworkUv = getPacdoraLabPouchPanelUv(
+        solution,
+        "bottom-gusset",
+        u,
+        1 - q,
+      );
       positions.push(x * MM_TO_SCENE, y * MM_TO_SCENE, z * MM_TO_SCENE);
-      uvs.push(u, q);
+      uvs.push(artworkUv.x, artworkUv.y);
     }
   }
   for (let qIndex = 0; qIndex < gussetRows; qIndex++) {

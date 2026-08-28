@@ -4,6 +4,17 @@ export type PackagingKind = "box" | "center-seal" | "stand-up";
 
 export type PouchStyle = "center-seal" | "stand-up";
 
+export type PouchArtworkPlacement = "front" | "back" | "both";
+
+export type PouchArtworkFit = "cover" | "contain";
+
+export type PouchArtwork = {
+  sourceUrl: string;
+  name: string;
+  placement: PouchArtworkPlacement;
+  fit: PouchArtworkFit;
+};
+
 export type PackagingMaterialKind = "paperboard" | "corrugated" | "film";
 
 export type Dimensions3 = {
