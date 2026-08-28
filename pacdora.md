@@ -345,6 +345,27 @@ lower-body profile within the bottom `18%` of the pouch. This preserves a broad
 standing footprint while avoiding both an outward blob and the previous
 two-thirds-depth funnel.
 
+The underside comparison exposed a separate cross-width error. Reusing the
+broad face's nearly constant depth plateau at the bottom generated a
+rounded-rectangle footprint: most lateral points moved outward by the same
+amount and only the last shoulder near each side seal tapered. Pacdora's
+underside instead reads as an eye/ellipse whose greatest opening is on the
+centreline and whose depth falls continuously to film caliper at the two side
+seals. The standing perimeter is now driven by:
+
+```text
+s = 2u - 1
+bottomDepthMask(s) = sqrt(max(0, 1 - s²))
+
+(x / halfWidth)² + (z / bottomHalfDepth)² = 1
+```
+
+Only the bottom transition uses this elliptical mask. Over the lower `20%` of
+the body it blends into the broad printable-face profile, keeping the artwork
+panel comparatively planar while the gusset opens from its centre fold. This
+distinction is what prevents both the former rounded rectangle and a fully
+ballooned face.
+
 The pouch viewport now starts with an orthographic product camera. This is a
 rendering choice, not a deformation shortcut: it removes perspective
 keystoning that made equal-height bottom vertices appear diagonally cut. Orbit
@@ -461,9 +482,10 @@ did not materially move the mailer dieline's panel/score formulas. The existing
 pouch engine is more mature than a GLB workflow, but each pouch construction
 still needs measured/certified web rules.
 
-## `/test` implementation
+## `/test` implementation and registered Studio asset
 
-The research proof is deliberately isolated from the production configurator:
+The research controls remain explicitly experimental, while the verified
+centre-inflated renderer is now shared with one registered library SKU:
 
 ```text
 src/lib/pacdora-lab/
@@ -473,6 +495,21 @@ src/lib/pacdora-lab/
 ├── pouch.ts       center-seal + stand-up web/mesh generators
 └── index.ts       public library boundary
 ```
+
+`Centre-Inflated Stand-Up Pouch 150×210+62` is available in the `/` product
+library and opens in Studio as `pouch-su-centre-150`. Its editor uses the exact
+`174 × 506 mm` continuous web from the same solver: `12 mm` technical seal,
+`210 mm` back, `62 mm` gusset, `210 mm` front, and `12 mm` technical seal. The
+shared React renderer consumes the same procedural geometry and canonical-web
+UVs in `/test`, the product card, and Studio, so those views cannot develop
+separate pouch silhouettes.
+
+Studio and the lab both accept artwork through the file picker or direct
+drag-and-drop. In Studio, a dropped PNG, JPG, or WebP becomes the same durable
+project asset used by the normal upload panel, is placed in the selected
+production region, paints the 2D source canvas, and updates the pouch's one
+CanvasTexture. Blank board and matte-film previews now start white; selecting
+another authored material remains an explicit user action.
 
 The `/test` route provides:
 

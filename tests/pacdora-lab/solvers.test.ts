@@ -2,11 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildPacdoraLabPouchGeometry,
+  getPacdoraLabMaterial,
   getPacdoraLabPouchPanelUv,
   samplePacdoraLabStandUpSurface,
   solvePacdoraLabBox,
   solvePacdoraLabPouch,
 } from "@/lib/pacdora-lab";
+import { standUpEllipticDepthMask } from "@/lib/packaging/stand-up-profile";
+
+test("research assets start with neutral white board and film", () => {
+  assert.equal(getPacdoraLabMaterial("folding-board", "rigid").color, "#ffffff");
+  assert.equal(getPacdoraLabMaterial("matte-film", "film").color, "#ffffff");
+});
+
+test("stand-up gusset depth is generated outward from the centreline", () => {
+  assert.equal(standUpEllipticDepthMask(0), 1);
+  assert.ok(Math.abs(standUpEllipticDepthMask(0.5) - Math.sqrt(0.75)) < 1e-12);
+  assert.equal(standUpEllipticDepthMask(-1), 0);
+  assert.equal(standUpEllipticDepthMask(1), 0);
+});
 
 test("E-flute research profile reproduces the observed Pacdora dimension triplet", () => {
   const solution = solvePacdoraLabBox({
@@ -170,6 +184,32 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.ok(geometry.getIndex()!.count < solidGeometry.getIndex()!.count);
   solidGeometry.dispose();
   geometry.dispose();
+});
+
+test("stand-up bottom perimeter is an ellipse, not a rounded rectangle", () => {
+  const solution = solvePacdoraLabPouch({
+    style: "stand-up",
+    width: 150,
+    height: 210,
+    depth: 42,
+    materialId: "matte-film",
+    inflation: 1,
+    endSealMm: 12,
+    backSealMm: 14,
+    gussetMm: 62,
+    zipper: true,
+    hangHole: true,
+  });
+  const centre = samplePacdoraLabStandUpSurface(solution, 0.5, 0, 1).z;
+  const quarter = samplePacdoraLabStandUpSurface(solution, 0.75, 0, 1).z;
+  const nearEdge = samplePacdoraLabStandUpSurface(solution, 0.9, 0, 1).z;
+  const edge = samplePacdoraLabStandUpSurface(solution, 1, 0, 1).z;
+  const filmHalfScene = Math.max(solution.material.caliperMm * 0.5, 0.035) * 0.01;
+
+  assert.ok(centre > quarter && quarter > nearEdge && nearEdge > edge);
+  assert.ok(Math.abs(edge - filmHalfScene) < 1e-12);
+  const quarterRatio = (quarter - filmHalfScene) / (centre - filmHalfScene);
+  assert.ok(quarterRatio > 0.85 && quarterRatio < 0.875);
 });
 
 test("stand-up requested depth is capped by the gusset and package proportions", () => {

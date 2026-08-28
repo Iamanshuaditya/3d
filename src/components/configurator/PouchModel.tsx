@@ -6,6 +6,8 @@ import * as THREE from "three";
 import type { PouchSpec } from "@/types/pouch";
 import type { ProductConfig } from "@/types/configurator";
 import { buildPouchGeometry } from "@/lib/configurator/pouch-geometry";
+import { solvePacdoraLabPouch } from "@/lib/pacdora-lab";
+import { ProceduralPouchModel } from "./ProceduralPouchModel";
 
 type PouchModelProps = {
   spec: PouchSpec;
@@ -15,7 +17,7 @@ type PouchModelProps = {
   onSurfaceClick?: (surfaceId: string) => void;
 };
 
-export function PouchModel({
+function ProfiledPouchModel({
   spec,
   config,
   textures,
@@ -36,7 +38,7 @@ export function PouchModel({
     () =>
       new THREE.MeshPhysicalMaterial({
         name: "PouchLaminate",
-        color: 0xf2f1ef,
+        color: 0xffffff,
         roughness: 0.52,
         metalness: 0.0,
         clearcoat: 0.16,
@@ -98,4 +100,49 @@ export function PouchModel({
       }}
     />
   );
+}
+
+function CentreInflatedPouchModel({
+  spec,
+  config,
+  textures,
+  consumeDirty,
+  onSurfaceClick,
+}: PouchModelProps) {
+  const procedural = spec.proceduralModel;
+  if (!procedural) throw new Error(`Pouch ${spec.id} has no procedural model.`);
+  const surfaceId = config.editableSurfaces[0]?.id ?? "outside";
+  const texture = textures[surfaceId] ?? null;
+  const solution = useMemo(
+    () => solvePacdoraLabPouch({
+      style: "stand-up",
+      width: spec.width,
+      height: spec.height,
+      depth: procedural.targetDepthMm,
+      materialId: procedural.materialId,
+      inflation: procedural.inflation,
+      endSealMm: procedural.endSealMm,
+      backSealMm: procedural.backSealMm,
+      gussetMm: spec.gusset,
+      zipper: spec.resealableZip,
+      hangHole: procedural.hangHole,
+    }),
+    [procedural, spec.gusset, spec.height, spec.resealableZip, spec.width],
+  );
+
+  return (
+    <ProceduralPouchModel
+      solution={solution}
+      texture={texture}
+      consumeDirty={() => consumeDirty(surfaceId)}
+      position={[0, config.modelYOffset ?? 0, 0]}
+      onSurfaceClick={onSurfaceClick ? () => onSurfaceClick(surfaceId) : undefined}
+    />
+  );
+}
+
+export function PouchModel(props: PouchModelProps) {
+  return props.spec.proceduralModel
+    ? <CentreInflatedPouchModel {...props} />
+    : <ProfiledPouchModel {...props} />;
 }

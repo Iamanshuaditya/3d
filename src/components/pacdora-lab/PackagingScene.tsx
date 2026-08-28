@@ -5,13 +5,11 @@ import { Canvas } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import {
-  buildPacdoraLabPouchGeometry,
-  getPacdoraLabStandUpHangHole,
-  samplePacdoraLabStandUpSurface,
   type BoxLabSolution,
   type PouchLabSolution,
 } from "@/lib/pacdora-lab";
 import { configureDesignTexture } from "@/lib/configurator/texture-manager";
+import { ProceduralPouchModel } from "@/components/configurator/ProceduralPouchModel";
 
 const MM = 0.01;
 
@@ -233,87 +231,6 @@ function BoxModel({ solution, fold }: { solution: BoxLabSolution; fold: number }
   );
 }
 
-function StandUpZipperRidge({
-  solution,
-  face,
-  offsetMm,
-}: {
-  solution: PouchLabSolution;
-  face: 1 | -1;
-  offsetMm: number;
-}) {
-  const curve = useMemo(() => {
-    const v = 1 - solution.input.endSealMm * 1.72 / solution.input.height;
-    const points = Array.from({ length: 49 }, (_, index) => {
-      const u = 0.055 + index / 48 * 0.89;
-      const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
-      point.y += offsetMm * MM;
-      return point;
-    });
-    return new THREE.CatmullRomCurve3(points);
-  }, [face, offsetMm, solution]);
-
-  return (
-    <mesh castShadow>
-      <tubeGeometry args={[curve, 64, 0.0065, 6, false]} />
-      <meshStandardMaterial
-        color={solution.material.color}
-        roughness={Math.min(0.86, solution.material.roughness + 0.16)}
-        metalness={solution.material.metalness}
-      />
-    </mesh>
-  );
-}
-
-function StandUpTopSeal({ solution }: { solution: PouchLabSolution }) {
-  const sealedWidth = (solution.input.width + solution.input.endSealMm * 2) * MM;
-  const sealedHeight = solution.input.endSealMm * MM * 0.72;
-  const laminateThickness = Math.max(solution.material.caliperMm * MM, 0.0012);
-  const hangHole = getPacdoraLabStandUpHangHole(solution.input);
-  const geometry = useMemo(() => {
-    const shape = new THREE.Shape();
-    shape.moveTo(-sealedWidth * 0.5, -sealedHeight * 0.5);
-    shape.lineTo(sealedWidth * 0.5, -sealedHeight * 0.5);
-    shape.lineTo(sealedWidth * 0.5, sealedHeight * 0.5);
-    shape.lineTo(-sealedWidth * 0.5, sealedHeight * 0.5);
-    shape.closePath();
-
-    if (solution.input.hangHole) {
-      const aperture = new THREE.Path();
-      aperture.absarc(0, 0, hangHole.radiusMm * MM, 0, Math.PI * 2, true);
-      shape.holes.push(aperture);
-    }
-
-    const sealGeometry = new THREE.ExtrudeGeometry(shape, {
-      depth: laminateThickness,
-      bevelEnabled: false,
-      curveSegments: 48,
-      steps: 1,
-    });
-    sealGeometry.translate(0, 0, -laminateThickness * 0.5);
-    sealGeometry.computeVertexNormals();
-    return sealGeometry;
-  }, [hangHole.radiusMm, laminateThickness, sealedHeight, sealedWidth, solution.input.hangHole]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-
-  return (
-    <mesh
-      geometry={geometry}
-      position={[0, hangHole.centreYmm * MM, 0]}
-      castShadow
-    >
-      <meshPhysicalMaterial
-        color={solution.material.color}
-        roughness={Math.min(0.9, solution.material.roughness + 0.14)}
-        metalness={solution.material.metalness}
-        clearcoat={0.08}
-        clearcoatRoughness={0.7}
-        side={THREE.DoubleSide}
-      />
-    </mesh>
-  );
-}
-
 function PouchModel({
   solution,
   artworkCanvas,
@@ -321,8 +238,6 @@ function PouchModel({
   solution: PouchLabSolution;
   artworkCanvas: HTMLCanvasElement | null;
 }) {
-  const geometry = useMemo(() => buildPacdoraLabPouchGeometry(solution), [solution]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
   const artworkTexture = useMemo(() => {
     if (!artworkCanvas) return null;
     const texture = new THREE.CanvasTexture(artworkCanvas);
@@ -330,84 +245,13 @@ function PouchModel({
     return texture;
   }, [artworkCanvas]);
   useEffect(() => () => artworkTexture?.dispose(), [artworkTexture]);
-  const laminateMaterial = useMemo(
-    () => new THREE.MeshPhysicalMaterial({
-      name: "PacdoraLabPouchLaminate",
-      color: solution.material.color,
-      roughness: solution.material.roughness,
-      metalness: solution.material.metalness,
-      clearcoat: solution.material.metalness > 0 ? 0.45 : 0.12,
-      clearcoatRoughness: 0.42,
-      envMapIntensity: 0.42,
-      side: THREE.DoubleSide,
-    }),
-    [
-      solution.material.color,
-      solution.material.metalness,
-      solution.material.roughness,
-    ],
-  );
-
-  // The texture arrives after the browser has decoded and painted the source
-  // image. Assign it to one stable Three.js material explicitly so the shader
-  // is recompiled when `map` changes from null to a CanvasTexture.
-  /* eslint-disable react-hooks/immutability */
-  useEffect(() => {
-    laminateMaterial.map = artworkTexture;
-    laminateMaterial.color.set(artworkTexture ? 0xffffff : solution.material.color);
-    laminateMaterial.needsUpdate = true;
-  }, [artworkTexture, laminateMaterial, solution.material.color]);
-  /* eslint-enable react-hooks/immutability */
-  useEffect(() => () => laminateMaterial.dispose(), [laminateMaterial]);
-
-  const halfDepth = Math.max(solution.inflatedDepth * MM * 0.5, 0.012);
-  const sealY = solution.input.height * MM * 0.5 - solution.input.endSealMm * MM;
-  const bodyWidth = solution.input.width * MM;
 
   return (
-    <group rotation={[0, -0.22, 0]}>
-      <mesh
-        geometry={geometry}
-        material={laminateMaterial}
-        castShadow
-        receiveShadow
-      />
-      {solution.style === "center-seal" ? (
-        <>
-          <mesh position={[0, 0, -halfDepth - 0.004]}>
-            <planeGeometry args={[solution.input.backSealMm * MM, solution.input.height * MM * 0.73]} />
-            <meshStandardMaterial
-              color={solution.material.color}
-              roughness={0.78}
-              metalness={solution.material.metalness}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-          {[-sealY, sealY].map((y) => (
-            <mesh key={y} position={[0, y, halfDepth * 0.09]} castShadow>
-              <boxGeometry args={[bodyWidth * 1.025, 0.018, 0.014]} />
-              <meshStandardMaterial color="#c8beab" roughness={0.9} />
-            </mesh>
-          ))}
-        </>
-      ) : (
-        <>
-          <StandUpTopSeal solution={solution} />
-          {solution.input.zipper ? (
-            <>
-              {([-1, 1] as const).flatMap((face) => [-1.7, 1.7].map((offsetMm) => (
-                <StandUpZipperRidge
-                  key={`zipper-${face}-${offsetMm}`}
-                  solution={solution}
-                  face={face}
-                  offsetMm={offsetMm}
-                />
-              )))}
-            </>
-          ) : null}
-        </>
-      )}
-    </group>
+    <ProceduralPouchModel
+      solution={solution}
+      texture={artworkTexture}
+      rotationY={-0.22}
+    />
   );
 }
 

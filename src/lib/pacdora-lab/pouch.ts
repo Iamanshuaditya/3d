@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { getPacdoraLabMaterial } from "./materials";
 import type { PouchLabInput, PouchLabSolution } from "./types";
+import { standUpEllipticDepthMask } from "@/lib/packaging/stand-up-profile";
 
 const MM_TO_SCENE = 0.01;
 
@@ -348,12 +349,23 @@ function standUpDepthFactorAt(v: number, sealFraction: number): number {
   return gussetOpening * productChamber * sealClosure;
 }
 
-function standUpSideMaskAt(s: number): number {
+function standUpBroadFaceMaskAt(s: number): number {
   // Most of a filled pouch is still a broad, printable face. Curvature is
   // concentrated in a shoulder close to the side heat seals instead of being
   // spread across the entire panel like a balloon.
   const shoulder = smoothstep(0.42, 0.97, Math.abs(s));
   return Math.pow(Math.max(0, 1 - shoulder), 0.82);
+}
+
+function standUpSideMaskAt(s: number, v: number): number {
+  // The broad artwork panel transitions into a genuinely elliptical bottom
+  // boundary. Depth is therefore generated from the pouch centreline and
+  // falls continuously toward both side seals. Reusing the broad-face plateau
+  // at v=0 was the source of the rounded-rectangle gusset.
+  const broadFace = standUpBroadFaceMaskAt(s);
+  const gussetEllipse = standUpEllipticDepthMask(s);
+  const gussetInfluence = 1 - smoothstep(0.025, 0.2, clamp01(v));
+  return lerp(broadFace, gussetEllipse, gussetInfluence);
 }
 
 function standUpMaximumCornerLift(width: number, gussetMm: number): number {
@@ -398,7 +410,7 @@ export function samplePacdoraLabStandUpSurface(
   const clampedV = clamp01(v);
   const widthScale = standUpWidthScaleAt();
   const depthFactor = standUpDepthFactorAt(clampedV, sealFraction);
-  const sideMask = standUpSideMaskAt(s);
+  const sideMask = standUpSideMaskAt(s, clampedV);
   const panelCrown = 1 - 0.018 * s * s;
   const bottomInfluence = 1 - smoothstep(0, 0.22, clampedV);
   const inflationProgress = smoothstep(0.05, 0.86, solution.input.inflation);
@@ -564,7 +576,7 @@ function buildStandUpGeometry(
     for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
       const u = xIndex / segmentsAcross;
       const s = u * 2 - 1;
-      const sideMask = standUpSideMaskAt(s);
+      const sideMask = standUpSideMaskAt(s, 0);
       const panelCrown = 1 - 0.018 * s * s;
       const lowerRelief = standUpLowerReliefMm(
         s,

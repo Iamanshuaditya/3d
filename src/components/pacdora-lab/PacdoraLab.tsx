@@ -101,10 +101,11 @@ function DimensionTriplet({ label, values }: { label: string; values: { length: 
 export function PacdoraLab() {
   const [kind, setKind] = useState<PackagingKind>("box");
   const [fold, setFold] = useState(0.43);
+  const [artworkDragActive, setArtworkDragActive] = useState(false);
   const [boxInput, setBoxInput] = useState<BoxLabInput>({
     dimensions: { length: 169, width: 169, height: 117.5 },
     dimensionMode: "manufacture",
-    materialId: "e-flute",
+    materialId: "folding-board",
   });
   const [pouchInput, setPouchInput] = useState<PouchLabInput>({
     style: "center-seal",
@@ -181,6 +182,28 @@ export function PacdoraLab() {
       fit: current?.fit ?? "cover",
     }));
     setArtworkError(null);
+  };
+  const artworkDropProps = {
+    onDragEnter: (event: React.DragEvent<HTMLElement>) => {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      setArtworkDragActive(true);
+    },
+    onDragOver: (event: React.DragEvent<HTMLElement>) => {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setArtworkDragActive(true);
+    },
+    onDragLeave: (event: React.DragEvent<HTMLElement>) => {
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+      setArtworkDragActive(false);
+    },
+    onDrop: (event: React.DragEvent<HTMLElement>) => {
+      event.preventDefault();
+      setArtworkDragActive(false);
+      applyArtworkFile(event.dataTransfer.files[0]);
+    },
   };
 
   return (
@@ -361,8 +384,11 @@ export function PacdoraLab() {
                       </div>
                     </div>
 
-                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:bg-slate-50">
-                      <Upload className="size-4" /> Replace artwork
+                    <label
+                      {...artworkDropProps}
+                      className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-semibold text-slate-700 transition ${artworkDragActive ? "border-slate-900 bg-slate-100 ring-2 ring-slate-300" : "border-slate-300 bg-white hover:border-slate-500 hover:bg-slate-50"}`}
+                    >
+                      <Upload className="size-4" /> Replace or drop artwork
                       <input
                         className="sr-only"
                         type="file"
@@ -376,11 +402,14 @@ export function PacdoraLab() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <label className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center transition hover:border-slate-500 hover:bg-white">
+                    <label
+                      {...artworkDropProps}
+                      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-5 text-center transition ${artworkDragActive ? "border-slate-900 bg-white ring-2 ring-slate-300" : "border-slate-300 bg-slate-50 hover:border-slate-500 hover:bg-white"}`}
+                    >
                       <span className="flex size-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm">
                         <ImagePlus className="size-4" />
                       </span>
-                      <span className="mt-2 text-xs font-semibold text-slate-800">Upload artwork</span>
+                      <span className="mt-2 text-xs font-semibold text-slate-800">Upload or drop artwork</span>
                       <span className="mt-1 text-[10px] text-slate-500">PNG, JPEG, WebP, or SVG · up to 12 MB</span>
                       <input
                         className="sr-only"

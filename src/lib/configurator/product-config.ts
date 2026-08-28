@@ -523,7 +523,7 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
     family: "pouch",
     modelUrl: "",
     pouchSpecId: spec.id,
-    modelYOffset: -h,
+    modelYOffset: spec.proceduralModel ? 0 : -h,
     shadowY: -h - 0.002,
     materialProfile: "glossy-laminate",
     editableSurfaces: [

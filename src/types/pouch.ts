@@ -42,6 +42,18 @@ export type PouchPreviewAssumption = {
   note: string;
 };
 
+export type ProceduralPouchModel = {
+  /** Centre-driven deformable surface shared with the procedural pouch lab. */
+  kind: "centre-inflated-v1";
+  /** Filled face-to-face depth before the inflation multiplier, mm. */
+  targetDepthMm: number;
+  inflation: number;
+  endSealMm: number;
+  backSealMm: number;
+  materialId: "matte-film" | "foil-film";
+  hangHole: boolean;
+};
+
 /** Exact measured web; deliberately separate from nominal finished dimensions. */
 export type PouchProductionWeb = {
   widthMm: number;
@@ -79,6 +91,9 @@ export type PouchSpec = {
 
   /** Optional source-measured production web overriding generic pouch layout. */
   productionWeb?: PouchProductionWeb;
+
+  /** Optional procedural surface engine used by registered generated SKUs. */
+  proceduralModel?: ProceduralPouchModel;
 
   /** Bleed added to each end of the flat print web, mm. */
   dielineBleed: number;

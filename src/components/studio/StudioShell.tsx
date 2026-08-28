@@ -2,7 +2,7 @@
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { ChevronUp, Hand, Maximize2, Minus, Plus, Ruler } from "lucide-react";
+import { ChevronUp, Hand, ImagePlus, Maximize2, Minus, Plus, Ruler } from "lucide-react";
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import type { ProductPresentationMode } from "@/platform/products/types";
 import { resolveStudioPresentation } from "@/platform/presentation/resolve-studio-presentation";
@@ -83,6 +83,7 @@ export function StudioShell({
   const [guideVisibility, setGuideVisibility] = useState<DielineGuideVisibility>({
     ...DEFAULT_DIELINE_GUIDE_VISIBILITY,
   });
+  const [artworkDropActive, setArtworkDropActive] = useState(false);
   // Passive camera motion is opt-in in an editing tool. Manual orbit remains
   // available at all times and is the predictable default.
   const [animated, setAnimated] = useState(false);
@@ -93,6 +94,7 @@ export function StudioShell({
     message: string;
   } | null>(null);
   const workspaceViewportRef = useRef<HTMLDivElement>(null);
+  const artworkDragDepthRef = useRef(0);
   const previewButtonRef = useRef<HTMLButtonElement>(null);
   const fitModeRef = useRef(true);
   const panGestureRef = useRef<{
@@ -229,6 +231,34 @@ export function StudioShell({
       y: current.y - event.deltaY,
     }));
   }, []);
+
+  const handleArtworkDragEnter = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    artworkDragDepthRef.current += 1;
+    setArtworkDropActive(true);
+  }, []);
+
+  const handleArtworkDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
+  const handleArtworkDragLeave = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    artworkDragDepthRef.current = Math.max(0, artworkDragDepthRef.current - 1);
+    if (artworkDragDepthRef.current === 0) setArtworkDropActive(false);
+  }, []);
+
+  const handleArtworkDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    artworkDragDepthRef.current = 0;
+    setArtworkDropActive(false);
+    if (!event.dataTransfer.files.length) return;
+    setTool("Uploads");
+    void c.uploadFiles(event.dataTransfer.files);
+  }, [c]);
 
   const exportProduction = useCallback(async (kind: ProductionArtifactKind) => {
     if (exporting) return;
@@ -431,6 +461,10 @@ export function StudioShell({
               onPointerUp={stopWorkspacePan}
               onPointerCancel={stopWorkspacePan}
               onWheel={handleWorkspaceWheel}
+              onDragEnter={handleArtworkDragEnter}
+              onDragOver={handleArtworkDragOver}
+              onDragLeave={handleArtworkDragLeave}
+              onDrop={handleArtworkDrop}
             >
               <div
                 className="absolute left-1/2 top-1/2 will-change-transform"
@@ -540,6 +574,17 @@ export function StudioShell({
                   </div>
                 </div>
               </div>
+              {artworkDropActive && (
+                <div className="pointer-events-none absolute inset-5 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-[var(--st-accent)] bg-[var(--st-surface)]/92 text-center shadow-xl backdrop-blur-sm">
+                  <div>
+                    <ImagePlus className="mx-auto h-7 w-7 text-[var(--st-accent)]" />
+                    <p className="mt-3 text-sm font-semibold text-[var(--st-text)]">
+                      Drop artwork onto {c.activeSection?.label ?? c.activeSurface.label}
+                    </p>
+                    <p className="mt-1 text-xs text-[var(--st-dim)]">PNG, JPG, or WebP</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* workspace controls */}

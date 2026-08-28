@@ -102,6 +102,100 @@ export const meshyPouchSpec: PouchSpec = {
   segmentsGusset: 40,
 };
 
+/**
+ * Registered version of the centre-inflated research pouch. Unlike `/test`,
+ * this SKU participates in the normal product library, Studio canvas, project
+ * asset, CanvasTexture, and production-web workflows.
+ */
+export const centreInflatedStandUpPouchSpec: PouchSpec = {
+  id: "pouch-su-centre-150",
+  name: "Centre-Inflated Stand-Up Pouch 150×210+62",
+  style: "stand_up",
+  width: 150,
+  height: 210,
+  gusset: 62,
+  depth: 42,
+  dielineBleed: 0,
+  productionWeb: {
+    widthMm: 174,
+    repeatMm: 506,
+    laneCount: 1,
+    longitudinalAxis: "vertical",
+    segments: [
+      { id: "leading-seal", label: "12 mm leading heat seal", role: "technical", lengthMm: 12 },
+      { id: "back", label: "BACK", role: "back", lengthMm: 210 },
+      { id: "gusset", label: "BOTTOM GUSSET", role: "gusset", lengthMm: 62 },
+      { id: "front", label: "FRONT", role: "front", lengthMm: 210 },
+      { id: "trailing-seal", label: "12 mm trailing heat seal", role: "technical", lengthMm: 12 },
+    ],
+    referenceGuides: [
+      {
+        id: "left-side-seal",
+        axis: "x",
+        positionMm: 12,
+        label: "12 mm left side-seal boundary",
+        meaning: "unconfirmed",
+      },
+      {
+        id: "right-side-seal",
+        axis: "x",
+        positionMm: 162,
+        label: "12 mm right side-seal boundary",
+        meaning: "unconfirmed",
+      },
+    ],
+    sourceReview: [
+      {
+        id: "research-seal-layout",
+        observed: "150 mm face with 12 mm side allowances and a 62 mm bottom-gusset web",
+        status: "unconfirmed-meaning",
+        note: "Research geometry for editor and UV validation; converter-approved seal and trim semantics are still required.",
+      },
+    ],
+    previewAssumptions: [
+      {
+        id: "centre-inflated-depth",
+        valueMm: 42,
+        note: "The generated preview opens to a 42 mm centre-driven body depth at full inflation.",
+      },
+    ],
+  },
+  proceduralModel: {
+    kind: "centre-inflated-v1",
+    targetDepthMm: 42,
+    inflation: 1,
+    endSealMm: 12,
+    backSealMm: 14,
+    materialId: "matte-film",
+    hangHole: true,
+  },
+  halfWidth: [
+    { t: 0, v: 75 },
+    { t: 1, v: 75 },
+  ],
+  halfDepth: [
+    { t: 0, v: 18.9 },
+    { t: 0.18, v: 21 },
+    { t: 0.38, v: 21 },
+    { t: 0.5, v: 17.1 },
+    { t: 0.62, v: 8.8 },
+    { t: 0.75, v: 3.2 },
+    { t: 1, v: 0.06 },
+  ],
+  cuspExponent: 0.5,
+  topSealHeight: 12,
+  resealableZip: true,
+  zipperOffset: 21,
+  sealFin: 12,
+  notchOffset: 0,
+  notchSize: 0,
+  creaseDepth: 0.46,
+  crinkleDepth: 0.22,
+  segmentsAcross: 88,
+  segmentsUp: 132,
+  segmentsGusset: 40,
+};
+
 
 // ---------------------------------------------------------------------------
 // Parametric pouch factory: the industry-style entry point. A product is
@@ -166,6 +260,7 @@ export function makePouchSpec(params: PouchParams): PouchSpec {
 
 export const generatedPouchSpecs: PouchSpec[] = [
   nexiblesRstzPouchSpec,
+  centreInflatedStandUpPouchSpec,
   makePouchSpec({ id: "pouch-su-160", name: "Stand-Up Pouch 160\u00d7240+90", style: "stand_up", width: 160, height: 240, depth: 90 }),
   makePouchSpec({ id: "pouch-su-zip-160", name: "Stand-Up Zipper Pouch 160\u00d7240+90", style: "stand_up", width: 160, height: 240, depth: 90, zipper: true }),
   makePouchSpec({ id: "pouch-3ss-130", name: "3-Side-Seal Pouch 130\u00d7180", style: "three_side_seal", width: 130, height: 180, depth: 46 }),

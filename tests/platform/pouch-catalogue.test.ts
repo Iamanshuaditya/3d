@@ -15,6 +15,7 @@ import { resolveSurfaceDieline } from "@/lib/configurator/resolve-dieline";
  */
 
 const COFFEE_1KG = "pouch-fb-coffee-1kg";
+const CENTRE_INFLATED = "pouch-su-centre-150";
 
 test("every generated pouch spec reaches both registries", () => {
   for (const spec of generatedPouchSpecs) {
@@ -28,6 +29,51 @@ test("every generated pouch spec reaches both registries", () => {
 test("pouch SKU ids are unique", () => {
   const ids = generatedPouchSpecs.map((spec) => spec.id);
   assert.equal(new Set(ids).size, ids.length, "duplicate pouch SKU id");
+});
+
+test("centre-inflated pouch is a white registered Studio asset with its exact web", () => {
+  const spec = POUCHES[CENTRE_INFLATED];
+  const product = PRODUCTS[CENTRE_INFLATED];
+  assert.equal(spec.proceduralModel?.kind, "centre-inflated-v1");
+  assert.equal(spec.proceduralModel?.materialId, "matte-film");
+  assert.equal(product.modelYOffset, 0);
+
+  const surface = product.editableSurfaces[0];
+  assert.equal(surface.defaultBackground, "#ffffff");
+  assert.equal(surface.editorWidth, 696);
+  assert.equal(surface.editorHeight, 2024);
+  assert.equal(surface.physicalWidthCm * 10, 174);
+  assert.equal(surface.physicalHeightCm * 10, 506);
+  assert.deepEqual(surface.presentation, { kind: "continuous-web", order: 1 });
+  assert.deepEqual(
+    surface.sections?.map(({ id, yCm, widthCm, heightCm }) => ({
+      id,
+      yMm: yCm * 10,
+      widthMm: widthCm * 10,
+      heightMm: heightCm * 10,
+    })),
+    [
+      { id: "back", yMm: 12, widthMm: 174, heightMm: 210 },
+      { id: "gusset", yMm: 222, widthMm: 174, heightMm: 62 },
+      { id: "front", yMm: 284, widthMm: 174, heightMm: 210 },
+    ],
+  );
+  const dieline = resolveSurfaceDieline(product, surface);
+  assert.deepEqual(
+    dieline.references?.filter((reference) => reference.id.includes("side-seal")),
+    [
+      {
+        id: "left-side-seal",
+        label: "12 mm left side-seal boundary",
+        points: [48, 0, 48, 2024],
+      },
+      {
+        id: "right-side-seal",
+        label: "12 mm right side-seal boundary",
+        points: [648, 0, 648, 2024],
+      },
+    ],
+  );
 });
 
 test("the 1 kg flat-bottom coffee pouch carries its authored dimensions", () => {
