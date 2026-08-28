@@ -37,7 +37,7 @@ export function GET(request: NextRequest) {
 export function POST(request: NextRequest) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("personalization-dataset", owner, { limit: 20, windowMs: 60_000 });
+    await assertRateLimit("personalization-dataset", owner, { limit: 20, windowMs: 60_000 });
     const declaredBytes = Number(request.headers.get("content-length") ?? 0);
     if (declaredBytes > MAX_PERSONALIZATION_CSV_BYTES + 256 * 1024) {
       throw new ValidationError("REQUEST_TOO_LARGE", "CSV upload is too large.");

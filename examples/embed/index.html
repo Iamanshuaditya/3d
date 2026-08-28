@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Acme Packaging — customize your pouch</title>
+    <style>
+      :root { --ink: #14171a; --dim: #5b6472; --line: #e3e6ea; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: #fbfbfc;
+      }
+      .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 72px; }
+      h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0 0 6px; }
+      p.lede { margin: 0 0 28px; color: var(--dim); max-width: 60ch; }
+      #configurator {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+      }
+      #result {
+        margin-top: 20px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap;
+        color: var(--dim);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Customize your stand-up pouch</h1>
+      <p class="lede">
+        Upload your artwork, position it against the printable area, and check the
+        live 3D preview before you request a quote.
+      </p>
+
+      <div id="configurator"></div>
+      <div id="result">Waiting for the configurator…</div>
+    </div>
+
+    <!--
+      Served by the Vortex deployment. In production, pin this to the exact
+      origin you registered in VORTEX_EMBED_CLIENTS.
+    -->
+    <script src="http://localhost:3000/embed/vortex-embed.js"></script>
+    <script>
+      const output = document.getElementById("result");
+      const log = (text) => {
+        output.textContent = text;
+      };
+
+      const session = Vortex.mount(document.getElementById("configurator"), {
+        baseUrl: "http://localhost:3000",
+        client: "acme-packaging",
+        product: "nexibles-rstz-190x265-110",
+        initialHeight: 760,
+
+        onReady: (message) =>
+          log(`Ready — client ${message.clientId}, product ${message.productId}`),
+
+        onBusy: (busy, label) => {
+          if (busy) log(`${label}…`);
+        },
+
+        // The stable reference to store against your own order or quote record.
+        // Load it back later with the same project id.
+        onComplete: (result) =>
+          log(
+            [
+              `Design submitted (${result.mode}).`,
+              `project:       ${result.projectId}`,
+              `revision:      ${result.revision}`,
+              `product:       ${result.productId}`,
+              `configuration: ${result.configurationId ?? "default"}`,
+            ].join("\n"),
+          ),
+
+        onError: (error) => log(`Error [${error.code}] ${error.message}`),
+      });
+
+      // The host can drive completion from its own checkout button too.
+      window.completeDesign = () => session.complete();
+    </script>
+  </body>
+</html>

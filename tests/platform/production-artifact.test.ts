@@ -22,7 +22,7 @@ import type { ProjectOwner } from "@/platform/projects/types";
 import { ProductionPreflightError } from "@/platform/production/errors";
 import type { ProductionExporter } from "@/platform/production/exporter";
 import type { ProductionFontReader } from "@/platform/production/fonts";
-import { openVortexDatabase } from "@/server/persistence/database";
+import { openVortexDatabase, SCHEMA_VERSION } from "@/server/persistence/database";
 import { SqliteProjectRepository } from "@/server/persistence/sqlite-project-repository";
 import { ProductCatalogService } from "@/server/products/product-catalog-service";
 import { SqliteProductCatalogRepository } from "@/server/products/sqlite-product-catalog-repository";
@@ -525,11 +525,13 @@ test("later schemas preserve immutable PDFs while adding one SVG per revision", 
     mime_type: "application/pdf",
     sha256: "a".repeat(64),
   });
+  // The point is that a v5 database reaches the current schema intact, so this
+  // tracks SCHEMA_VERSION rather than restating a literal every migration.
   assert.equal(
     (database.prepare("SELECT MAX(version) AS version FROM schema_migrations").get() as {
       version: number;
     }).version,
-    16,
+    SCHEMA_VERSION,
   );
   assert.doesNotThrow(() => database.prepare(`
     INSERT INTO production_artifacts VALUES (

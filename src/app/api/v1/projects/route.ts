@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
+    await assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ValidationError("INVALID_REQUEST", "Project request is invalid.");

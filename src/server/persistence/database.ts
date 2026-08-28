@@ -3,7 +3,8 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { configuredPersistenceBackend } from "./backend";
 
-const SCHEMA_VERSION = 16;
+/** Current schema version. Exported so tests assert against it, not a literal. */
+export const SCHEMA_VERSION = 17;
 
 export type VortexDatabase = Database.Database;
 
@@ -682,6 +683,56 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (16, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 17) {
+    database.transaction(() => {
+      database.exec(`
+        -- Shared coordination tables (#25). Both are keyed so that a second
+        -- app instance contends on the same rows rather than keeping its own
+        -- private counters and its own private queue.
+        CREATE TABLE rate_limit_windows (
+          bucket_key TEXT NOT NULL,
+          window_started_at INTEGER NOT NULL,
+          hit_count INTEGER NOT NULL CHECK (hit_count >= 0),
+          expires_at INTEGER NOT NULL,
+          PRIMARY KEY (bucket_key, window_started_at)
+        );
+        CREATE INDEX rate_limit_windows_expiry_idx
+          ON rate_limit_windows(expires_at);
+
+        CREATE TABLE background_jobs (
+          id TEXT PRIMARY KEY,
+          queue TEXT NOT NULL,
+          -- Deduplicates an enqueue, so a retried request cannot run twice.
+          idempotency_key TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          status TEXT NOT NULL CHECK (status IN (
+            'queued', 'running', 'succeeded', 'failed', 'abandoned'
+          )),
+          attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+          max_attempts INTEGER NOT NULL CHECK (max_attempts >= 1),
+          run_after INTEGER NOT NULL,
+          -- Held by the worker currently running this job. A lease that
+          -- expires is recovered rather than lost with its process.
+          lease_owner TEXT,
+          lease_expires_at INTEGER,
+          last_error TEXT,
+          result_json TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX background_jobs_idempotency_idx
+          ON background_jobs(queue, idempotency_key);
+        CREATE INDEX background_jobs_claim_idx
+          ON background_jobs(queue, status, run_after, id);
+        CREATE INDEX background_jobs_lease_idx
+          ON background_jobs(status, lease_expires_at);
+
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (17, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

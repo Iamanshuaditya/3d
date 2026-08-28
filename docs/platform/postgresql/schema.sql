@@ -1,5 +1,5 @@
--- PostgreSQL target schema for Vortex SQLite schema v15.
--- This is a migration target, not a claim that the runtime adapter is complete.
+-- PostgreSQL target schema, kept at parity with the SQLite schema version.
+-- Applied by src/server/persistence/postgres/migrate.ts.
 
 CREATE TABLE schema_migrations (
   version integer PRIMARY KEY,
@@ -386,4 +386,35 @@ CREATE TABLE template_draft_events (
 );
 CREATE INDEX template_draft_events_draft_idx ON template_draft_events(draft_id, created_at, id);
 
-INSERT INTO schema_migrations(version) VALUES (16);
+-- Shared coordination tables (#25). These are what let a second instance
+-- contend on one counter and one queue instead of keeping private ones.
+CREATE TABLE rate_limit_windows (
+  bucket_key text NOT NULL,
+  window_started_at bigint NOT NULL,
+  hit_count integer NOT NULL CHECK (hit_count >= 0),
+  expires_at bigint NOT NULL,
+  PRIMARY KEY (bucket_key, window_started_at)
+);
+CREATE INDEX rate_limit_windows_expiry_idx ON rate_limit_windows(expires_at);
+
+CREATE TABLE background_jobs (
+  id text PRIMARY KEY,
+  queue text NOT NULL,
+  idempotency_key text NOT NULL,
+  payload_json jsonb NOT NULL,
+  status text NOT NULL CHECK (status IN ('queued', 'running', 'succeeded', 'failed', 'abandoned')),
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  max_attempts integer NOT NULL CHECK (max_attempts >= 1),
+  run_after bigint NOT NULL,
+  lease_owner text,
+  lease_expires_at bigint,
+  last_error text,
+  result_json jsonb,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL
+);
+CREATE UNIQUE INDEX background_jobs_idempotency_idx ON background_jobs(queue, idempotency_key);
+CREATE INDEX background_jobs_claim_idx ON background_jobs(queue, status, run_after, id);
+CREATE INDEX background_jobs_lease_idx ON background_jobs(status, lease_expires_at);
+
+INSERT INTO schema_migrations(version) VALUES (17);

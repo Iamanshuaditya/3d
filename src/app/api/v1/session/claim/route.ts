@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
         401,
       );
     }
-    assertRateLimit("project-claim", userOwner, { limit: 10, windowMs: 60_000 });
+    await assertRateLimit("project-claim", userOwner, { limit: 10, windowMs: 60_000 });
     const claimedProjectCount = await getProjectService().claimGuestProjects(
       guestOwner,
       userOwner,

@@ -113,8 +113,7 @@
     "EXTERNAL: converter-approved board caliper for the golden carton; the drawing does not record stock thickness",
     "EXTERNAL: converter-approved glue destination, tuck destination and hidden lock-bottom diagonal signs/angles",
     "EXTERNAL: a physical proof approved by a real converter before any printer profile leaves 'simulated-company' status",
-    "EXTERNAL: the authorized raw motion recording, to replace envelope conformance with frame-by-frame comparison",
-    "EXTERNAL: a paid Cloudflare Workers plan; the free plan caps script size at 3 MiB and the built Worker is 13.69 MiB"
+    "EXTERNAL: the authorized raw motion recording, to replace envelope conformance with frame-by-frame comparison"
   ],
   "verdict": "Engineering gates and the executable reference-recreation lane are green, and reference recreation is CERTIFIED at 45/50 with all ten hard gates true. Manufacturing construction certification remains false and is not obtainable from this repository: it requires converter evidence listed under blockingEvidence.",
   "defectsFoundByExecutingThisLane": [
@@ -136,13 +135,20 @@
     "evidenceLocation": "local .quality-local/ only; captures and the private source are deliberately not committed"
   },
   "deployment": {
-    "status": "BLOCKED_NOT_REPOSITORY_OWNED_ALONE",
-    "assetLimit": "CLEARED - pouch-002 Draco-compressed 26.41 MiB -> 5.72 MiB; no bundled asset exceeds 25 MiB",
-    "openNextBuild": "PASS",
-    "deployAttempted": true,
-    "deployResult": "REJECTED_BY_CLOUDFLARE_API code 10027: Worker exceeded the 3 MiB free-plan script limit",
-    "workerBundleSize": "handler.mjs 13.69 MiB",
-    "architecturalBlocker": "The server bundle embeds better-sqlite3 and sharp, which are native modules that cannot execute on Workers at all, plus pdfjs-dist, pdf-lib and three. Even on the 10 MiB paid plan the current bundle does not fit. Workers deployment requires replacing SQLite with D1/Hyperdrive and moving sharp-based image work off the Worker before it is viable.",
-    "note": "Cloudflare credentials WERE available and authenticated; this is not a credential blocker."
+    "status": "SUPPORTED_SINGLE_NODE",
+    "supportedTarget": "Node 24 standalone Next.js build. One app process, with SQLite and object storage on one persistent volume. Dockerfile and docker-compose.yml in the repository root; docs/platform/DEPLOYMENT.md is the runbook.",
+    "startupValidation": "src/instrumentation.ts validates the environment before the server accepts a request and refuses to start on a missing or invalid setting, naming each variable and how to fix it.",
+    "healthChecks": "GET /api/health is liveness (process only, so a database blip does not cause a restart loop). GET /api/ready checks configuration, database and object store separately and returns 503 with the failing check named.",
+    "verification": "CI job 'deployment artifact' builds the standalone artifact that actually ships, starts it, and runs scripts/smoke-deployment.mjs: liveness, readiness, session, project create, artwork upload, project reopen and a real 3D preview render verified by pixel variance rather than element presence.",
+    "scaledMode": "UNSUPPORTED. Rate limits and background job runners are process-local and SQLite is the only runnable adapter, so a second instance would diverge rather than scale. VORTEX_DEPLOYMENT_MODE=scaled fails closed at startup. Tracked by issue #25.",
+    "cloudflareWorkers": {
+      "status": "EXPERIMENTAL_NOT_SUPPORTED",
+      "commands": "npm run experimental:cloudflare-build / experimental:cloudflare-preview. Deliberately not named 'deploy'.",
+      "openNextBuild": "PASS",
+      "deployResult": "REJECTED_BY_CLOUDFLARE_API code 10027: Worker exceeded the 3 MiB free-plan script limit",
+      "workerBundleSize": "handler.mjs 13.69 MiB",
+      "architecturalBlocker": "The server bundle embeds better-sqlite3 and sharp, which are native modules that cannot execute on Workers at any bundle size. A larger plan limit does not address this. A viable Workers target needs SQLite replaced with D1 or Hyperdrive and sharp-based image work moved off the Worker; until then this path is experimental and unsupported.",
+      "note": "Cloudflare credentials WERE available and authenticated; this is not a credential blocker."
+    }
   }
 }

@@ -5,6 +5,7 @@ import { ProductDomainError } from "@/platform/products/errors";
 import { TemplateDomainError } from "@/platform/templates/errors";
 import type { OwnerContext } from "@/server/auth/owner-context";
 import { applyOwnerCookie, resolveOwnerContext } from "@/server/auth/owner-context";
+import { isSecureRequest } from "@/server/http/request-security";
 
 const MAX_JSON_BYTES = 5 * 1024 * 1024;
 
@@ -59,7 +60,7 @@ export async function withOwner(
   try {
     context = await resolveOwnerContext(request);
     const response = await handler(context);
-    return applyOwnerCookie(response, context);
+    return applyOwnerCookie(response, context, isSecureRequest(request));
   } catch (error) {
     if (error instanceof PlatformError) {
       const response = json(
@@ -72,7 +73,7 @@ export async function withOwner(
         },
         error.status,
       );
-      return context ? applyOwnerCookie(response, context) : response;
+      return context ? applyOwnerCookie(response, context, isSecureRequest(request)) : response;
     }
     console.error(
       JSON.stringify({
@@ -85,7 +86,7 @@ export async function withOwner(
       { error: { code: "INTERNAL_ERROR", message: "The request could not be completed." } },
       500,
     );
-    return context ? applyOwnerCookie(response, context) : response;
+    return context ? applyOwnerCookie(response, context, isSecureRequest(request)) : response;
   }
 }
 

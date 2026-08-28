@@ -1,30 +1,94 @@
-# PostgreSQL migration boundary
+# PostgreSQL and horizontal scale
 
-PostgreSQL is a reviewed target, not a runnable runtime adapter in this changeset. Set `VORTEX_DATABASE=sqlite` in every deployment. Selecting `postgresql` fails immediately with an actionable error so a deployment cannot silently use SQLite assumptions against another database.
+Issue #25. `VORTEX_DATABASE=postgresql` still **fails closed**, and this
+document says precisely what is built, what is verified, and what is left —
+because "PostgreSQL support" is exactly the kind of claim that is easy to make
+and expensive to be wrong about.
 
-## Why the adapter is gated
+## What is implemented and verified
 
-Current SQLite repositories use synchronous prepared statements and `better-sqlite3` transactions. Better Auth is also configured directly against that SQLite connection. Replacing only the connection object would break transaction semantics, compare-and-swap updates, guest claiming, idempotency, and atomic product publication. A safe adapter requires PostgreSQL implementations of every existing repository plus a PostgreSQL Better Auth adapter; it is not a mechanical SQL-dialect substitution.
+Against a real PostgreSQL 17, in
+`tests/platform/postgres-integration.test.ts`:
 
-The target schema is [schema.sql](./postgresql/schema.sql). It maps SQLite schema v16 to PostgreSQL types and preserves the important foreign keys, immutable revision/version keys, idempotency keys, owner indexes, artifact uniqueness, checksums, onboarding provenance, template drafts/audit, bulk lifecycle state, and font provenance.
+| Piece | File | Verified behaviour |
+|---|---|---|
+| Target schema | `docs/platform/postgresql/schema.sql` | All 27 tables apply cleanly; version matches the runtime's `SCHEMA_VERSION` |
+| Migration runner | `src/server/persistence/postgres/migrate.ts` | Applies in one transaction; re-running is a no-op; a newer database is refused |
+| Connection layer | `src/server/persistence/postgres/connection.ts` | Bounded pool and timeouts; transactions roll back completely on failure |
+| Shared rate limiter | `postgres-rate-limit-store.ts` | Two instances share one counter; 40 concurrent requests against a limit of 10 admit exactly 10 |
+| Distributed job queue | `postgres-job-queue-repository.ts` | Idempotent enqueue under concurrency; six workers claim six distinct jobs via `FOR UPDATE SKIP LOCKED`; a job survives the instance running it |
 
-## Disposable schema verification
-
-With `psql` available and a disposable PostgreSQL connection:
+These tests skip loudly without `VORTEX_POSTGRES_TEST_URL`. They are never run
+against a mock — every claim they make is about behaviour PostgreSQL provides,
+so a fake would prove nothing.
 
 ```bash
-VORTEX_POSTGRES_TEST_URL=postgresql://... node scripts/verify-postgresql-schema.mjs
+docker run -d -e POSTGRES_PASSWORD=vortex -e POSTGRES_DB=vortex -p 55499:5432 postgres:17
+VORTEX_POSTGRES_TEST_URL=postgresql://postgres:vortex@127.0.0.1:55499/vortex npm test
 ```
 
-The harness opens a transaction, creates a uniquely named schema, applies the complete target DDL, checks critical tables and schema version, then rolls the transaction back. It does not leave tables behind. Without the environment variable it reports an explicit skip.
+## What is not implemented
 
-## Required implementation sequence
+The twelve domain repositories and the Better Auth adapter:
 
-1. Add an async PostgreSQL connection/pool with bounded timeouts and TLS policy.
-2. Implement the existing repository contracts one bounded module at a time; do not leak SQL into domain or route code.
-3. Configure Better Auth through its PostgreSQL adapter and migrate auth timestamps/column mapping deliberately.
-4. Port transaction-critical tests first: guest claim, revision CAS, product publish, quote idempotency, one artifact per revision/kind, onboarding provenance, and personalization recovery.
-5. Add a data-copy tool that snapshots SQLite, verifies row counts/checksums/foreign keys in PostgreSQL, and only then permits cutover.
-6. Run dual-environment integration tests and a rollback rehearsal before setting `VORTEX_DATABASE=postgresql` in production.
+`ProjectRepository`, `ProductCatalogRepository`, `ProductDraftRepository`,
+`TemplateCatalogRepository`, `TemplateAssetRepository`, `TemplateDraftRepository`,
+`ProductionArtifactRepository`, `ProductionFontRepository`, `PriceQuoteRepository`,
+`PersonalizationRepository`, `OnboardingJobRepository`, `OperatorGrantRepository`.
 
-Until those gates pass, PostgreSQL support must not be advertised as runnable.
+Until those exist, the application cannot serve a request on PostgreSQL, so
+selecting it refuses at startup rather than booting into a deployment that
+cannot read a project — which would present as data loss, not as a
+configuration mistake.
+
+### Why this is not a mechanical translation
+
+The SQLite repositories are synchronous `better-sqlite3` prepared statements
+inside `database.transaction()`. Swapping the connection would quietly break
+compare-and-swap revision updates, guest claiming, quote idempotency, atomic
+product publication, and one-artifact-per-revision uniqueness. Each of those is
+a correctness property customers depend on, not a dialect difference.
+
+The repository interfaces are already `Promise`-returning, which is what makes
+the port possible at all: a PostgreSQL implementation satisfies the same
+contracts without touching domain or route code.
+
+## Remaining sequence
+
+1. Port repositories one bounded module at a time, keeping SQL out of domain
+   and route code.
+2. Configure Better Auth through its PostgreSQL adapter, mapping auth
+   timestamps and columns deliberately.
+3. Port the transaction-critical tests first: guest claim, revision CAS,
+   product publish, quote idempotency, one artifact per revision/kind,
+   onboarding provenance, personalization recovery.
+4. Add a data-copy tool that snapshots SQLite and verifies row counts,
+   checksums and foreign keys in PostgreSQL before any cutover.
+5. Run dual-environment integration tests and a rollback rehearsal.
+6. Only then remove the gate in `src/server/persistence/backend.ts`.
+
+## Single-node and scaled modes
+
+| | Single-node (supported) | Scaled (not yet) |
+|---|---|---|
+| Database | SQLite on a local volume | PostgreSQL |
+| Rate limiting | `SqliteRateLimitStore` — durable, shared in-process | `PostgresRateLimitStore` — shared across instances |
+| Background jobs | `SqliteJobQueueRepository` — persisted, lease-recovered | `PostgresJobQueueRepository` — claimed with `SKIP LOCKED` |
+| Instances | one | many |
+
+Both coordination layers already work in both modes; SQLite on a local volume
+is what cannot be shared, along with the unported repositories.
+`VORTEX_DEPLOYMENT_MODE=scaled` refuses at startup and says so.
+
+## What changed for single-node deployments
+
+Rate limits are no longer process-local counters. They are stored, so a restart
+no longer resets every limit — previously an abusive client only had to wait
+for a deploy.
+
+Background jobs are persisted before they run and claimed under a lease. A
+worker that dies mid-job no longer loses that work silently: the lease expires,
+recovery requeues it, and a job past its attempt budget is marked `abandoned`
+so the failure stays visible instead of looping forever. A worker whose lease
+expired cannot overwrite the run that replaced it, because `lease_owner` is
+part of every state-transition predicate.

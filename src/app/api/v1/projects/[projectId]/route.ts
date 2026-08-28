@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: Context) {
 export async function PATCH(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
+    await assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
     const { projectId } = await context.params;
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest, context: Context) {
 export async function DELETE(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
+    await assertRateLimit("project-mutation", owner, { limit: 120, windowMs: 60_000 });
     const { projectId } = await context.params;
     await getProjectService().archive(owner, projectId);
     return json({ archived: true });

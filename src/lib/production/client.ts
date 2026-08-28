@@ -1,3 +1,4 @@
+import { embedRequestHeaders } from "@/lib/embed/embed-request-context";
 import { ProjectApiError } from "@/lib/projects/client";
 import type {
   ProductionArtifactDto,
@@ -17,7 +18,11 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      "Content-Type": "application/json",
+      ...embedRequestHeaders(),
+      ...init?.headers,
+    },
   });
   const body = (await response.json().catch(() => ({}))) as T & ApiErrorBody;
   if (!response.ok) {

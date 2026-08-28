@@ -4,6 +4,7 @@ import type {
   ProjectSummaryDto,
 } from "@/platform/projects/types";
 import type { DesignDocument } from "@/types/configurator";
+import { embedRequestHeaders } from "@/lib/embed/embed-request-context";
 
 type ApiErrorBody = {
   error?: {
@@ -32,6 +33,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...embedRequestHeaders(),
       ...init?.headers,
     },
     credentials: "same-origin",

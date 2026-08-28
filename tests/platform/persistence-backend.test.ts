@@ -8,9 +8,11 @@ test("database backend selection defaults to SQLite and fails closed for incompl
     delete process.env.VORTEX_DATABASE;
     assert.equal(configuredPersistenceBackend(), "sqlite");
     process.env.VORTEX_DATABASE = "postgresql";
+    // Fails closed, and says where the remaining work is documented rather
+    // than just refusing.
     assert.throws(
       () => configuredPersistenceBackend(),
-      /not runnable yet/,
+      /docs\/platform\/POSTGRESQL\.md/,
     );
     process.env.VORTEX_DATABASE = "unknown";
     assert.throws(() => configuredPersistenceBackend(), /Unsupported/);

@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SEO and analytics audit of craycol.com — two critical findings, a full tracking-stack inventory, and a sequenced 30-day fix plan.">
+<title>Craycol SEO Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --paper:#E9EEF0;
+  --surface:#FFFFFF;
+  --surface-2:#F4F7F8;
+  --ink:#0F1D24;
+  --ink-2:#33474F;
+  --muted:#63797F;
+  --line:#CFDADD;
+  --line-soft:#E1E9EB;
+  --accent:#0A6F7C;
+  --accent-soft:#D8ECEE;
+  --crit:#AC3327;
+  --crit-soft:#F7E2DF;
+  --high:#9E6712;
+  --high-soft:#F8EBD6;
+  --med:#245F87;
+  --med-soft:#DEEAF2;
+  --ok:#256B4B;
+  --ok-soft:#DDEDE4;
+  --shadow:0 1px 2px rgba(15,29,36,.06), 0 8px 24px -12px rgba(15,29,36,.18);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0A1317;
+    --surface:#101E24;
+    --surface-2:#152730;
+    --ink:#E2EDF0;
+    --ink-2:#B4C7CD;
+    --muted:#8399A0;
+    --line:#263D46;
+    --line-soft:#1B3038;
+    --accent:#3FB6C4;
+    --accent-soft:#12333A;
+    --crit:#E8756A;
+    --crit-soft:#33201E;
+    --high:#D6A24F;
+    --high-soft:#312717;
+    --med:#6FAAD2;
+    --med-soft:#152936;
+    --ok:#63B98E;
+    --ok-soft:#142C23;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0A1317;
+  --surface:#101E24;
+  --surface-2:#152730;
+  --ink:#E2EDF0;
+  --ink-2:#B4C7CD;
+  --muted:#8399A0;
+  --line:#263D46;
+  --line-soft:#1B3038;
+  --accent:#3FB6C4;
+  --accent-soft:#12333A;
+  --crit:#E8756A;
+  --crit-soft:#33201E;
+  --high:#D6A24F;
+  --high-soft:#312717;
+  --med:#6FAAD2;
+  --med-soft:#152936;
+  --ok:#63B98E;
+  --ok-soft:#142C23;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:16.5px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px 96px}
+.col{max-width:70ch}
+
+/* ---------- masthead ---------- */
+.mast{
+  border-bottom:1px solid var(--line);
+  padding:56px 0 32px;
+  margin-bottom:44px;
+}
+.eyebrow{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:11.5px;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin:0 0 18px;
+}
+h1{
+  font-family:Archivo,"Helvetica Neue",sans-serif;
+  font-weight:800;
+  font-size:clamp(2.1rem,1.2rem+3.4vw,3.5rem);
+  line-height:1.03;
+  letter-spacing:-.028em;
+  margin:0 0 20px;
+  text-wrap:balance;
+}
+.dek{
+  font-size:clamp(1.02rem,.98rem+.3vw,1.16rem);
+  color:var(--ink-2);
+  max-width:64ch;
+  margin:0 0 30px;
+}
+.meta-row{
+  display:flex;flex-wrap:wrap;gap:10px 28px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+}
+.meta-row b{color:var(--ink-2);font-weight:500}
+
+/* ---------- score band ---------- */
+.scoreband{
+  display:grid;
+  grid-template-columns:minmax(200px,260px) 1fr;
+  gap:32px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:28px;
+  box-shadow:var(--shadow);
+  margin-bottom:20px;
+}
+@media(max-width:720px){.scoreband{grid-template-columns:1fr;gap:24px}}
+.bignum{
+  font-family:Archivo,sans-serif;
+  font-weight:800;
+  font-size:5.6rem;
+  line-height:.86;
+  letter-spacing:-.04em;
+  color:var(--high);
+  font-variant-numeric:tabular-nums;
+}
+.bignum small{font-size:1.5rem;color:var(--muted);letter-spacing:-.01em}
+.scorelabel{
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);margin-top:14px;
+}
+.bars{display:flex;flex-direction:column;gap:11px}
+.bar{display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:baseline}
+.bar-head{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  grid-column:1/-1;
+}
+.bar-name{font-size:13.5px;font-weight:500}
+.bar-name span{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:11px;margin-left:7px}
+.bar-val{font-family:"IBM Plex Mono",monospace;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.track{grid-column:1/-1;height:5px;background:var(--line-soft);border-radius:0;overflow:hidden}
+.fill{height:100%;display:block}
+
+/* ---------- sections ---------- */
+section{margin-top:60px;scroll-margin-top:20px}
+h2{
+  font-family:Archivo,sans-serif;font-weight:700;
+  font-size:clamp(1.4rem,1.1rem+1.1vw,1.95rem);
+  letter-spacing:-.02em;line-height:1.14;
+  margin:0 0 10px;text-wrap:balance;
+}
+h3{
+  font-family:Archivo,sans-serif;font-weight:700;
+  font-size:1.06rem;letter-spacing:-.012em;line-height:1.3;
+  margin:0 0 8px;text-wrap:balance;
+}
+.sec-rule{height:2px;background:var(--ink);width:38px;margin:0 0 22px}
+p{margin:0 0 16px}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid color-mix(in oklab,var(--accent) 35%,transparent)}
+a:hover{border-bottom-color:var(--accent)}
+a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+strong{font-weight:600}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.875em}
+code{background:var(--surface-2);border:1px solid var(--line-soft);padding:.1em .38em;border-radius:3px;word-break:break-word}
+
+/* ---------- findings ---------- */
+.finding{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:3px solid var(--muted);
+  border-radius:3px;
+  padding:22px 24px;
+  margin-bottom:16px;
+  box-shadow:var(--shadow);
+}
+.finding.crit{border-left-color:var(--crit)}
+.finding.high{border-left-color:var(--high)}
+.finding.med{border-left-color:var(--med)}
+.f-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:11px}
+.pill{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;
+  padding:3px 8px;border-radius:2px;white-space:nowrap;
+}
+.pill.crit{background:var(--crit-soft);color:var(--crit)}
+.pill.high{background:var(--high-soft);color:var(--high)}
+.pill.med{background:var(--med-soft);color:var(--med)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.ghost{background:var(--surface-2);color:var(--muted);border:1px solid var(--line-soft)}
+.finding p{font-size:15.2px;margin-bottom:12px}
+.finding p:last-child{margin-bottom:0}
+.finding ul{margin:0 0 14px;padding-left:20px;font-size:15.2px}
+.finding li{margin-bottom:6px}
+.fix{
+  border-top:1px solid var(--line-soft);
+  margin-top:16px;padding-top:14px;
+  font-size:14.4px;color:var(--ink-2);
+}
+.fix b{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;font-weight:600;
+}
+
+/* ---------- data ---------- */
+.tablewrap{overflow-x:auto;margin:0 0 20px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;
+  background:var(--surface-2);border-bottom:1px solid var(--line);
+}
+td.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;text-align:right}
+tr:last-child td{border-bottom:none}
+td.dom{font-family:"IBM Plex Mono",monospace;font-size:12.5px}
+
+.statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden;margin:0 0 22px}
+.stat{background:var(--surface);padding:16px 18px}
+.stat .v{font-family:Archivo,sans-serif;font-weight:700;font-size:1.72rem;letter-spacing:-.025em;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .k{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.stat .n{font-size:12.5px;color:var(--ink-2);margin-top:6px;line-height:1.4;white-space:normal}
+.v.crit{color:var(--crit)} .v.high{color:var(--high)} .v.ok{color:var(--ok)} .v.med{color:var(--med)}
+
+/* ---------- callout ---------- */
+.callout{
+  background:var(--accent-soft);
+  border:1px solid color-mix(in oklab,var(--accent) 28%,transparent);
+  border-radius:3px;padding:20px 22px;margin:0 0 22px;
+}
+.callout p{margin-bottom:10px;font-size:15px}
+.callout p:last-child{margin-bottom:0}
+.callout h3{margin-bottom:8px}
+
+/* ---------- checklist / plan ---------- */
+.plan{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.step{background:var(--surface);padding:18px 22px;display:grid;grid-template-columns:auto 1fr;gap:0 18px;align-items:start}
+.step-n{
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;
+  color:var(--muted);padding-top:3px;font-variant-numeric:tabular-nums;
+}
+.step h3{margin-bottom:5px}
+.step p{font-size:14.6px;color:var(--ink-2);margin-bottom:0}
+.step .why{font-size:13.4px;color:var(--muted);margin-top:7px}
+
+.toc{
+  background:var(--surface);border:1px solid var(--line);border-radius:3px;
+  padding:20px 24px;margin-bottom:8px;
+}
+.toc ol{margin:0;padding-left:20px;columns:2;column-gap:36px;font-size:14.4px}
+@media(max-width:640px){.toc ol{columns:1}}
+.toc li{margin-bottom:6px;break-inside:avoid}
+.toc a{border-bottom:none;color:var(--ink-2)}
+.toc a:hover{color:var(--accent)}
+
+footer{
+  margin-top:72px;padding-top:26px;border-top:1px solid var(--line);
+  font-size:13.2px;color:var(--muted);
+}
+ul.plain{padding-left:20px;margin:0 0 18px}
+ul.plain li{margin-bottom:8px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <p class="eyebrow">SEO &amp; Analytics Audit · craycol.com</p>
+  <h1>Two problems are holding this site back. Everything else is housekeeping.</h1>
+  <p class="dek">Craycol’s content and on-page basics are better than most Shopify stores its size — the collection copy is written for real search intent and the blog is already ranking. But the homepage ships <strong>26 MB of autoplay video to every visitor</strong>, and the backlink profile has been filled with <strong>bought PBN links</strong> that carry real penalty risk.</p>
+  <div class="meta-row">
+    <span><b>Audited</b> 25 Aug 2026</span>
+    <span><b>Platform</b> Shopify + Cloudflare</span>
+    <span><b>Market</b> India (en-IN)</span>
+    <span><b>URLs in sitemap</b> 164</span>
+    <span><b>Pages crawled</b> 69</span>
+  </div>
+</header>
+
+<div class="scoreband">
+  <div>
+    <div class="bignum">54<small>/100</small></div>
+    <div class="scorelabel">SEO health score</div>
+    <p style="font-size:13.4px;color:var(--muted);margin:14px 0 0;line-height:1.5">Weighted across seven categories. Performance is what drags the number down; it is also the fastest thing to fix.</p>
+  </div>
+  <div class="bars">
+    <div class="bar"><div class="bar-head"><span class="bar-name">Technical SEO <span>22%</span></span><span class="bar-val">72</span></div><span class="track"><span class="fill" style="width:72%;background:var(--ok)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">Content quality <span>23%</span></span><span class="bar-val">58</span></div><span class="track"><span class="fill" style="width:58%;background:var(--med)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">On-page SEO <span>20%</span></span><span class="bar-val">55</span></div><span class="track"><span class="fill" style="width:55%;background:var(--med)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">AI search readiness <span>10%</span></span><span class="bar-val">62</span></div><span class="track"><span class="fill" style="width:62%;background:var(--med)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">Structured data <span>10%</span></span><span class="bar-val">45</span></div><span class="track"><span class="fill" style="width:45%;background:var(--high)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">Images <span>5%</span></span><span class="bar-val">35</span></div><span class="track"><span class="fill" style="width:35%;background:var(--high)"></span></span></div>
+    <div class="bar"><div class="bar-head"><span class="bar-name">Performance (CWV) <span>10%</span></span><span class="bar-val">18</span></div><span class="track"><span class="fill" style="width:18%;background:var(--crit)"></span></span></div>
+  </div>
+</div>
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#critical">The two critical findings</a></li>
+    <li><a href="#analytics">Your analytics stack</a></li>
+    <li><a href="#high">High-priority fixes</a></li>
+    <li><a href="#medium">Medium-priority fixes</a></li>
+    <li><a href="#working">What’s already working</a></li>
+    <li><a href="#gaps">What I couldn’t measure</a></li>
+    <li><a href="#plan">The 30-day plan</a></li>
+  </ol>
+</nav>
+
+<!-- ================= CRITICAL ================= -->
+<section id="critical">
+  <h2>The two critical findings</h2>
+  <div class="sec-rule"></div>
+
+  <div class="finding crit">
+    <div class="f-top">
+      <span class="pill crit">Critical</span>
+      <span class="pill ghost">Performance</span>
+      <span class="pill ghost">Every page view</span>
+    </div>
+    <h3>The homepage downloads 26 MB of video — and mobile downloads both the mobile and the desktop copy</h3>
+    <p>There are two <code>&lt;video&gt;</code> elements in the hero banner. Both are set to <code>autoplay</code> with <code>preload="auto"</code>, which forces the browser to pull the entire file before it can settle. On a phone, the desktop video is hidden by CSS — but it is still fully downloaded.</p>
+
+    <div class="statgrid">
+      <div class="stat"><div class="v crit">28.6 MB</div><div class="k">Mobile page weight</div><div class="n">26 MB of it is the two hero videos</div></div>
+      <div class="stat"><div class="v crit">15.8 s</div><div class="k">Mobile load event</div><div class="n">Measured on a fast wired connection</div></div>
+      <div class="stat"><div class="v high">258</div><div class="k">Requests</div><div class="n">Across 39 third-party hosts</div></div>
+      <div class="stat"><div class="v high">Video</div><div class="k">LCP element</div><div class="n">Largest paint waits on the video</div></div>
+    </div>
+
+    <p>The two files are 13.0 MB (<span class="mono">c6c1650d…mp4</span>, desktop) and 12.8 MB (<span class="mono">49f2d0ab…mp4</span>, mobile). For context, a landing page should sit under 1 MB total. A customer in Pune on 4G is paying for roughly 26 MB of data before they see a product — and Google measures Core Web Vitals from exactly those real-world sessions.</p>
+    <p>One piece of good news: layout stability is excellent (CLS 0.001). The problem is purely payload.</p>
+
+    <div class="fix">
+      <b>Fix</b>
+      Set <code>preload="none"</code> on both videos and add a lightweight <code>poster</code> image so the hero paints instantly. Load only the variant that matches the viewport — swap the <code>src</code> in with JS behind a <code>matchMedia</code> check, rather than rendering both and hiding one. Then re-encode: these should be 1–2 MB each at H.264/WebM, not 13 MB. Expect mobile load to drop from ~16 s to under 3 s.
+      <p style="margin:10px 0 0;font-size:13.4px;color:var(--muted)">How you’ll know it worked: mobile page weight under 3 MB in DevTools, and the LCP element becomes the poster image or headline instead of the video.</p>
+    </div>
+  </div>
+
+  <div class="finding crit">
+    <div class="f-top">
+      <span class="pill crit">Critical</span>
+      <span class="pill ghost">Off-page</span>
+      <span class="pill ghost">Penalty risk</span>
+    </div>
+    <h3>Someone has been buying PBN backlinks, and the footprint is unmistakable</h3>
+    <p>Craycol has 287 backlinks from 149 referring domains, at a Semrush Authority Score of 9. The composition is the problem, not the count.</p>
+
+    <div class="statgrid">
+      <div class="stat"><div class="v crit">41</div><div class="k">Domains, one anchor</div><div class="n">All linking with a “buy backlinks” sales pitch as the anchor text</div></div>
+      <div class="stat"><div class="v crit">68%</div><div class="k">Domains at AS ≤ 2</div><div class="n">102 of 149 — 6 of them score zero</div></div>
+      <div class="stat"><div class="v crit">55%</div><div class="k">On 2 IP footprints</div><div class="n">82 domains share Singapore and Moldova subnets</div></div>
+      <div class="stat"><div class="v high">10×</div><div class="k">Growth since Sep 2024</div><div class="n">15 → 149 referring domains, steepest from Nov 2025</div></div>
+    </div>
+
+    <p>The single clearest signal: <strong>41 separate domains link to craycol.com using this exact anchor text</strong> —</p>
+    <p><code>high quality dofollow backlinks da 50 pa 40 premium pbn network service craycol.com rank first page google fast seo link building buy backlinks online cheap</code></p>
+    <p>That is a link vendor advertising its own service and using Craycol as the demo. Alongside it, 27 referring domains name themselves outright: <span class="mono">backlinkhouse.com</span>, <span class="mono">backlinksbank.com</span>, <span class="mono">backlinkstree.com</span>, <span class="mono">backlinkon.com</span>, <span class="mono">backlinkshouse.com</span>, <span class="mono">all-aged-domains.com</span>, <span class="mono">domraider.eu.com</span>, <span class="mono">linksnatcher.com</span>, <span class="mono">seogeko.shop</span>, <span class="mono">directorylinkservice.com</span> and more. Five are gambling, adult or pharma spam: <span class="mono">ufabettererm4.com</span>, <span class="mono">betwinnermirror.com</span>, <span class="mono">bestnz-poker-casinoslot.com</span>, <span class="mono">canadapsilocybin.com</span>, <span class="mono">blacksonwhites.com</span>.</p>
+
+    <p>Hosting confirms the network structure — these aren’t independent sites:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Shared IP</th><th class="num">Referring domains</th><th>Signature</th></tr></thead>
+        <tbody>
+          <tr><td class="dom">118.139.181.85</td><td class="num">27</td><td>Singapore link farm</td></tr>
+          <tr><td class="dom">195.20.19.178</td><td class="num">16</td><td>Moldova PBN cluster</td></tr>
+          <tr><td class="dom">118.139.176.46</td><td class="num">13</td><td>Singapore link farm</td></tr>
+          <tr><td class="dom">184.168.115.60</td><td class="num">7</td><td>Directory farm</td></tr>
+          <tr><td class="dom">118.139.161.199</td><td class="num">5</td><td>The five <span class="mono">backlink*.com</span> domains</td></tr>
+          <tr><td class="dom">118.139.178.200</td><td class="num">4</td><td>Singapore link farm</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>A further 39 referring domains (26%) sit on TLDs heavily associated with spam — <span class="mono">.sbs</span>, <span class="mono">.cfd</span>, <span class="mono">.monster</span>, <span class="mono">.icu</span>, <span class="mono">.homes</span>, <span class="mono">.top</span>, <span class="mono">.space</span>, <span class="mono">.cv</span>, <span class="mono">.art</span>.</p>
+
+    <div class="callout">
+      <h3>What this actually risks</h3>
+      <p>Google’s SpamBrain generally ignores links like these rather than penalising the target — most of the time, bought links simply do nothing. But the volume here is unusual relative to the site’s size, the anchor text is a commercial sales pitch rather than anything topical, and gambling and adult domains are in the mix. That combination is what manual actions get issued for.</p>
+      <p>The honest read: this is more likely wasted money than an active penalty right now. It is still worth cleaning up, because the downside is a manual action that takes months to lift.</p>
+    </div>
+
+    <div class="fix">
+      <b>Fix</b>
+      First, find out who bought these and stop the campaign — otherwise the disavow file goes stale within weeks. Then export the full referring-domain list from Search Console (<em>Links → Top linking sites</em>), tag every domain matching the patterns above, and submit a domain-level disavow file. Do not attempt outreach removal with link vendors; disavow is the right tool.
+      <p style="margin:10px 0 0;font-size:13.4px;color:var(--muted)">How you’ll know it worked: check Search Console → Security &amp; Manual Actions first. If it says “No issues detected,” you are cleaning up preventatively and should expect no ranking change — that is the correct outcome, not a failed fix.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ANALYTICS ================= -->
+<section id="analytics">
+  <h2>Your analytics stack</h2>
+  <div class="sec-rule"></div>
+  <p class="col">You asked specifically about analytics. I loaded the site in a real browser rather than reading the HTML, because Shopify runs several trackers in a sandboxed “web pixel” that never appears in the page source. Here is everything actually firing:</p>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Tool</th><th>ID / host</th><th>Status</th><th>What it covers</th></tr></thead>
+      <tbody>
+        <tr><td>Google Analytics 4</td><td class="dom">G-MVQB7Q0R5Q</td><td><span class="pill ok">Live</span></td><td>Sessions, traffic sources, funnels</td></tr>
+        <tr><td>Google Ads</td><td class="dom">AW-11508428529</td><td><span class="pill ok">Live</span></td><td>Conversion tracking, remarketing</td></tr>
+        <tr><td>Google Merchant Center</td><td class="dom">merchant-center-analytics.goog</td><td><span class="pill ok">Live</span></td><td>Shopping feed is active</td></tr>
+        <tr><td>Search Console</td><td class="dom">verified via meta tag</td><td><span class="pill ok">Live</span></td><td>Impressions, queries, indexation</td></tr>
+        <tr><td>Meta Pixel</td><td class="dom">connect.facebook.net</td><td><span class="pill ok">Live</span></td><td>Facebook / Instagram ads</td></tr>
+        <tr><td>Microsoft Clarity</td><td class="dom">clarity.ms</td><td><span class="pill ok">Live</span></td><td>Session recordings, heatmaps</td></tr>
+        <tr><td>Klaviyo</td><td class="dom">static-tracking.klaviyo.com</td><td><span class="pill ok">Live</span></td><td>Email / SMS, abandoned cart</td></tr>
+        <tr><td>Shopify Analytics</td><td class="dom">trekkie / otlp</td><td><span class="pill ok">Live</span></td><td>Native store reporting</td></tr>
+        <tr><td>Bing Webmaster Tools</td><td class="dom">—</td><td><span class="pill high">Missing</span></td><td>Feeds Copilot &amp; ChatGPT citations</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="col">Also loading: Razorpay (payments), Shiprocket (logistics), Blockify (fraud), Dondy (WhatsApp chat), Synctrack. The measurement side is genuinely well covered — you are not flying blind on traffic or ad spend.</p>
+
+  <div class="callout">
+    <h3>The one gap worth closing</h3>
+    <p><strong>Bing Webmaster Tools is not set up.</strong> That matters more than it used to: Microsoft Copilot and a share of ChatGPT’s web results are served from the Bing index. Verification takes about five minutes and you can import the site straight from Search Console. It also unlocks IndexNow, which pushes new products to Bing within minutes instead of waiting for a crawl.</p>
+  </div>
+
+  <p class="col">One thing to check inside the tools rather than from outside: whether Google Ads and Meta are running <strong>server-side conversion tracking</strong> (Conversions API). It isn’t visible from the browser. Without it, iOS conversion data is materially under-reported, which quietly makes your ad ROAS look worse than it is.</p>
+</section>
+
+<!-- ================= HIGH ================= -->
+<section id="high">
+  <h2>High-priority fixes</h2>
+  <div class="sec-rule"></div>
+
+  <div class="finding high">
+    <div class="f-top"><span class="pill high">High</span><span class="pill ghost">Structured data</span></div>
+    <h3>Every product page ships two conflicting Product schemas</h3>
+    <p>Product pages contain two separate <code>Product</code> JSON-LD blocks — one from the theme, one from an app — with different offer structures and price formats. There are also two <code>Organization</code> blocks, one of which lists eight empty strings in its <code>sameAs</code> array. Google has to guess which is authoritative, and duplicate entities are a known cause of rich results silently not appearing.</p>
+    <p>Missing entirely across all 69 pages crawled: <code>BreadcrumbList</code> (0 pages), and <code>ItemList</code> or <code>CollectionPage</code> on all 21 collection pages.</p>
+    <div class="fix"><b>Fix</b> Pick one source of truth — keep the theme’s block, disable the app’s duplicate — and strip the empty <code>sameAs</code> entries. Add <code>BreadcrumbList</code> sitewide and <code>ItemList</code> to collections. Validate in Google’s Rich Results Test before and after.</div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-top"><span class="pill high">High</span><span class="pill ghost">Images</span><span class="pill ghost">Accessibility</span></div>
+    <h3>38% of images have no alt attribute at all</h3>
+    <p>Across the pages crawled: 5,407 <code>&lt;img&gt;</code> tags, of which <strong>2,045 carry no <code>alt</code> attribute</strong> and a further 933 have an empty <code>alt=""</code>. Empty alt is correct for decorative images; a missing attribute is not. For an eyewear brand this is a direct loss — Google Images is a real discovery channel for sunglasses, and alt text is how product photos qualify.</p>
+    <div class="fix"><b>Fix</b> Set alt text at the Shopify media level so it propagates everywhere the image is used. Describe the product concretely — “Craycol Kasa Kai blue reflective polarised sport sunglasses, side profile” beats “sunglasses”. Prioritise the 125 product pages.</div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-top"><span class="pill high">High</span><span class="pill ghost">On-page</span></div>
+    <h3>Every title tag wastes 27 characters on a redundant brand suffix</h3>
+    <p>All 69 pages append <code>– Craycol Active Sunglasses</code>, even when the title already ends in “| Craycol”. 26 titles run past 70 characters and get truncated in results — the longest is 106 characters:</p>
+    <p><code>Prescription Sport Sunglasses in India | Complete Guide for Athletes | Craycol – Craycol Active Sunglasses</code></p>
+    <div class="fix"><b>Fix</b> Remove the theme-level suffix in <code>theme.liquid</code> and keep the hand-written titles, which are already good. Target 55–60 characters.</div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-top"><span class="pill high">High</span><span class="pill ghost">Content</span><span class="pill ghost">Indexation</span></div>
+    <h3>Two empty blog pages are duplicating your real articles</h3>
+    <p><code>/blogs/running-without-sunglasses-think-again</code> contains <strong>5 words</strong>. <code>/blogs/ironman-70-3-the-journey-beyond-the-finish-line</code> contains <strong>8 words</strong>. Both are in the sitemap, both canonicalise to themselves, and both carry the same title as the genuine article at <code>/blogs/news/…</code>. These are blog <em>categories</em> created by accident.</p>
+    <div class="fix"><b>Fix</b> Delete both blog categories in Shopify admin and 301 them to the real articles. They will drop out of the sitemap automatically.</div>
+  </div>
+
+  <div class="finding high">
+    <div class="f-top"><span class="pill high">High</span><span class="pill ghost">On-page</span></div>
+    <h3>19 pages have no meta description; 5 say “Design by GemPages”</h3>
+    <p>Nine collections ship with no description at all — including <code>/collections/cricket</code>, <code>/collections/printed</code>, <code>/collections/new</code> and <code>/collections/accessories</code>. Worse, five pages carry a literal page-builder default as their description: <code>/pages/privacy-policy</code>, <code>/pages/cookie-policy</code>, <code>/pages/t-c</code>, and both <code>landing-page-dec-17-21-20-11</code> and <code>information-page-dec-22-14-27-20</code>.</p>
+    <p>Four pages also have no <code>&lt;h1&gt;</code>: FAQs, Shipping Policy, Return &amp; Exchange Policy, and the HTML sitemap page.</p>
+    <div class="fix"><b>Fix</b> Write descriptions for the nine collections first — those are commercial pages. Purge the GemPages defaults. Give the FAQ page a real H1; it is a genuine ranking asset for “are Craycol sunglasses prescription-ready” style queries.</div>
+  </div>
+</section>
+
+<!-- ================= MEDIUM ================= -->
+<section id="medium">
+  <h2>Medium-priority fixes</h2>
+  <div class="sec-rule"></div>
+
+  <div class="finding med">
+    <div class="f-top"><span class="pill med">Medium</span><span class="pill ghost">Structured data</span></div>
+    <h3>No review schema — and no review app to generate it</h3>
+    <p>Zero pages carry <code>aggregateRating</code>. The product pages show a “Hear it from our Community” section, but there is no review platform behind it (no Judge.me, Loox, Yotpo or Okendo detected). Star ratings in search results are one of the largest click-through gains available to a product page, and Google requires them to come from genuine, on-page, verifiable reviews.</p>
+    <div class="fix"><b>Fix</b> Install a review app and collect real reviews via post-purchase email — Klaviyo is already in place to send them. The schema then generates itself. Do not hand-code ratings; fabricated review markup is an explicit structured-data violation.</div>
+  </div>
+
+  <div class="finding med">
+    <div class="f-top"><span class="pill med">Medium</span><span class="pill ghost">On-page</span></div>
+    <h3>Collection H1s read “Collection: Running”</h3>
+    <p>All 21 collections use the theme default. The title tag for that page is well-written — <em>“Running Sunglasses in India | Lightweight &amp; Antislip”</em> — but the H1 the page actually shows is <code>Collection: Running</code>, which matches no query anyone types.</p>
+    <div class="fix"><b>Fix</b> Change the theme to output the collection title alone, and rename collections to their search-intent phrasing: “Running Sunglasses”, “Cycling Sunglasses”, “Prescription Sport Sunglasses”.</div>
+  </div>
+
+  <div class="finding med">
+    <div class="f-top"><span class="pill med">Medium</span><span class="pill ghost">Performance</span></div>
+    <h3>Razorpay’s checkout bundle loads on the homepage</h3>
+    <p>The page contacts 39 third-party hosts, including four Razorpay domains, plus <span class="mono">cdn.jsdelivr.net</span>, <span class="mono">unpkg.com</span>, <span class="mono">cdn.nfcube.com</span> and <span class="mono">risingsigma.com</span>. Payment scripts only need to exist on cart and checkout. Eight images are also served at more than 2.2× their displayed size.</p>
+    <div class="fix"><b>Fix</b> Gate the Razorpay script to cart/checkout templates. Audit whether the jsDelivr and unpkg dependencies are still used by the live theme — they are frequently left behind by removed apps.</div>
+  </div>
+
+  <div class="finding med">
+    <div class="f-top"><span class="pill med">Medium</span><span class="pill ghost">Content gap</span></div>
+    <h3>You’re invisible for prescription sport eyewear queries</h3>
+    <p>Craycol sells prescription sport sunglasses — there is a <code>/collections/powered-sunglasses</code> collection and RX variants across the catalogue. But a live search for <em>“prescription cycling sunglasses India buy online”</em> returns glassesindia.com, reccy.in and wizbiker.com, with no Craycol result. This is the highest commercial-intent segment of the category and the one where a specialist brand should win.</p>
+    <div class="fix"><b>Fix</b> The article at <code>/blogs/news/prescription-sport-sunglasses-in-india-…</code> is the right asset; it needs internal links pointing at it from every RX product page and from the powered-sunglasses collection. Add a dedicated landing page targeting “prescription cycling sunglasses India” separately from the running variant.</div>
+  </div>
+</section>
+
+<!-- ================= WORKING ================= -->
+<section id="working">
+  <h2>What’s already working</h2>
+  <div class="sec-rule"></div>
+  <p class="col">It’s worth being clear about this, because it changes what the priorities are. The foundations here are better than the score suggests — the score is being dragged down almost entirely by page weight.</p>
+  <ul class="plain col">
+    <li><strong>The blog is ranking.</strong> “Best Running Sunglasses in India 2026” came back in position 2 on a live search for <em>best running sunglasses India polarised UV400</em>, above Knockaround and several international retailers.</li>
+    <li><strong>Titles and descriptions are written by a human,</strong> not generated. “Running Sunglasses in India | Lightweight &amp; Antislip” is a genuinely good title. Most Shopify stores at this size have nothing.</li>
+    <li><strong>Technical hygiene is clean.</strong> HTTP→HTTPS and non-www→www both 301 correctly, canonicals are correct on every page, the 404 returns a real 404, and the sitemap structure is valid.</li>
+    <li><strong>Product schema exists on all 125 products</strong> with SKU, price, currency, availability and brand — it just needs de-duplicating.</li>
+    <li><strong>Layout stability is excellent</strong> — CLS of 0.001 is close to perfect, and that is the CWV metric that is hardest to retrofit.</li>
+    <li><strong>You have real editorial backlinks</strong> under the spam: bumsonthesaddle.com and thebikeaffair.com both stock and link to Craycol products, and nextlap.in and aethlete.com are relevant endurance-sport sites. That is the shape the rest of the profile should look like.</li>
+    <li><strong>AI-agent readiness is handled</strong> by Shopify — <code>agents.md</code>, UCP/MCP endpoints and an agentic-discovery sitemap are all in place automatically.</li>
+  </ul>
+</section>
+
+<!-- ================= GAPS ================= -->
+<section id="gaps">
+  <h2>What I couldn’t measure</h2>
+  <div class="sec-rule"></div>
+  <p class="col">So you know where the edges of this audit are:</p>
+  <ul class="plain col">
+    <li><strong>Keyword rankings and organic traffic volumes.</strong> The Semrush plan connected here only authorises the Backlinks API — keyword, position and traffic reports returned authorisation errors. The backlink data above is real Semrush data; there are no keyword volume figures in this report because I could not retrieve any.</li>
+    <li><strong>Real-world Core Web Vitals.</strong> No Google API key is configured, so there is no CrUX field data or Search Console data here. All performance numbers are lab measurements from a fast connection — real Indian mobile users will be <em>worse</em> than the 15.8 s figure, not better.</li>
+    <li><strong>96 of 125 product pages.</strong> Shopify’s edge rate-limited my crawler after the first 69 pages. The product template is identical across SKUs, so the on-page findings generalise, but the per-product title and description counts are from a 29-product sample.</li>
+  </ul>
+  <div class="callout">
+    <p>The fastest way to close all three gaps: connect Search Console and GA4 to this audit. Search Console alone gives you actual impressions, average positions and click-through rates per query — which is better data than any third-party tool sells, and it is free.</p>
+  </div>
+</section>
+
+<!-- ================= PLAN ================= -->
+<section id="plan">
+  <h2>The 30-day plan</h2>
+  <div class="sec-rule"></div>
+  <p class="col">Sequenced by dependency, not by effort. Steps 1 and 2 are worth more than steps 3–8 combined.</p>
+
+  <div class="plan">
+    <div class="step"><div class="step-n">01</div><div>
+      <h3>Fix the hero video</h3>
+      <p>Add <code>preload="none"</code> and a poster image, load only the matching viewport variant, re-encode both files to 1–2 MB.</p>
+      <p class="why">Week 1 · Blocks nothing else, but it is the single largest gain available and affects every visitor and every ad click.</p>
+    </div></div>
+    <div class="step"><div class="step-n">02</div><div>
+      <h3>Find out who bought the backlinks, and stop them</h3>
+      <p>Check Search Console → Manual Actions first. Then trace the campaign — an agency, a freelancer, or a Fiverr order — and cancel it before building the disavow file.</p>
+      <p class="why">Week 1 · Disavowing while the campaign is still running means redoing it every month.</p>
+    </div></div>
+    <div class="step"><div class="step-n">03</div><div>
+      <h3>Submit the disavow file</h3>
+      <p>Export top linking sites from Search Console, tag the PBN clusters and spam TLDs identified above, submit at domain level.</p>
+      <p class="why">Week 2 · Depends on step 2.</p>
+    </div></div>
+    <div class="step"><div class="step-n">04</div><div>
+      <h3>Delete the two empty blog category pages</h3>
+      <p>301 them to the real articles. Five-minute job in Shopify admin.</p>
+      <p class="why">Week 2 · Removes the only duplicate-content issue on the site.</p>
+    </div></div>
+    <div class="step"><div class="step-n">05</div><div>
+      <h3>Strip the title suffix, write the 19 missing descriptions</h3>
+      <p>One <code>theme.liquid</code> edit plus a copy pass on nine collections and the policy pages.</p>
+      <p class="why">Week 2 · Directly changes what appears in search results, so measurable in Search Console CTR within ~3 weeks.</p>
+    </div></div>
+    <div class="step"><div class="step-n">06</div><div>
+      <h3>De-duplicate the schema, add breadcrumbs</h3>
+      <p>Disable the app’s duplicate Product block, clear the empty <code>sameAs</code>, add <code>BreadcrumbList</code> sitewide and <code>ItemList</code> to collections.</p>
+      <p class="why">Week 3 · Validate in Rich Results Test before and after.</p>
+    </div></div>
+    <div class="step"><div class="step-n">07</div><div>
+      <h3>Alt text for the product catalogue</h3>
+      <p>Set it at Shopify media level so it applies everywhere the image appears. 125 products, batchable.</p>
+      <p class="why">Week 3–4 · Opens Google Images as a channel; leading indicator is image impressions in Search Console.</p>
+    </div></div>
+    <div class="step"><div class="step-n">08</div><div>
+      <h3>Verify Bing Webmaster Tools and install a review app</h3>
+      <p>Import from Search Console, enable IndexNow. Start collecting reviews through Klaviyo so <code>aggregateRating</code> becomes available honestly.</p>
+      <p class="why">Week 4 · Bing feeds Copilot and part of ChatGPT; reviews unlock star ratings in results.</p>
+    </div></div>
+  </div>
+</section>
+
+<footer>
+  <p>Audit of craycol.com performed 25 August 2026. Backlink data from the Semrush Backlinks API; performance and analytics measured in a headless Chromium session at 1440×900 and 390×844; 69 of 164 sitemap URLs crawled directly. Keyword volume, ranking-position and field-CWV data were unavailable — see “What I couldn’t measure”.</p>
+</footer>
+
+</div>
+</body>
+</html>

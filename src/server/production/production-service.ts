@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { normalizePrintJob } from "@/lib/print/normalize-job";
 import { preflightPrintJob } from "@/lib/print/preflight";
+import { withProvenanceCheck } from "@/lib/print/provenance-preflight";
 import type { PreflightIssue, PreflightReport } from "@/lib/print/types";
 import { collectAssetIds, parseDesignDocument } from "@/platform/projects/design-document";
 import {
@@ -305,14 +306,17 @@ export class ProductionService {
         if (await this.fontRegistry?.find(family, 400, "normal")) registeredFamilies.add(family);
       }));
     }
-    const report = withServerFontCheck(
-      withAssetChecks(
-        preflightPrintJob(job, this.clock()),
-        issues,
-        referencedIds.length,
+    const report = withProvenanceCheck(
+      withServerFontCheck(
+        withAssetChecks(
+          preflightPrintJob(job, this.clock()),
+          issues,
+          referencedIds.length,
+        ),
+        fontFamilies,
+        registeredFamilies,
       ),
-      fontFamilies,
-      registeredFamilies,
+      product,
     );
     return { project, projectRevision, job, report, assets: verified };
   }

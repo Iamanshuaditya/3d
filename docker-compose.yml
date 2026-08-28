@@ -1,53 +1,36 @@
+# Reference single-node deployment (#26).
+#
+# One app process, SQLite and uploads on one persistent volume. This is the
+# supported V1 shape; see docs/platform/DEPLOYMENT.md before scaling out.
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: runner
-    image: vortex:latest
-    container_name: vortex
+  vortex:
+    build: .
+    image: vortex:local
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - NEXT_TELEMETRY_DISABLED=1
-    env_file:
-      - path: .env.local
-        required: false
-      - path: .env
-        required: false
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-  dev:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
-    image: vortex:dev
-    container_name: vortex-dev
-    restart: unless-stopped
-    ports:
-      - "${DEV_PORT:-3001}:3000"
-    environment:
-      - NODE_ENV=development
-      - NEXT_TELEMETRY_DISABLED=1
-    env_file:
-      - path: .env.local
-        required: false
-      - path: .env
-        required: false
+      NODE_ENV: production
+      VORTEX_DEPLOYMENT_MODE: single-node
+      VORTEX_DATABASE: sqlite
+      VORTEX_OBJECT_STORE: filesystem
+      VORTEX_DATA_DIR: /data
+      # Required. Generate each with:
+      #   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+      VORTEX_AUTH_SECRET: ${VORTEX_AUTH_SECRET:?set VORTEX_AUTH_SECRET}
+      VORTEX_GUEST_COOKIE_SECRET: ${VORTEX_GUEST_COOKIE_SECRET:?set VORTEX_GUEST_COOKIE_SECRET}
+      # The public https origin this deployment is served from.
+      VORTEX_AUTH_URL: ${VORTEX_AUTH_URL:?set VORTEX_AUTH_URL}
+      # Optional: embedded configurator clients. See docs/platform/EMBED.md.
+      VORTEX_EMBED_CLIENTS: ${VORTEX_EMBED_CLIENTS:-}
     volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/.next
+      - vortex-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 15s
+      start_period: 20s
+
+volumes:
+  vortex-data:
