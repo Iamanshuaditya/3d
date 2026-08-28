@@ -73,6 +73,8 @@ type DesignEditorProps = {
   dieline?: SurfaceDieline;
   /** Per-class UI visibility; manufacturing geometry is never filtered. */
   guideVisibility?: Readonly<Partial<DielineGuideVisibility>>;
+  /** Keeps guide paths visual while allowing artwork to cross every fold. */
+  interactiveGuides?: boolean;
   highlightedGuideClass?: DielineGuideClass | null;
   onGuideHover?: (guideClass: DielineGuideClass | null) => void;
   onDeleteSelected?: () => void;
@@ -106,6 +108,7 @@ export function DesignEditor({
   showProductionChrome = true,
   dieline,
   guideVisibility,
+  interactiveGuides = true,
   highlightedGuideClass = null,
   onGuideHover,
   onDeleteSelected,
@@ -391,7 +394,14 @@ export function DesignEditor({
             {/* ---- Artwork layer: composited into the 3D texture above ---- */}
             <Layer ref={artLayerRef}>
               {editorBackground && (
-                <Rect x={0} y={0} width={W} height={H} fill={editorBackground} />
+                <Rect
+                  x={0}
+                  y={0}
+                  width={W}
+                  height={H}
+                  fill={editorBackground}
+                  listening={false}
+                />
               )}
 
               {design.elements.map((el) => {
@@ -482,6 +492,7 @@ export function DesignEditor({
                 dieline={dieline}
                 scale={scale}
                 visible={showGuides}
+                interactive={interactiveGuides}
                 visibility={guideVisibility}
                 highlightedClass={highlightedGuideClass}
                 onGuideHover={onGuideHover}

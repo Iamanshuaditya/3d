@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
-import { Check, Plus, RotateCcw, Trash2, Upload, X } from "lucide-react";
+import { Check, Plus, RotateCcw, Sparkles, Trash2, Upload, X } from "lucide-react";
 import type { StudioTool } from "./StudioToolRail";
 import { LayersPanel } from "@/components/configurator/LayersPanel";
 import { ArtworkTreatmentControls } from "@/components/configurator/ArtworkTreatmentControls";
@@ -16,9 +16,13 @@ import {
 type StudioPanelProps = {
   tool: StudioTool;
   customizer: ReturnType<typeof useCustomizer>;
+  demoArtwork?: {
+    label: string;
+    onAdd: () => void;
+  };
 };
 
-const ACCEPT = "image/png,image/jpeg,image/jpg,image/webp";
+const ACCEPT = "image/png,image/jpeg,image/jpg,image/webp,image/svg+xml";
 
 /** Neutral, print-safe starting points rather than a brand palette. */
 const SWATCHES = [
@@ -92,7 +96,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputClass =
   "w-full rounded-lg bg-[var(--st-raised)] px-3 py-2 text-[14px] text-[var(--st-text)] outline-none ring-[var(--st-accent)] focus-visible:ring-2";
 
-export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
+export function StudioPanel({ tool, customizer: c, demoArtwork }: StudioPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const elements = c.activeDesign?.elements ?? [];
   const selected = c.selectedElement;
@@ -178,8 +182,14 @@ export function StudioPanel({ tool, customizer: c }: StudioPanelProps) {
               <Upload className="h-[18px] w-[18px]" />
               Upload artwork
             </Button>
+            {demoArtwork ? (
+              <Button onClick={demoArtwork.onAdd}>
+                <Sparkles className="h-[17px] w-[17px]" />
+                {demoArtwork.label}
+              </Button>
+            ) : null}
             <p className="text-center text-[12px] text-[var(--st-faint)]">
-              PNG, JPG or WebP · or drop onto the canvas
+              PNG, JPG, WebP or SVG · or drop onto the canvas
             </p>
 
             {selectedImage && (

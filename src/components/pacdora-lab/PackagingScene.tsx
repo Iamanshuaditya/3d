@@ -234,16 +234,22 @@ function BoxModel({ solution, fold }: { solution: BoxLabSolution; fold: number }
 function PouchModel({
   solution,
   artworkCanvas,
+  artworkRevision,
 }: {
   solution: PouchLabSolution;
   artworkCanvas: HTMLCanvasElement | null;
+  artworkRevision: number;
 }) {
   const artworkTexture = useMemo(() => {
+    // Recreate the lightweight CanvasTexture wrapper when Studio republishes
+    // pixels. The backing canvas stays persistent; this avoids mutating a hook
+    // return value while still forcing Three.js to upload the latest bitmap.
+    void artworkRevision;
     if (!artworkCanvas) return null;
     const texture = new THREE.CanvasTexture(artworkCanvas);
     configureDesignTexture(texture);
     return texture;
-  }, [artworkCanvas]);
+  }, [artworkCanvas, artworkRevision]);
   useEffect(() => () => artworkTexture?.dispose(), [artworkTexture]);
 
   return (
@@ -260,11 +266,13 @@ export function PackagingScene({
   pouch,
   fold,
   artworkCanvas = null,
+  artworkRevision = 0,
 }: {
   box?: BoxLabSolution;
   pouch?: PouchLabSolution;
   fold: number;
   artworkCanvas?: HTMLCanvasElement | null;
+  artworkRevision?: number;
 }) {
   const bodyHeight = box?.outer.height ?? pouch?.input.height ?? 180;
   const visualHeight = box ? box.outer.height + box.outer.width * 0.72 : bodyHeight;
@@ -304,7 +312,13 @@ export function PackagingScene({
       />
       <directionalLight intensity={1.1} position={[-4, 2, -3]} />
       {box ? <BoxModel solution={box} fold={fold} /> : null}
-      {pouch ? <PouchModel solution={pouch} artworkCanvas={artworkCanvas} /> : null}
+      {pouch ? (
+        <PouchModel
+          solution={pouch}
+          artworkCanvas={artworkCanvas}
+          artworkRevision={artworkRevision}
+        />
+      ) : null}
       <ContactShadows
         position={[0, -bodyHeight * MM * 0.52, 0]}
         opacity={0.32}

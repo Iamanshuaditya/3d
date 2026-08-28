@@ -16,6 +16,8 @@ type DielineOverlayProps = {
   dieline?: SurfaceDieline;
   scale: number;
   visible: boolean;
+  /** Disable hit-testing when artwork must freely cross production folds. */
+  interactive?: boolean;
   visibility?: Readonly<Partial<DielineGuideVisibility>>;
   highlightedClass?: DielineGuideClass | null;
   onGuideHover?: (guideClass: DielineGuideClass | null) => void;
@@ -32,6 +34,7 @@ export function DielineOverlay({
   dieline,
   scale,
   visible,
+  interactive = true,
   visibility,
   highlightedClass = null,
   onGuideHover,
@@ -56,13 +59,13 @@ export function DielineOverlay({
   };
 
   return (
-    <Group>
+    <Group listening={interactive}>
       {visibleItems.map((item) => {
         if (!isVisible(item.guideClass)) return null;
         const highlighted = highlightedClass === item.guideClass || hoveredId === item.id;
         const style = resolveDielineGuideStyle(item.guideClass, scale, highlighted);
         const interaction = {
-          listening: true,
+          listening: interactive,
           onMouseEnter: () => startHover(item),
           onMouseLeave: stopHover,
           onTap: () => startHover(item),
@@ -97,7 +100,10 @@ export function DielineOverlay({
             x={centerX}
             y={centerY}
             rotation={region.artworkOrientationDeg ?? 0}
-            {...interaction}
+            // A region covers a whole print panel. It must remain a visual and
+            // snapping guide, never an invisible hit target above artwork.
+            // Otherwise images cannot be selected or dragged across folds.
+            listening={false}
           >
             <Rect
               x={-region.width / 2}

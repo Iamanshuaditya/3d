@@ -343,11 +343,11 @@ inward near the base. A later close-up found that the first fused-rail pass
 still reduced the rail extension to `18%` through its bottom `9.5%`; that was
 the remaining triangular notch. The rail extension and lower Y boundary are
 now mathematically constant from top to bottom. Inflation acts behind that
-rail. In side view, the bottom
-gusset entry now retains `90%` of the lower chamber depth and reaches the full
-lower-body profile within the bottom `18%` of the pouch. This preserves a broad
-standing footprint while avoiding both an outward blob and the previous
-two-thirds-depth funnel.
+rail. In side view, the gusset entry and entire lower half now retain `100%` of
+the chamber depth. Only the upper half transitions through the product shoulder
+into the narrow zipper/headspace seal. This produces the requested straight
+side silhouette from the centre through the standing base, without an inward
+lower funnel.
 
 The final underside comparison exposed two separate cross-width errors. First,
 reusing a nearly constant depth plateau generated a rounded rectangle. Second,
@@ -414,14 +414,15 @@ stand-up web height    = back face + bottom gusset + front face + 2 × end seal
 ### One canonical artwork canvas for 2D and 3D
 
 The artwork test now follows the same single-authority rule as the structure.
-An uploaded raster or SVG is decoded once and painted into the selected front,
-back, or both named panel rectangles on one canvas whose aspect ratio is the
-resolved continuous film web. `Fill panel` uses a cover transform; `Fit inside`
-uses contain. `/test` now uses a Konva object editor matching the Studio
-interaction model: selectable front/back regions, proportional corner handles,
-a rotation handle, constrained dragging, and a pan/fit/zoom toolbar. Every
-print face is a hard clip group. A front object cannot paint or be dragged into
-the bottom gusset, and the same constrained transform is used by the 3D canvas.
+`/test` instantiates the actual production Studio tool rail, panels, layers,
+crop controls, snapping, transformer, rulers, and pan/fit/zoom workspace—not a
+parallel simplified editor. A raster or SVG becomes an object on one canvas
+whose aspect ratio is the resolved continuous film web. Front, Bottom gusset,
+and Back remain named selection/snap/upload targets, but they are guide regions
+rather than clipping containers. An object can therefore be dragged across a
+fold and span Front → Bottom gusset → Back. Only the outside boundary of the
+physical repeat clips artwork. The same persistent canvas supplies the live 3D
+CanvasTexture, including updates while an object is moved or transformed.
 
 The procedural mesh does not stretch the image independently. Every generated
 face vertex converts its manufacturing-web position to UV coordinates:
@@ -499,12 +500,12 @@ centre-inflated renderer is now shared with one registered library SKU:
 
 ```text
 src/lib/pacdora-lab/
-├── artwork-placement.ts panel-locked 2D/UV transform resolver
 ├── types.ts       shared contracts
 ├── materials.ts   caliper and preview material profiles
 ├── box.ts         dimension conversion + multi-part mailer dieline solver
 ├── pouch.ts       center-seal + stand-up web/mesh generators
 ├── pouch-limits.ts coupled editor safety ranges
+├── studio-adapter.ts continuous-web adapter for the production Studio engine
 └── index.ts       public library boundary
 ```
 
@@ -517,11 +518,12 @@ UVs in `/test`, the product card, and Studio, so those views cannot develop
 separate pouch silhouettes.
 
 Studio and the lab both accept artwork through the file picker or direct
-drag-and-drop. In Studio, a dropped PNG, JPG, or WebP becomes the same durable
-project asset used by the normal upload panel, is placed in the selected
-production region, paints the 2D source canvas, and updates the pouch's one
-CanvasTexture. Blank board and matte-film previews now start white; selecting
-another authored material remains an explicit user action.
+drag-and-drop. The preview-only lab uses the same Studio editing engine and
+in-memory asset pipeline for PNG, JPG, WebP, and SVG. Its selected production
+region is an initial-placement and snapping target rather than a movement
+boundary; the continuous-web canvas updates the pouch's one CanvasTexture.
+Blank board and matte-film previews now start white; selecting another authored
+material remains an explicit user action.
 
 The `/test` route provides:
 
@@ -533,9 +535,9 @@ The `/test` route provides:
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
 - Dynamic minimum/maximum guidance in mm and inches for every pouch dimension.
 - Pouch film-material switching.
-- Artwork upload with front/back/both placement, cover/contain fitting,
-  panel-clipped dragging, proportional corner scaling, rotation, reset, and a
-  Studio-style pan/fit/zoom toolbar.
+- The real Studio artwork UI with upload, text, colour, layers, crop/adjust,
+  proportional transforms, and pan/fit/zoom; artwork crosses region folds on
+  one continuous film web.
 - One canonical 2D artwork web mapped by UV to the regenerated 3D pouch.
 - A generated 3D preview.
 - A generated flat dieline/film web.

@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildPacdoraLabPouchGeometry,
+  createPacdoraLabStudioConfig,
+  createPacdoraLabStudioDieline,
   getPacdoraLabMaterial,
   getPacdoraLabPouchPanelUv,
-  resolvePouchArtworkFrame,
+  PACDORA_LAB_EDITOR_PX_PER_MM,
   constrainPouchLabInput,
   getPouchDimensionLimits,
   samplePacdoraLabStandUpSurface,
@@ -168,13 +170,12 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   const leftLowerEdge = samplePacdoraLabStandUpSurface(solution, 0, 0.18, 1);
   const leftMiddleEdge = samplePacdoraLabStandUpSurface(solution, 0, 0.5, 1);
 
-  assert.ok(lowerBody.z > middleBody.z * 0.98);
-  assert.ok(fillShoulder.z < lowerBody.z * 0.62);
+  assert.ok(Math.abs(lowerBody.z - middleBody.z) < 1e-12);
+  assert.ok(fillShoulder.z < lowerBody.z * 0.66);
   assert.ok(headspace.z < lowerBody.z * 0.28);
   assert.ok(lowerBody.z > upperBody.z);
   assert.ok(upperBody.z > topSeal.z);
-  assert.ok(bottomSeal.z > middleBody.z * 1.05);
-  assert.ok(bottomSeal.z < lowerBody.z * 0.93);
+  assert.ok(Math.abs(bottomSeal.z - middleBody.z) < 1e-12);
   assert.ok(topSeal.z < middleBody.z * 0.05);
   assert.ok(quarterFace.z > middleBody.z * 0.84);
   assert.ok(quarterFace.z < middleBody.z * 0.89);
@@ -240,40 +241,44 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   geometry.dispose();
 });
 
-test("artwork placement is constrained to its selected face and cannot enter the gusset", () => {
-  const panel = { x: 12, y: 284, width: 150, height: 210 };
-  const contained = resolvePouchArtworkFrame(
-    { width: 100, height: 100 },
-    panel,
-    {
-      fit: "contain",
-      scale: 1,
-      offsetX: 1,
-      offsetY: -1,
-      rotationDeg: 0,
-    },
-  );
-  assert.ok(contained.centreX - contained.halfExtentX >= panel.x - 1e-9);
-  assert.ok(contained.centreX + contained.halfExtentX <= panel.x + panel.width + 1e-9);
-  assert.ok(contained.centreY - contained.halfExtentY >= panel.y - 1e-9);
-  assert.ok(contained.centreY + contained.halfExtentY <= panel.y + panel.height + 1e-9);
+test("Studio uses one continuous pouch web across Front, gusset, and Back", () => {
+  const solution = solvePacdoraLabPouch({
+    style: "stand-up",
+    width: 150,
+    height: 210,
+    depth: 42,
+    materialId: "matte-film",
+    inflation: 1,
+    endSealMm: 12,
+    backSealMm: 14,
+    gussetMm: 62,
+    zipper: true,
+    hangHole: true,
+  });
+  const config = createPacdoraLabStudioConfig(solution);
+  const surface = config.editableSurfaces[0];
+  const dieline = createPacdoraLabStudioDieline(solution);
+  const front = surface.sections?.find((section) => section.id === "front-film");
+  const gusset = surface.sections?.find((section) => section.id === "bottom-gusset");
+  const back = surface.sections?.find((section) => section.id === "back-film");
 
-  const covering = resolvePouchArtworkFrame(
-    { width: 200, height: 100 },
-    panel,
-    {
-      fit: "cover",
-      scale: 1,
-      offsetX: -1,
-      offsetY: -1,
-      rotationDeg: 0,
-    },
+  assert.equal(config.previewOnly, true);
+  assert.equal(config.editableSurfaces.length, 1);
+  assert.equal(surface.presentation?.kind, "continuous-web");
+  assert.equal(surface.defaultBackground, "#ffffff");
+  assert.equal(surface.editorWidth, solution.web.width * PACDORA_LAB_EDITOR_PX_PER_MM);
+  assert.equal(surface.editorHeight, solution.web.height * PACDORA_LAB_EDITOR_PX_PER_MM);
+  assert.ok(front && gusset && back);
+  assert.equal(back.yCm + back.heightCm, gusset.yCm);
+  assert.equal(gusset.yCm + gusset.heightCm, front.yCm);
+  assert.deepEqual(
+    surface.sections?.slice(0, 3).map((section) => section.id),
+    ["front-film", "bottom-gusset", "back-film"],
   );
-  assert.ok(covering.centreX - covering.halfExtentX <= panel.x + 1e-9);
-  assert.ok(covering.centreX + covering.halfExtentX >= panel.x + panel.width - 1e-9);
-  assert.ok(covering.centreY - covering.halfExtentY <= panel.y + 1e-9);
-  assert.ok(covering.centreY + covering.halfExtentY >= panel.y + panel.height - 1e-9);
-  assert.equal(covering.offsetY, 0);
+  assert.deepEqual(
+    dieline.regions?.map((region) => region.id),
+    solution.panels.map((panel) => panel.id),
+  );
 });
 
 test("stand-up bottom perimeter is a centre-driven lens, not a rounded rectangle", () => {
@@ -383,6 +388,5 @@ test("stand-up inflation opens the lower gusset while preserving the flat web", 
   assert.deepEqual(flat.web, full.web);
   assert.ok(fullMiddle.z > flatMiddle.z * 8);
   assert.ok(fullBottom.z > flatBottom.z * 8);
-  assert.ok(fullBottom.z > fullMiddle.z * 1.05);
-  assert.ok(fullBottom.z < fullMiddle.z * 1.15);
+  assert.ok(Math.abs(fullBottom.z - fullMiddle.z) < 1e-12);
 });

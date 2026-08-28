@@ -340,21 +340,18 @@ function standUpDepthFactorAt(v: number, sealFraction: number): number {
   // panels apart. Pinching both ends produces a diamond silhouette and forces
   // the gusset to escape underneath as a false "foot".
   const clampedV = clamp01(v);
-  // The standing footprint stays broad. The earlier 0.66 entry made the last
-  // few centimetres lose a third of their depth and read as a pointed funnel.
-  // Keep the fold at 90% of the filled chamber and finish the small transition
-  // within the lower gusset zone.
-  const gussetOpening = lerp(0.9, 1, smoothstep(0, 0.18, clampedV));
   // Pacdora's slider behaves like a fill amount, not a uniform pressure
-  // modifier. The product chamber swells below the visual fill line while the
-  // empty headspace has already collapsed well before it reaches the zipper.
-  const productChamber = lerp(1, 0.14, smoothstep(0.38, 0.78, clampedV));
+  // modifier. Once the face reaches its maximum depth at mid-body, that depth
+  // remains a true plateau through the complete lower chamber and gusset. A
+  // second reduction at the base — even 10% — makes the side silhouette slope
+  // inward like a funnel. Only the upper half transitions into headspace.
+  const productChamber = lerp(1, 0.14, smoothstep(0.5, 0.72, clampedV));
   const sealClosure = 1 - smoothstep(
     1 - sealFraction * 4,
     1 - sealFraction * 0.75,
     clampedV,
   );
-  return gussetOpening * productChamber * sealClosure;
+  return productChamber * sealClosure;
 }
 
 function standUpBroadFaceMaskAt(s: number): number {

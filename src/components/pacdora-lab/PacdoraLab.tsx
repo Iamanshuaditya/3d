@@ -1,8 +1,7 @@
 "use client";
 
-import { Box, ImagePlus, Move, PackageOpen, RotateCcw, ScanLine, Sparkles, Trash2, Upload } from "lucide-react";
-import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { Box, PackageOpen, ScanLine } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PACDORA_LAB_BOX_MATERIALS,
   PACDORA_LAB_POUCH_MATERIALS,
@@ -13,20 +12,11 @@ import {
   type BoxLabInput,
   type DimensionMode,
   type PackagingKind,
-  type PouchArtwork,
   type PouchLabInput,
 } from "@/lib/pacdora-lab";
 import { DielinePreview } from "./DielinePreview";
 import { PackagingScene } from "./PackagingScene";
-import { usePouchArtworkCanvas } from "./usePouchArtworkCanvas";
-
-const PouchArtworkEditor = dynamic(
-  () => import("./PouchArtworkEditor").then((module) => module.PouchArtworkEditor),
-  {
-    ssr: false,
-    loading: () => <div className="h-full min-h-[520px] animate-pulse rounded-xl bg-slate-100" />,
-  },
-);
+import { PouchStudioEditor } from "./PouchStudioEditor";
 
 const inputClass = "h-10 w-full rounded-lg border border-[var(--st-line)] bg-white px-3 text-sm font-medium text-[var(--st-text)] outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200";
 const labelClass = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.13em] text-[var(--st-faint)]";
@@ -131,7 +121,10 @@ export function PacdoraLab() {
   const [kind, setKind] = useState<PackagingKind>("stand-up");
   const [fold, setFold] = useState(0.43);
   const [measurementUnit, setMeasurementUnit] = useState<MeasurementUnit>("mm");
-  const [artworkDragActive, setArtworkDragActive] = useState(false);
+  const [studioArtwork, setStudioArtwork] = useState<{
+    canvas: HTMLCanvasElement | null;
+    revision: number;
+  }>({ canvas: null, revision: 0 });
   const [boxInput, setBoxInput] = useState<BoxLabInput>({
     dimensions: { length: 169, width: 169, height: 117.5 },
     dimensionMode: "manufacture",
@@ -150,13 +143,20 @@ export function PacdoraLab() {
     zipper: true,
     hangHole: true,
   });
-  const [artwork, setArtwork] = useState<PouchArtwork | null>(null);
-  const [artworkError, setArtworkError] = useState<string | null>(null);
   const box = useMemo(() => solvePacdoraLabBox(boxInput), [boxInput]);
   const pouch = useMemo(() => solvePacdoraLabPouch(pouchInput), [pouchInput]);
-  const artworkCanvas = usePouchArtworkCanvas(pouch, artwork);
   const activeSolution = kind === "box" ? box : pouch;
   const pouchLimits = useMemo(() => getPouchDimensionLimits(pouchInput), [pouchInput]);
+  const handleStudioArtworkChange = useCallback((
+    canvas: HTMLCanvasElement | null,
+    revision: number,
+  ) => {
+    setStudioArtwork((current) => (
+      current.canvas === canvas && current.revision === revision
+        ? current
+        : { canvas, revision }
+    ));
+  }, []);
 
   const updateBoxDimension = (key: keyof BoxLabInput["dimensions"], value: number) => {
     setBoxInput((current) => ({
@@ -181,86 +181,10 @@ export function PacdoraLab() {
       }));
     }
   };
-  const applyArtworkFile = (file?: File) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setArtworkError("Choose a PNG, JPEG, WebP, or SVG image.");
-      return;
-    }
-    if (file.size > 12 * 1024 * 1024) {
-      setArtworkError("Artwork must be 12 MB or smaller for this browser preview.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result !== "string") return;
-      setArtwork((current) => ({
-        sourceUrl: reader.result as string,
-        name: file.name,
-        placement: current?.placement ?? "front",
-        fit: current?.fit ?? "cover",
-        scale: current?.scale ?? 1,
-        offsetX: current?.offsetX ?? 0,
-        offsetY: current?.offsetY ?? 0,
-        rotationDeg: current?.rotationDeg ?? 0,
-      }));
-      setArtworkError(null);
-    };
-    reader.onerror = () => setArtworkError("The selected artwork could not be read.");
-    reader.readAsDataURL(file);
-  };
-  const useDemoArtwork = () => {
-    setArtwork((current) => ({
-      sourceUrl: "/pacdora-lab/citrus-demo.svg",
-      name: "Citrus demo artwork",
-      placement: current?.placement ?? "front",
-      fit: current?.fit ?? "cover",
-      scale: current?.scale ?? 1,
-      offsetX: current?.offsetX ?? 0,
-      offsetY: current?.offsetY ?? 0,
-      rotationDeg: current?.rotationDeg ?? 0,
-    }));
-    setArtworkError(null);
-  };
-  const artworkDropProps = {
-    onDragEnter: (event: React.DragEvent<HTMLElement>) => {
-      if (!event.dataTransfer.types.includes("Files")) return;
-      event.preventDefault();
-      setArtworkDragActive(true);
-    },
-    onDragOver: (event: React.DragEvent<HTMLElement>) => {
-      if (!event.dataTransfer.types.includes("Files")) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
-      setArtworkDragActive(true);
-    },
-    onDragLeave: (event: React.DragEvent<HTMLElement>) => {
-      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-      setArtworkDragActive(false);
-    },
-    onDrop: (event: React.DragEvent<HTMLElement>) => {
-      event.preventDefault();
-      setArtworkDragActive(false);
-      applyArtworkFile(event.dataTransfer.files[0]);
-    },
-  };
-  const updateArtworkTransform = (updates: Partial<Pick<
-    PouchArtwork,
-    "scale" | "offsetX" | "offsetY" | "rotationDeg"
-  >>) => {
-    setArtwork((current) => current ? { ...current, ...updates } : current);
-  };
-  const resetArtworkTransform = () => updateArtworkTransform({
-    scale: 1,
-    offsetX: 0,
-    offsetY: 0,
-    rotationDeg: 0,
-  });
-
   return (
     <main className="min-h-screen bg-[#f7f8fa] text-[var(--st-text)]">
       <header className="border-b border-[var(--st-line)] bg-white px-5 py-4 lg:px-8">
-        <div className="mx-auto flex max-w-[1520px] flex-wrap items-center justify-between gap-4">
+        <div className="mx-auto flex max-w-[1880px] flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--st-faint)]">
               <ScanLine className="size-3.5" /> Research prototype
@@ -273,7 +197,7 @@ export function PacdoraLab() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1520px] gap-5 p-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:p-8">
+      <div className="mx-auto grid max-w-[1880px] gap-5 p-5 lg:grid-cols-[320px_minmax(0,1fr)] lg:p-8">
         <aside className="rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
           <p className={labelClass}>Construction</p>
           <div className="grid grid-cols-3 gap-2">
@@ -386,158 +310,14 @@ export function PacdoraLab() {
               </label>
               <div className="border-t border-[var(--st-line)] pt-5">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <span className={labelClass}>2D → 3D artwork</span>
-                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${artworkCanvas.status === "ready" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                    {artworkCanvas.status === "ready" ? "UV mapped" : artworkCanvas.status === "loading" ? "Mapping…" : "No artwork"}
+                  <span className={labelClass}>Studio artwork</span>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${studioArtwork.canvas ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {studioArtwork.canvas ? "Live UV canvas" : "White film"}
                   </span>
                 </div>
-                {artwork ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3 rounded-xl border border-[var(--st-line)] bg-slate-50 p-3">
-                      <div
-                        role="img"
-                        aria-label={`${artwork.name} preview`}
-                        className="size-12 shrink-0 rounded-lg border border-white bg-white bg-cover bg-center shadow-sm"
-                        style={{ backgroundImage: `url("${artwork.sourceUrl}")` }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-800">{artwork.name}</p>
-                        <p className="mt-1 text-[10px] text-slate-500">One canvas drives the dieline and 3D texture.</p>
-                      </div>
-                      <button
-                        type="button"
-                        aria-label="Remove artwork"
-                        className="rounded-lg p-2 text-slate-500 transition hover:bg-white hover:text-slate-900"
-                        onClick={() => {
-                          setArtwork(null);
-                          setArtworkError(null);
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    </div>
-
-                    <div>
-                      <span className={labelClass}>Print faces</span>
-                      <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-                        {(["front", "both", "back"] as const).map((placement) => (
-                          <button
-                            key={placement}
-                            type="button"
-                            aria-pressed={artwork.placement === placement}
-                            className={`rounded-lg px-2 py-2 text-[11px] font-semibold capitalize transition ${artwork.placement === placement ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
-                            onClick={() => setArtwork((current) => current ? { ...current, placement } : current)}
-                          >
-                            {placement}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <span className={labelClass}>Image fit</span>
-                      <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
-                        {(["cover", "contain"] as const).map((fit) => (
-                          <button
-                            key={fit}
-                            type="button"
-                            aria-pressed={artwork.fit === fit}
-                            className={`rounded-lg px-2 py-2 text-[11px] font-semibold transition ${artwork.fit === fit ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"}`}
-                            onClick={() => setArtwork((current) => current ? { ...current, fit } : current)}
-                          >
-                            {fit === "cover" ? "Fill panel" : "Fit inside"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-blue-800">
-                          <Move className="size-3.5" /> 2D placement
-                        </span>
-                        <button
-                          type="button"
-                          onClick={resetArtworkTransform}
-                          className="flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-blue-700 transition hover:bg-white"
-                        >
-                          <RotateCcw className="size-3" /> Reset
-                        </button>
-                      </div>
-                      <p className="text-[10px] leading-4 text-blue-700">Select the artwork in the 2D editor. Drag moves it only inside its print face; corner handles scale proportionally and the round handle rotates.</p>
-                      {([
-                        ["Scale", "scale", 0.5, 2.5, 0.01, `${Math.round(artwork.scale * 100)}%`],
-                        ["Rotation", "rotationDeg", -180, 180, 1, `${Math.round(artwork.rotationDeg)}°`],
-                      ] as const).map(([label, key, min, max, step, display]) => (
-                        <label key={key} className="block">
-                          <span className="mb-1 flex items-center justify-between text-[10px] font-medium text-slate-600">
-                            <span>{label}</span><span className="font-mono text-slate-800">{display}</span>
-                          </span>
-                          <input
-                            className="w-full accent-blue-600"
-                            type="range"
-                            min={min}
-                            max={max}
-                            step={step}
-                            value={artwork[key]}
-                            onChange={(event) => updateArtworkTransform({ [key]: Number(event.currentTarget.value) })}
-                          />
-                        </label>
-                      ))}
-                      <p className="rounded-lg bg-white/80 px-2.5 py-2 font-mono text-[9px] text-blue-800">
-                        Panel position X {Math.round(artwork.offsetX * 100)}% · Y {Math.round(artwork.offsetY * 100)}%
-                      </p>
-                    </div>
-
-                    <label
-                      {...artworkDropProps}
-                      className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-xs font-semibold text-slate-700 transition ${artworkDragActive ? "border-slate-900 bg-slate-100 ring-2 ring-slate-300" : "border-slate-300 bg-white hover:border-slate-500 hover:bg-slate-50"}`}
-                    >
-                      <Upload className="size-4" /> Replace or drop artwork
-                      <input
-                        className="sr-only"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                        onChange={(event) => {
-                          applyArtworkFile(event.currentTarget.files?.[0]);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label
-                      {...artworkDropProps}
-                      className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-5 text-center transition ${artworkDragActive ? "border-slate-900 bg-white ring-2 ring-slate-300" : "border-slate-300 bg-slate-50 hover:border-slate-500 hover:bg-white"}`}
-                    >
-                      <span className="flex size-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm">
-                        <ImagePlus className="size-4" />
-                      </span>
-                      <span className="mt-2 text-xs font-semibold text-slate-800">Upload or drop artwork</span>
-                      <span className="mt-1 text-[10px] text-slate-500">PNG, JPEG, WebP, or SVG · up to 12 MB</span>
-                      <input
-                        className="sr-only"
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                        onChange={(event) => {
-                          applyArtworkFile(event.currentTarget.files?.[0]);
-                          event.currentTarget.value = "";
-                        }}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={useDemoArtwork}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--st-line)] bg-white px-3 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                    >
-                      <Sparkles className="size-4 text-amber-500" /> Try demo artwork
-                    </button>
-                  </div>
-                )}
-                {artworkError || artworkCanvas.error ? (
-                  <p className="mt-2 text-[11px] leading-4 text-red-600">{artworkError ?? artworkCanvas.error}</p>
-                ) : null}
+                <p className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-[11px] leading-5 text-blue-900">
+                  Use Uploads, Text, Colour, Adjust, Layers and crop in the editor. The full repeat is one continuous film web: artwork can move from Front through Bottom gusset into Back without being clipped at a fold.
+                </p>
               </div>
             </div>
           )}
@@ -551,8 +331,8 @@ export function PacdoraLab() {
         </aside>
 
         <section className="grid min-w-0 gap-5">
-          <div className="grid gap-5 2xl:grid-cols-2">
-            <div className="relative min-h-[660px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
+          <div className="grid gap-5 2xl:grid-cols-[minmax(420px,0.72fr)_minmax(760px,1.35fr)]">
+            <div className="relative min-h-[720px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
               <div className="absolute left-5 top-5 z-10 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-sm backdrop-blur">
                 3D preview · orbit every angle
               </div>
@@ -560,35 +340,32 @@ export function PacdoraLab() {
                 box={kind === "box" ? box : undefined}
                 pouch={kind === "box" ? undefined : pouch}
                 fold={fold}
-                artworkCanvas={kind === "box" ? null : artworkCanvas.canvas}
+                artworkCanvas={kind === "box" ? null : studioArtwork.canvas}
+                artworkRevision={kind === "box" ? 0 : studioArtwork.revision}
               />
             </div>
 
-            <div className="min-h-[660px] rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
+            <div className="min-h-[720px] min-w-0 rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold">2D dieline artwork editor</p>
                   <p className="mt-1 text-xs text-[var(--st-faint)]">
-                    {artwork ? "Studio-style panel editor. Artwork is clipped before every seal and gusset boundary." : "Upload artwork in the left panel or drop it here."}
+                    {kind === "box" ? "Manufacturing blank preview." : "The production Studio editor on one continuous film web."}
                   </p>
                 </div>
                 <span className="font-mono text-xs text-[var(--st-dim)]">
                   {kind === "box" ? `${box.blank.width.toFixed(1)} × ${box.blank.height.toFixed(1)} mm` : `${pouch.web.width.toFixed(1)} × ${pouch.web.height.toFixed(1)} mm`}
                 </span>
               </div>
-              <div
-                {...(kind === "box" ? {} : artworkDropProps)}
-                className={`relative h-[580px] rounded-xl transition ${artworkDragActive ? "ring-2 ring-blue-300" : ""}`}
-              >
+              <div className="relative min-h-0 min-w-0 rounded-xl">
                 {kind === "box" ? (
-                  <div className="h-full rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="h-[660px] rounded-xl border border-slate-100 bg-slate-50 p-4">
                     <DielinePreview solution={activeSolution} />
                   </div>
                 ) : (
-                  <PouchArtworkEditor
+                  <PouchStudioEditor
                     solution={pouch}
-                    artwork={artwork}
-                    onArtworkChange={updateArtworkTransform}
+                    onArtworkCanvasChange={handleStudioArtworkChange}
                   />
                 )}
               </div>

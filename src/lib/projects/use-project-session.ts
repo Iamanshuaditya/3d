@@ -32,10 +32,15 @@ const PREVIEW_ONLY_PROJECT_ID = "preview-only";
 /** Reads an image's intrinsic pixel size without a round trip to the server. */
 async function decodeImageSize(file: File): Promise<{ width: number; height: number }> {
   if (typeof createImageBitmap === "function") {
-    const bitmap = await createImageBitmap(file);
-    const size = { width: bitmap.width, height: bitmap.height };
-    bitmap.close();
-    return size;
+    try {
+      const bitmap = await createImageBitmap(file);
+      const size = { width: bitmap.width, height: bitmap.height };
+      bitmap.close();
+      return size;
+    } catch {
+      // Chromium does not consistently decode SVG blobs through
+      // createImageBitmap. The HTMLImageElement path below supports them.
+    }
   }
   const url = URL.createObjectURL(file);
   try {
