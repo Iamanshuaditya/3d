@@ -5,6 +5,7 @@ import type { NextRequest, NextResponse } from "next/server";
 import type { ProjectOwner } from "@/platform/projects/types";
 
 const COOKIE_NAME = "vortex_guest";
+const EMBED_CLIENT_HEADER = "x-vortex-embed-client";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 export interface AuthenticationProvider {
@@ -39,6 +40,17 @@ export class BetterAuthAuthenticationProvider implements AuthenticationProvider 
 export type OwnerContext = {
   owner: ProjectOwner;
   pendingGuestCookie: string | null;
+  /**
+   * Set when the request came from an embedded configurator frame (#27).
+   *
+   * A `SameSite=Lax` cookie is simply not sent when the top-level site belongs
+   * to the manufacturer rather than to us, so an embedded session would have no
+   * durable identity and every save would land under a new guest. The embed
+   * cookie is therefore issued `SameSite=None; Secure; Partitioned`: CHIPS
+   * gives each top-level site its own cookie jar, so one client's customers can
+   * never inherit another client's session.
+   */
+  embedded: boolean;
 };
 
 export class GuestIdentityCodec {
@@ -138,14 +150,19 @@ export function resolveSignedGuestOwner(
   return guestId ? { type: "guest", id: guestId } : null;
 }
 
+function isEmbeddedRequest(request: NextRequest): boolean {
+  return Boolean(request.headers.get(EMBED_CLIENT_HEADER)?.trim());
+}
+
 export async function resolveOwnerContext(request: NextRequest): Promise<OwnerContext> {
+  const embedded = isEmbeddedRequest(request);
   const authenticated = await resolveAuthenticatedOwner(request);
-  if (authenticated) return { owner: authenticated, pendingGuestCookie: null };
+  if (authenticated) return { owner: authenticated, pendingGuestCookie: null, embedded };
 
   const existingToken = request.cookies.get(COOKIE_NAME)?.value;
   const existingId = guestIdentityCodec().verify(existingToken);
   if (existingId) {
-    return { owner: { type: "guest", id: existingId }, pendingGuestCookie: null };
+    return { owner: { type: "guest", id: existingId }, pendingGuestCookie: null, embedded };
   }
 
   const token = guestIdentityCodec().issue();
@@ -153,6 +170,26 @@ export async function resolveOwnerContext(request: NextRequest): Promise<OwnerCo
   return {
     owner: { type: "guest", id: guestId },
     pendingGuestCookie: token,
+    embedded,
+  };
+}
+
+/**
+ * Cookie attributes for one owner context.
+ *
+ * An embedded frame over plain HTTP deliberately keeps `Lax`: `SameSite=None`
+ * without `Secure` is rejected by every current browser, so silently emitting
+ * it would produce a session that fails in a way nothing explains.
+ */
+export function guestCookieAttributes(context: OwnerContext, secure: boolean) {
+  const partitioned = context.embedded && secure;
+  return {
+    httpOnly: true,
+    sameSite: partitioned ? ("none" as const) : ("lax" as const),
+    secure: partitioned || process.env.NODE_ENV === "production",
+    ...(partitioned ? { partitioned: true } : {}),
+    path: "/",
+    priority: "high" as const,
   };
 }
 
@@ -168,15 +205,15 @@ export function clearGuestCookie(response: NextResponse) {
   return response;
 }
 
-export function applyOwnerCookie(response: NextResponse, context: OwnerContext) {
+export function applyOwnerCookie(
+  response: NextResponse,
+  context: OwnerContext,
+  secure = process.env.NODE_ENV === "production",
+) {
   if (!context.pendingGuestCookie) return response;
   response.cookies.set(COOKIE_NAME, context.pendingGuestCookie, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
+    ...guestCookieAttributes(context, secure),
     maxAge: COOKIE_MAX_AGE_SECONDS,
-    priority: "high",
   });
   return response;
 }
