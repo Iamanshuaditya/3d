@@ -374,13 +374,6 @@ function standUpSideMaskAt(s: number, v: number): number {
   return lerp(broadFace, gussetLens, gussetInfluence);
 }
 
-function standUpMaximumCornerLift(width: number, gussetMm: number): number {
-  // A real Doypack may lift very slightly where its bottom fold enters the
-  // side seals, but the printable face still has an essentially level lower
-  // edge. Keep this below half a millimetre at the research defaults.
-  return Math.min(gussetMm * 0.006, width * 0.003);
-}
-
 /**
  * Samples the smooth construction surface. It is shared by the body mesh and
  * closure details so every feature follows the same single centre-driven
@@ -392,7 +385,7 @@ export function samplePacdoraLabStandUpSurface(
   v: number,
   face: 1 | -1,
 ): THREE.Vector3 {
-  const { width, height, endSealMm, gussetMm } = solution.input;
+  const { width, height, endSealMm } = solution.input;
   const sealFraction = Math.min(0.15, Math.max(0.045, endSealMm / height));
   const s = clamp01(u) * 2 - 1;
   const clampedV = clamp01(v);
@@ -400,16 +393,12 @@ export function samplePacdoraLabStandUpSurface(
   const depthFactor = standUpDepthFactorAt(clampedV, sealFraction);
   const sideMask = standUpSideMaskAt(s, clampedV);
   const panelCrown = 1 - 0.018 * s * s;
-  const bottomInfluence = 1 - smoothstep(0, 0.22, clampedV);
-  const inflationProgress = smoothstep(0.05, 0.86, solution.input.inflation);
-  const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
-  const cornerLift = Math.pow(Math.abs(s), 3)
-    * maximumCornerLift
-    * bottomInfluence
-    * inflationProgress;
   const filmHalf = Math.max(solution.material.caliperMm * 0.5, 0.035);
   const x = s * width * 0.5 * widthScale;
-  const y = (clampedV - 0.5) * height + cornerLift;
+  // The cut face and fused side rail share one exact vertical boundary. Gusset
+  // shaping happens in Z only; moving the lower corner upward creates the
+  // visible notch/funnel reported from the front view.
+  const y = (clampedV - 0.5) * height;
   const z = face * (
     filmHalf
     + solution.inflatedDepth * 0.5 * sideMask * depthFactor * panelCrown
@@ -507,8 +496,10 @@ function buildStandUpGeometry(
     for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
       const v = yIndex / segmentsUp;
       const inner = samplePacdoraLabStandUpSurface(solution, u, v, 1);
-      const bottomTaper = smoothstep(0, 0.095, v);
-      const finExtension = endSealMm * lerp(0.18, 1, bottomTaper);
+      // A side heat seal is cut as a straight rail. Tapering its last rows
+      // inward created a triangular bite beside the gusset and made the pouch
+      // look funnelled even though the printable face itself stayed vertical.
+      const finExtension = endSealMm;
       const innerX = side * width * 0.5 * MM_TO_SCENE;
       const outerX = side * (width * 0.5 + finExtension) * MM_TO_SCENE;
       const edgeX = side < 0 ? panel.x : panel.x + panel.width;
@@ -550,7 +541,6 @@ function buildStandUpGeometry(
   const gussetOffset = positions.length / 3;
   const bottomWidthScale = standUpWidthScaleAt();
   const bottomDepthFactor = standUpDepthFactorAt(0, sealFraction);
-  const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
   for (const q of qSamples) {
     const frontBack = q * 2 - 1;
     for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
@@ -568,11 +558,8 @@ function buildStandUpGeometry(
       const foldedCentreLift = centreFold
         * gussetMm
         * lerp(0.15, 0.034, inflationProgress);
-      const cornerLift = Math.pow(Math.abs(s), 3)
-        * maximumCornerLift
-        * inflationProgress;
       const x = s * width * 0.5 * bottomWidthScale;
-      const y = -height * 0.5 + cornerLift + foldedCentreLift;
+      const y = -height * 0.5 + foldedCentreLift;
       const z = frontBack * gussetDepth;
       const artworkUv = getPacdoraLabPouchPanelUv(
         solution,

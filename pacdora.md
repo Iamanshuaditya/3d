@@ -339,7 +339,11 @@ level bottom edges into the standing base without extending beneath them.
 A final edge-profile audit found that width and depth must be treated as two
 different constraints. The face width and the outer side-seal cut edge belong
 to the canonical flat web, so both stay vertically aligned instead of tapering
-inward near the base. Inflation acts behind that rail. In side view, the bottom
+inward near the base. A later close-up found that the first fused-rail pass
+still reduced the rail extension to `18%` through its bottom `9.5%`; that was
+the remaining triangular notch. The rail extension and lower Y boundary are
+now mathematically constant from top to bottom. Inflation acts behind that
+rail. In side view, the bottom
 gusset entry now retains `90%` of the lower chamber depth and reaches the full
 lower-body profile within the bottom `18%` of the pouch. This preserves a broad
 standing footprint while avoiding both an outward blob and the previous
@@ -393,8 +397,9 @@ The corrected stand-up construction now has:
   it covered the artwork at the same depth and caused the reported shimmer.
 - A separately tessellated bottom-gusset membrane. Its front and back edges
   meet the separated face membranes; its two facets retain a shallow upward
-  centre fold even at full inflation. A sub-millimetre corner lift preserves
-  the Doypack fold cue without making the bottom slant.
+  centre fold even at full inflation. The fold changes depth only: all four
+  lower face/rail corners share one level Y coordinate, so no front-view notch
+  or funnel can be produced.
 
 The two stable flat webs are consequently different:
 
@@ -412,9 +417,11 @@ The artwork test now follows the same single-authority rule as the structure.
 An uploaded raster or SVG is decoded once and painted into the selected front,
 back, or both named panel rectangles on one canvas whose aspect ratio is the
 resolved continuous film web. `Fill panel` uses a cover transform; `Fit inside`
-uses contain. The editor adds scale, horizontal position, vertical position,
-and rotation controls, plus direct dragging inside the blue 2D panel. The 2D
-dieline and 3D laminate both update from that exact transformed canvas.
+uses contain. `/test` now uses a Konva object editor matching the Studio
+interaction model: selectable front/back regions, proportional corner handles,
+a rotation handle, constrained dragging, and a pan/fit/zoom toolbar. Every
+print face is a hard clip group. A front object cannot paint or be dragged into
+the bottom gusset, and the same constrained transform is used by the 3D canvas.
 
 The procedural mesh does not stretch the image independently. Every generated
 face vertex converts its manufacturing-web position to UV coordinates:
@@ -492,6 +499,7 @@ centre-inflated renderer is now shared with one registered library SKU:
 
 ```text
 src/lib/pacdora-lab/
+├── artwork-placement.ts panel-locked 2D/UV transform resolver
 ├── types.ts       shared contracts
 ├── materials.ts   caliper and preview material profiles
 ├── box.ts         dimension conversion + multi-part mailer dieline solver
@@ -525,8 +533,9 @@ The `/test` route provides:
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
 - Dynamic minimum/maximum guidance in mm and inches for every pouch dimension.
 - Pouch film-material switching.
-- Artwork upload with front/back/both placement, cover/contain fitting, direct
-  2D dragging, scale, position, rotation, and reset.
+- Artwork upload with front/back/both placement, cover/contain fitting,
+  panel-clipped dragging, proportional corner scaling, rotation, reset, and a
+  Studio-style pan/fit/zoom toolbar.
 - One canonical 2D artwork web mapped by UV to the regenerated 3D pouch.
 - A generated 3D preview.
 - A generated flat dieline/film web.

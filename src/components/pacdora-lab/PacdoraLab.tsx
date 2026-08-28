@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, ImagePlus, Move, PackageOpen, RotateCcw, ScanLine, Sparkles, Trash2, Upload } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import {
   PACDORA_LAB_BOX_MATERIALS,
@@ -18,6 +19,14 @@ import {
 import { DielinePreview } from "./DielinePreview";
 import { PackagingScene } from "./PackagingScene";
 import { usePouchArtworkCanvas } from "./usePouchArtworkCanvas";
+
+const PouchArtworkEditor = dynamic(
+  () => import("./PouchArtworkEditor").then((module) => module.PouchArtworkEditor),
+  {
+    ssr: false,
+    loading: () => <div className="h-full min-h-[520px] animate-pulse rounded-xl bg-slate-100" />,
+  },
+);
 
 const inputClass = "h-10 w-full rounded-lg border border-[var(--st-line)] bg-white px-3 text-sm font-medium text-[var(--st-text)] outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200";
 const labelClass = "mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.13em] text-[var(--st-faint)]";
@@ -241,13 +250,6 @@ export function PacdoraLab() {
   >>) => {
     setArtwork((current) => current ? { ...current, ...updates } : current);
   };
-  const dragArtwork = (deltaX: number, deltaY: number) => {
-    setArtwork((current) => current ? {
-      ...current,
-      offsetX: Math.min(1, Math.max(-1, current.offsetX + deltaX)),
-      offsetY: Math.min(1, Math.max(-1, current.offsetY + deltaY)),
-    } : current);
-  };
   const resetArtworkTransform = () => updateArtworkTransform({
     scale: 1,
     offsetX: 0,
@@ -462,11 +464,9 @@ export function PacdoraLab() {
                           <RotateCcw className="size-3" /> Reset
                         </button>
                       </div>
-                      <p className="text-[10px] leading-4 text-blue-700">Drag the blue panel in the 2D dieline, or use these precise controls. Every change updates the 3D UV texture.</p>
+                      <p className="text-[10px] leading-4 text-blue-700">Select the artwork in the 2D editor. Drag moves it only inside its print face; corner handles scale proportionally and the round handle rotates.</p>
                       {([
                         ["Scale", "scale", 0.5, 2.5, 0.01, `${Math.round(artwork.scale * 100)}%`],
-                        ["Horizontal", "offsetX", -1, 1, 0.01, `${Math.round(artwork.offsetX * 100)}%`],
-                        ["Vertical", "offsetY", -1, 1, 0.01, `${Math.round(artwork.offsetY * 100)}%`],
                         ["Rotation", "rotationDeg", -180, 180, 1, `${Math.round(artwork.rotationDeg)}°`],
                       ] as const).map(([label, key, min, max, step, display]) => (
                         <label key={key} className="block">
@@ -484,6 +484,9 @@ export function PacdoraLab() {
                           />
                         </label>
                       ))}
+                      <p className="rounded-lg bg-white/80 px-2.5 py-2 font-mono text-[9px] text-blue-800">
+                        Panel position X {Math.round(artwork.offsetX * 100)}% · Y {Math.round(artwork.offsetY * 100)}%
+                      </p>
                     </div>
 
                     <label
@@ -549,7 +552,7 @@ export function PacdoraLab() {
 
         <section className="grid min-w-0 gap-5">
           <div className="grid gap-5 2xl:grid-cols-2">
-            <div className="relative min-h-[520px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
+            <div className="relative min-h-[660px] overflow-hidden rounded-2xl border border-[var(--st-line)] bg-[#eceff1] shadow-sm">
               <div className="absolute left-5 top-5 z-10 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-sm backdrop-blur">
                 3D preview · orbit every angle
               </div>
@@ -561,12 +564,12 @@ export function PacdoraLab() {
               />
             </div>
 
-            <div className="min-h-[520px] rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
+            <div className="min-h-[660px] rounded-2xl border border-[var(--st-line)] bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-sm font-semibold">2D dieline artwork editor</p>
                   <p className="mt-1 text-xs text-[var(--st-faint)]">
-                    {artwork ? "Drag inside the blue face; 3D updates from the same UV canvas." : "Upload artwork in the left panel or drop it here."}
+                    {artwork ? "Studio-style panel editor. Artwork is clipped before every seal and gusset boundary." : "Upload artwork in the left panel or drop it here."}
                   </p>
                 </div>
                 <span className="font-mono text-xs text-[var(--st-dim)]">
@@ -575,19 +578,19 @@ export function PacdoraLab() {
               </div>
               <div
                 {...(kind === "box" ? {} : artworkDropProps)}
-                className={`relative h-[440px] rounded-xl border p-4 transition ${artworkDragActive ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200" : "border-slate-100 bg-slate-50"}`}
+                className={`relative h-[580px] rounded-xl transition ${artworkDragActive ? "ring-2 ring-blue-300" : ""}`}
               >
-                <DielinePreview
-                  solution={activeSolution}
-                  artworkPreviewUrl={kind === "box" ? null : artworkCanvas.previewUrl}
-                  artworkPlacement={artwork?.placement}
-                  onArtworkDrag={kind === "box" || !artwork ? undefined : dragArtwork}
-                />
-                {!artwork && kind !== "box" ? (
-                  <div className="pointer-events-none absolute inset-x-5 bottom-5 rounded-lg border border-dashed border-slate-300 bg-white/90 px-3 py-2 text-center text-[10px] font-semibold text-slate-500 shadow-sm">
-                    Drop PNG, JPEG, WebP, or SVG here
+                {kind === "box" ? (
+                  <div className="h-full rounded-xl border border-slate-100 bg-slate-50 p-4">
+                    <DielinePreview solution={activeSolution} />
                   </div>
-                ) : null}
+                ) : (
+                  <PouchArtworkEditor
+                    solution={pouch}
+                    artwork={artwork}
+                    onArtworkChange={updateArtworkTransform}
+                  />
+                )}
               </div>
             </div>
           </div>

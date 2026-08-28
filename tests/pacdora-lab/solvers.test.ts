@@ -4,6 +4,7 @@ import {
   buildPacdoraLabPouchGeometry,
   getPacdoraLabMaterial,
   getPacdoraLabPouchPanelUv,
+  resolvePouchArtworkFrame,
   constrainPouchLabInput,
   getPouchDimensionLimits,
   samplePacdoraLabStandUpSurface,
@@ -178,7 +179,7 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   assert.ok(quarterFace.z > middleBody.z * 0.84);
   assert.ok(quarterFace.z < middleBody.z * 0.89);
   assert.ok(sideSeal.z < upperBody.z * 0.1);
-  assert.ok(bottomCorner.y > bottomCentre.y);
+  assert.ok(Math.abs(bottomCorner.y - bottomCentre.y) < 1e-12);
   assert.ok(Math.abs(leftBottomEdge.x - leftLowerEdge.x) < 1e-12);
   assert.ok(Math.abs(leftLowerEdge.x - leftMiddleEdge.x) < 1e-12);
 });
@@ -201,7 +202,9 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.equal(solution.panels.find((panel) => panel.id === "bottom-gusset")?.height, 62);
   assert.ok(solution.lines.some((line) => line.id === "zipper-line"));
 
-  const geometry = buildPacdoraLabPouchGeometry(solution, 14, 18);
+  const segmentsAcross = 14;
+  const segmentsUp = 18;
+  const geometry = buildPacdoraLabPouchGeometry(solution, segmentsAcross, segmentsUp);
   assert.equal(geometry.userData.pacdoraLab.kind, "procedural-stand-up-pouch");
   assert.equal(geometry.userData.pacdoraLab.topology, "front-back-bottom-gusset");
   assert.equal(geometry.userData.pacdoraLab.features.hangHole, true);
@@ -214,6 +217,19 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.ok(Math.abs(sealedWidth - 1.74) < 0.002);
   assert.ok(Math.abs(geometry.boundingBox.min.y + 1.05) < 0.002);
 
+  // The fused side rails remain exactly vertical through the gusset entry.
+  // A reduced final extension would create the visible triangular cutout.
+  const positions = geometry.getAttribute("position");
+  const row = segmentsAcross + 1;
+  const faceVertexCount = row * (segmentsUp + 1);
+  const leftRailStart = faceVertexCount * 2;
+  const railVertexCount = (segmentsUp + 1) * 2;
+  const rightRailStart = leftRailStart + railVertexCount;
+  for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
+    assert.ok(Math.abs(positions.getX(leftRailStart + yIndex * 2 + 1) + 0.87) < 1e-6);
+    assert.ok(Math.abs(positions.getX(rightRailStart + yIndex * 2 + 1) - 0.87) < 1e-6);
+  }
+
   const solidGeometry = buildPacdoraLabPouchGeometry(
     solvePacdoraLabPouch({ ...solution.input, hangHole: false }),
     14,
@@ -222,6 +238,42 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.ok(geometry.getIndex()!.count < solidGeometry.getIndex()!.count);
   solidGeometry.dispose();
   geometry.dispose();
+});
+
+test("artwork placement is constrained to its selected face and cannot enter the gusset", () => {
+  const panel = { x: 12, y: 284, width: 150, height: 210 };
+  const contained = resolvePouchArtworkFrame(
+    { width: 100, height: 100 },
+    panel,
+    {
+      fit: "contain",
+      scale: 1,
+      offsetX: 1,
+      offsetY: -1,
+      rotationDeg: 0,
+    },
+  );
+  assert.ok(contained.centreX - contained.halfExtentX >= panel.x - 1e-9);
+  assert.ok(contained.centreX + contained.halfExtentX <= panel.x + panel.width + 1e-9);
+  assert.ok(contained.centreY - contained.halfExtentY >= panel.y - 1e-9);
+  assert.ok(contained.centreY + contained.halfExtentY <= panel.y + panel.height + 1e-9);
+
+  const covering = resolvePouchArtworkFrame(
+    { width: 200, height: 100 },
+    panel,
+    {
+      fit: "cover",
+      scale: 1,
+      offsetX: -1,
+      offsetY: -1,
+      rotationDeg: 0,
+    },
+  );
+  assert.ok(covering.centreX - covering.halfExtentX <= panel.x + 1e-9);
+  assert.ok(covering.centreX + covering.halfExtentX >= panel.x + panel.width - 1e-9);
+  assert.ok(covering.centreY - covering.halfExtentY <= panel.y + 1e-9);
+  assert.ok(covering.centreY + covering.halfExtentY >= panel.y + panel.height - 1e-9);
+  assert.equal(covering.offsetY, 0);
 });
 
 test("stand-up bottom perimeter is a centre-driven lens, not a rounded rectangle", () => {

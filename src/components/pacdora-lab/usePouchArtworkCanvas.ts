@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { PouchArtwork, PouchLabSolution } from "@/lib/pacdora-lab";
+import {
+  resolvePouchArtworkFrame,
+  type PouchArtwork,
+  type PouchLabSolution,
+} from "@/lib/pacdora-lab";
 
 export type PouchArtworkCanvas = {
   canvas: HTMLCanvasElement | null;
@@ -27,22 +31,25 @@ function drawImageIntoPanel(
   rect: { x: number; y: number; width: number; height: number },
   artwork: Pick<PouchArtwork, "fit" | "scale" | "offsetX" | "offsetY" | "rotationDeg">,
 ) {
-  const fittedScale = artwork.fit === "cover"
-    ? Math.max(rect.width / image.naturalWidth, rect.height / image.naturalHeight)
-    : Math.min(rect.width / image.naturalWidth, rect.height / image.naturalHeight);
-  const scale = fittedScale * artwork.scale;
-  const width = image.naturalWidth * scale;
-  const height = image.naturalHeight * scale;
-  const centreX = rect.x + rect.width * (0.5 + artwork.offsetX);
-  const centreY = rect.y + rect.height * (0.5 + artwork.offsetY);
+  const frame = resolvePouchArtworkFrame(
+    { width: image.naturalWidth, height: image.naturalHeight },
+    rect,
+    artwork,
+  );
 
   context.save();
   context.beginPath();
   context.rect(rect.x, rect.y, rect.width, rect.height);
   context.clip();
-  context.translate(centreX, centreY);
-  context.rotate(artwork.rotationDeg * Math.PI / 180);
-  context.drawImage(image, -width * 0.5, -height * 0.5, width, height);
+  context.translate(frame.centreX, frame.centreY);
+  context.rotate(frame.rotationDeg * Math.PI / 180);
+  context.drawImage(
+    image,
+    -frame.width * 0.5,
+    -frame.height * 0.5,
+    frame.width,
+    frame.height,
+  );
   context.restore();
 }
 
