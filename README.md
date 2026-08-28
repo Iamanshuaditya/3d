@@ -27,7 +27,7 @@ or board facts.
 | Engineering / software | **Green** | lint, typecheck, full test suite, production build |
 | Reference recreation | **Certified** | 45/50, all 10 hard gates true, 12/12 source gates on the authorized source |
 | Manufacturing construction | **Not certified** | requires converter evidence; not obtainable from this repository |
-| Deployment | **Blocked** | OpenNext build passes; Worker bundle is 13.69 MiB vs a 3 MiB free-plan cap, and embeds native modules Workers cannot run |
+| Deployment | **Supported (single-node)** | Node standalone build; CI builds the shipping artifact, starts it and smoke-tests project create, artwork upload and 3D preview |
 | Commercial / supplier | **Not ready** | development pricing only |
 
 Current machine-readable state lives in [`quality-report.json`](quality-report.json);
@@ -68,7 +68,9 @@ npm run check          # lint + typecheck + test + build
 | `npm run verify:golden-reference -- <ref.pdf>` | Runtime fold recreation + 100-cycle certificate |
 | `npm run capture:golden-reference` | Six fixed-camera evidence captures |
 | `npm run finalize:golden-reference -- <run-summary> <visual-review>` | Issues the certification verdict |
-| `npm run preview` / `npm run deploy` | Cloudflare Workers via OpenNext |
+| `npm run build:standalone` | Packages the runnable production artifact |
+| `npm start` | Runs the packaged production artifact |
+| `npm run smoke:deployment -- <url>` | Verifies a running deployment end to end |
 
 ---
 
@@ -125,13 +127,16 @@ These are real and mostly deliberate. See `quality-report.json` →
 - **PostgreSQL** is documented but not runnable; SQLite is the only working
   adapter and `VORTEX_DATABASE=postgresql` fails closed.
 - **Rate limiting and job runners are process-local** — not yet suitable for
-  horizontal deployment.
+  horizontal deployment. `VORTEX_DEPLOYMENT_MODE=scaled` fails closed at
+  startup rather than degrading silently.
 - **Pricing** is a development estimate, disabled in production by default.
-- **Cloudflare Workers deploy is blocked at the platform level.** The asset
-  limit is cleared, but the built Worker is 13.69 MiB against a 3 MiB free-plan
-  cap, and it bundles `better-sqlite3` and `sharp` — native modules that cannot
-  execute on Workers regardless of size. Viable Workers deployment needs D1 or
-  Hyperdrive instead of SQLite and image work moved off the Worker.
+- **Cloudflare Workers is experimental and unsupported.** `better-sqlite3` and
+  `sharp` are native modules that cannot execute on Workers at any bundle size,
+  so the 13.69 MiB build is a symptom rather than the cause — a larger plan
+  limit would not make it run. A viable Workers target needs D1 or Hyperdrive
+  instead of SQLite and image work moved off the Worker. The supported target
+  is a Node standalone build; see
+  [`docs/platform/DEPLOYMENT.md`](docs/platform/DEPLOYMENT.md).
 - Arbitrary dielines and GLBs are **not** promised to fold automatically.
   Unknown construction semantics require reviewed authoring.
 
