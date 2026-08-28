@@ -22,6 +22,20 @@ jobs:
     env:
       VORTEX_ONBOARDING_PYTHON: python
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: vortex
+          POSTGRES_DB: vortex
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -53,6 +67,11 @@ jobs:
 
       - name: Test
         run: npm test
+        env:
+          # Integration tests that make claims about PostgreSQL behaviour run
+          # against a real PostgreSQL, or skip loudly. They are never run
+          # against a mock.
+          VORTEX_POSTGRES_TEST_URL: postgresql://postgres:vortex@127.0.0.1:55432/vortex
 
       - name: Validate onboarding manifests
         shell: bash

@@ -11,7 +11,7 @@ type Context = { params: Promise<{ projectId: string }> };
 export async function POST(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("preview-generation", owner, { limit: 30, windowMs: 60_000 });
+    await assertRateLimit("preview-generation", owner, { limit: 30, windowMs: 60_000 });
     const { projectId } = await context.params;
     return json({ project: await getProjectService().generatePreview(owner, projectId) });
   });

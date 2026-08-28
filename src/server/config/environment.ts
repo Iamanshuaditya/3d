@@ -70,7 +70,7 @@ export function validateDeploymentConfig(
     problems.push({
       variable: "VORTEX_DEPLOYMENT_MODE",
       detail:
-        "Scaled mode is not supported yet: rate limits and background jobs are process-local and SQLite is the only database adapter. Track issue #25.",
+        "Scaled mode is not supported yet. Rate limiting and background jobs are now shared-store backed, but SQLite on a local volume cannot be shared between instances and the PostgreSQL domain repositories are not ported. See docs/platform/POSTGRESQL.md.",
     });
   }
 
@@ -80,7 +80,7 @@ export function validateDeploymentConfig(
       variable: "VORTEX_DATABASE",
       detail:
         database === "postgresql"
-          ? "PostgreSQL has no runnable adapter yet. Use sqlite. Track issue #25."
+          ? "The PostgreSQL schema, pool, shared rate limiter and job queue are implemented, but the domain repositories and the Better Auth adapter are not, so the application cannot serve requests on it. Use sqlite. See docs/platform/POSTGRESQL.md."
           : `"${database}" is not a supported database. Use sqlite.`,
     });
   }

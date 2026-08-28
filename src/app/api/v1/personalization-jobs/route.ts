@@ -15,7 +15,7 @@ export function GET(request: NextRequest) {
 export function POST(request: NextRequest) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("personalization-job", owner, { limit: 20, windowMs: 60_000 });
+    await assertRateLimit("personalization-job", owner, { limit: 20, windowMs: 60_000 });
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body) ||
       Object.keys(body).some((key) => key !== "datasetId")) {

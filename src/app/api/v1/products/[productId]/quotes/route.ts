@@ -17,7 +17,7 @@ type Context = { params: Promise<{ productId: string }> };
 export async function POST(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("price-quote", owner, { limit: 60, windowMs: 60_000 });
+    await assertRateLimit("price-quote", owner, { limit: 60, windowMs: 60_000 });
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ValidationError("INVALID_REQUEST", "Price quote request is invalid.");

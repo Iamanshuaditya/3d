@@ -1,0 +1,17 @@
+[    2503ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=3717e31d:17994
+[    2519ms] [LOG] VITE_API_BASE_URL = http://localhost:5050/api @ http://localhost:5173/src/config/api.ts:4
+[    2551ms] [LOG] MIXPANEL PEOPLE REQUEST (QUEUED, PENDING IDENTIFY): @ http://localhost:5173/node_modules/.vite/deps/mixpanel-browser.js?v=3717e31d:19035
+[    2551ms] [LOG] {$set_once: Object, $token: 83a03770f9442a841072e8be1ce1dd04, $distinct_id: $device:cc5668de-8504-4770-af53-a0b83e6c32e8, $device_id: cc5668de-8504-4770-af53-a0b83e6c32e8} @ http://localhost:5173/node_modules/.vite/deps/mixpanel-browser.js?v=3717e31d:19035
+[    2688ms] [ERROR] Error: <rect> attribute height: Expected length, "undefined". @ http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=3717e31d:5840
+[    2689ms] [ERROR] Error: <rect> attribute height: Expected length, "undefined". @ http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=3717e31d:5840
+[    2689ms] [ERROR] Error: <rect> attribute height: Expected length, "undefined". @ http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=3717e31d:5840
+[    2689ms] [ERROR] Error: <rect> attribute height: Expected length, "undefined". @ http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=3717e31d:5840
+[    2689ms] [ERROR] Error: <rect> attribute height: Expected length, "undefined". @ http://localhost:5173/node_modules/.vite/deps/framer-motion.js?v=3717e31d:5840
+[    2689ms] [LOG] No settings found yet. @ http://localhost:5173/src/App.tsx:229
+[    2689ms] [LOG] No settings found yet. @ http://localhost:5173/src/App.tsx:229
+[    4193ms] [ERROR] Internal React error: Expected static flag was missing. Please notify the React team. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=3717e31d:4241
+[    4198ms] [ERROR] Internal React error: Expected static flag was missing. Please notify the React team. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=3717e31d:4241
+[    7554ms] [LOG] [batch] MIXPANEL REQUEST: [Object] @ http://localhost:5173/node_modules/.vite/deps/mixpanel-browser.js?v=3717e31d:19035
+[    9659ms] [ERROR] Internal React error: Expected static flag was missing. Please notify the React team. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=3717e31d:4241
+[    9671ms] [ERROR] Internal React error: Expected static flag was missing. Please notify the React team. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=3717e31d:4241
+[   10657ms] [LOG] [batch] Flush: Request already in progress @ http://localhost:5173/node_modules/.vite/deps/mixpanel-browser.js?v=3717e31d:19035

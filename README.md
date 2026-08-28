@@ -124,11 +124,17 @@ These are real and mostly deliberate. See `quality-report.json` →
 - **Embroidery** is a visual simulation. DST/PES machine output is deliberately
   unsupported; it would require a real digitization plan and physical sew-out
   evidence.
-- **PostgreSQL** is documented but not runnable; SQLite is the only working
-  adapter and `VORTEX_DATABASE=postgresql` fails closed.
-- **Rate limiting and job runners are process-local** — not yet suitable for
-  horizontal deployment. `VORTEX_DEPLOYMENT_MODE=scaled` fails closed at
-  startup rather than degrading silently.
+- **PostgreSQL is partially implemented.** The target schema, pooled
+  connections with transactions, the shared rate limiter and the distributed
+  job queue are built and verified against a real PostgreSQL 17. The twelve
+  domain repositories and the Better Auth adapter are not ported, so
+  `VORTEX_DATABASE=postgresql` still fails closed. See
+  [`docs/platform/POSTGRESQL.md`](docs/platform/POSTGRESQL.md).
+- **Rate limits and background jobs are now shared-store backed** — durable
+  across restarts, with jobs claimed under a recoverable lease. Horizontal
+  scale still needs the PostgreSQL repositories, so
+  `VORTEX_DEPLOYMENT_MODE=scaled` fails closed at startup rather than
+  degrading silently.
 - **Pricing** is a development estimate, disabled in production by default.
 - **Cloudflare Workers is experimental and unsupported.** `better-sqlite3` and
   `sharp` are native modules that cannot execute on Workers at any bundle size,

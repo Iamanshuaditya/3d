@@ -1,29 +1,51 @@
 import { PlatformError } from "@/platform/projects/errors";
 import type { ProjectOwner } from "@/platform/projects/types";
+import type { RateLimitPolicy, RateLimitStore } from "@/platform/http/rate-limit";
+import { getVortexDatabase } from "@/server/persistence/database";
+import { InMemoryRateLimitStore, SqliteRateLimitStore } from "./rate-limit-stores";
 
-type Window = { count: number; resetsAt: number };
-const windows = new Map<string, Window>();
+/**
+ * Rate limiting entry point (#25).
+ *
+ * The store is durable by default rather than in-process: a restart used to
+ * reset every limit, so an abusive client only had to wait for a deploy. It is
+ * also the seam that lets scaled mode share one counter across instances.
+ */
+let store: RateLimitStore | null = null;
 
-export function assertRateLimit(
+export function getRateLimitStore(): RateLimitStore {
+  store ??= new SqliteRateLimitStore(getVortexDatabase());
+  return store;
+}
+
+/** Test seam. Passing null restores the configured store. */
+export function setRateLimitStore(next: RateLimitStore | null) {
+  store = next;
+}
+
+export function rateLimitKey(bucket: string, owner: ProjectOwner) {
+  return `${bucket}:${owner.type}:${owner.id}`;
+}
+
+export async function assertRateLimit(
   bucket: string,
   owner: ProjectOwner,
-  options: { limit: number; windowMs: number },
+  policy: RateLimitPolicy,
+  now = Date.now(),
 ) {
-  const now = Date.now();
-  const key = `${bucket}:${owner.type}:${owner.id}`;
-  const current = windows.get(key);
-  if (!current || current.resetsAt <= now) {
-    windows.set(key, { count: 1, resetsAt: now + options.windowMs });
-    return;
-  }
-  current.count += 1;
-  if (current.count > options.limit) {
+  const decision = await getRateLimitStore().consume(
+    rateLimitKey(bucket, owner),
+    policy,
+    now,
+  );
+  if (!decision.allowed) {
     throw new PlatformError(
       "RATE_LIMITED",
       "Too many requests. Wait a moment and try again.",
       429,
-      { retryAfterSeconds: Math.max(1, Math.ceil((current.resetsAt - now) / 1_000)) },
+      { retryAfterSeconds: decision.retryAfterSeconds },
     );
   }
 }
 
+export { InMemoryRateLimitStore, SqliteRateLimitStore };

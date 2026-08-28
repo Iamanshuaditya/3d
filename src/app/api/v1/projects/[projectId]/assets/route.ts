@@ -13,7 +13,7 @@ type Context = { params: Promise<{ projectId: string }> };
 export async function POST(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("asset-upload", owner, { limit: 20, windowMs: 60_000 });
+    await assertRateLimit("asset-upload", owner, { limit: 20, windowMs: 60_000 });
     const declared = Number(request.headers.get("content-length") ?? 0);
     if (!Number.isSafeInteger(declared) || declared <= 0) {
       throw new ValidationError(

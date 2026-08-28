@@ -12,7 +12,7 @@ type Context = { params: Promise<{ projectId: string }> };
 export async function POST(request: NextRequest, context: Context) {
   return withOwner(request, async ({ owner }) => {
     assertSameOriginMutation(request);
-    assertRateLimit("production-preflight", owner, { limit: 30, windowMs: 60_000 });
+    await assertRateLimit("production-preflight", owner, { limit: 30, windowMs: 60_000 });
     const body = await readJson(request);
     if (!body || typeof body !== "object" || Array.isArray(body)) {
       throw new ValidationError("INVALID_REQUEST", "Production preflight request is invalid.");
