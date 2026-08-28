@@ -93,6 +93,9 @@ export function PacdoraLab() {
       dimensions: { ...current.dimensions, [key]: Math.max(1, value || 1) },
     }));
   };
+  const updateBoxMaterial = (materialId: string) => {
+    setBoxInput((current) => ({ ...current, materialId }));
+  };
   const updatePouch = (key: keyof PouchLabInput, value: number | string | boolean) => {
     setPouchInput((current) => ({ ...current, [key]: value }));
   };
@@ -164,7 +167,7 @@ export function PacdoraLab() {
               </div>
               <label>
                 <span className={labelClass}>Board stock</span>
-                <select className={inputClass} value={boxInput.materialId} onChange={(event) => setBoxInput((current) => ({ ...current, materialId: event.currentTarget.value }))}>
+                <select className={inputClass} value={boxInput.materialId} onChange={(event) => updateBoxMaterial(event.currentTarget.value)}>
                   {PACDORA_LAB_BOX_MATERIALS.map((material) => <option key={material.id} value={material.id}>{material.label}</option>)}
                 </select>
               </label>
