@@ -115,18 +115,23 @@ test("stand-up surface keeps an open lower body and pinches only the top seal", 
   const sideSeal = samplePacdoraLabStandUpSurface(solution, 0.99, 0.5, 1);
   const bottomCentre = samplePacdoraLabStandUpSurface(solution, 0.5, 0, 1);
   const bottomCorner = samplePacdoraLabStandUpSurface(solution, 0.01, 0, 1);
+  const leftBottomEdge = samplePacdoraLabStandUpSurface(solution, 0, 0, 1);
+  const leftLowerEdge = samplePacdoraLabStandUpSurface(solution, 0, 0.18, 1);
+  const leftMiddleEdge = samplePacdoraLabStandUpSurface(solution, 0, 0.5, 1);
 
   assert.ok(lowerBody.z > middleBody.z * 0.98);
   assert.ok(fillShoulder.z < lowerBody.z * 0.62);
   assert.ok(headspace.z < lowerBody.z * 0.28);
   assert.ok(lowerBody.z > upperBody.z);
   assert.ok(upperBody.z > topSeal.z);
-  assert.ok(bottomSeal.z > middleBody.z * 0.7);
-  assert.ok(bottomSeal.z < middleBody.z * 0.85);
+  assert.ok(bottomSeal.z > middleBody.z * 1.05);
+  assert.ok(bottomSeal.z < lowerBody.z * 0.93);
   assert.ok(topSeal.z < middleBody.z * 0.05);
   assert.ok(quarterFace.z > middleBody.z * 0.94);
   assert.ok(sideSeal.z < upperBody.z * 0.1);
   assert.ok(bottomCorner.y > bottomCentre.y);
+  assert.ok(Math.abs(leftBottomEdge.x - leftLowerEdge.x) < 1e-12);
+  assert.ok(Math.abs(leftLowerEdge.x - leftMiddleEdge.x) < 1e-12);
 });
 
 test("stand-up pouch has a separate gusset web and generated bottom membrane", () => {
@@ -248,6 +253,6 @@ test("stand-up inflation opens the lower gusset while preserving the flat web", 
   assert.deepEqual(flat.web, full.web);
   assert.ok(fullMiddle.z > flatMiddle.z * 8);
   assert.ok(fullBottom.z > flatBottom.z * 8);
-  assert.ok(fullBottom.z > fullMiddle.z * 0.7);
-  assert.ok(fullBottom.z < fullMiddle.z * 0.85);
+  assert.ok(fullBottom.z > fullMiddle.z * 1.05);
+  assert.ok(fullBottom.z < fullMiddle.z * 1.15);
 });

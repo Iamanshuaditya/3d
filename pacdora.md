@@ -336,6 +336,15 @@ adjustable. At low inflation it is a vertical rectangle. At full inflation the
 lower front and back remain separated, and the gusset unfolds between their
 level bottom edges into the standing base without extending beneath them.
 
+A final edge-profile audit found that width and depth must be treated as two
+different constraints. The face width and the outer side-seal cut edge belong
+to the canonical flat web, so both stay vertically aligned instead of tapering
+inward near the base. Inflation acts behind that rail. In side view, the bottom
+gusset entry now retains `90%` of the lower chamber depth and reaches the full
+lower-body profile within the bottom `18%` of the pouch. This preserves a broad
+standing footprint while avoiding both an outward blob and the previous
+two-thirds-depth funnel.
+
 The pouch viewport now starts with an orthographic product camera. This is a
 rendering choice, not a deformation shortcut: it removes perspective
 keystoning that made equal-height bottom vertices appear diagonally cut. Orbit

@@ -317,13 +317,12 @@ function buildCenterSealGeometry(
   return finishGeometry(solution, positions, uvs, indices);
 }
 
-function standUpWidthScaleAt(v: number, sealFraction: number): number {
-  // The artwork face remains a rectangle as the pouch opens. Only the lower
-  // gusset entry pulls the corners inward, and even there the contraction is
-  // slight. A stronger taper makes the pouch read as a bottle or rounded slab.
-  const lowerBody = lerp(0.97, 0.997, smoothstep(0, 0.14, v));
-  const topSeal = smoothstep(1 - sealFraction * 1.25, 1, v);
-  return lerp(lowerBody, 1, topSeal);
+function standUpWidthScaleAt(): number {
+  // Width belongs to the cut web, so inflation must not pull the face or its
+  // side-seal rail inward. The flexible chamber opens in depth behind this
+  // rectangular boundary; changing X here creates the false funnel seen from
+  // the front and makes the bottom gusset narrower than its own flat web.
+  return 1;
 }
 
 function standUpDepthFactorAt(v: number, sealFraction: number): number {
@@ -332,7 +331,11 @@ function standUpDepthFactorAt(v: number, sealFraction: number): number {
   // panels apart. Pinching both ends produces a diamond silhouette and forces
   // the gusset to escape underneath as a false "foot".
   const clampedV = clamp01(v);
-  const gussetOpening = lerp(0.66, 1, smoothstep(0, 0.22, clampedV));
+  // The standing footprint stays broad. The earlier 0.66 entry made the last
+  // few centimetres lose a third of their depth and read as a pointed funnel.
+  // Keep the fold at 90% of the filled chamber and finish the small transition
+  // within the lower gusset zone.
+  const gussetOpening = lerp(0.9, 1, smoothstep(0, 0.18, clampedV));
   // Pacdora's slider behaves like a fill amount, not a uniform pressure
   // modifier. The product chamber swells below the visual fill line while the
   // empty headspace has already collapsed well before it reaches the zipper.
@@ -393,7 +396,7 @@ export function samplePacdoraLabStandUpSurface(
   const sealFraction = Math.min(0.15, Math.max(0.045, endSealMm / height));
   const s = clamp01(u) * 2 - 1;
   const clampedV = clamp01(v);
-  const widthScale = standUpWidthScaleAt(clampedV, sealFraction);
+  const widthScale = standUpWidthScaleAt();
   const depthFactor = standUpDepthFactorAt(clampedV, sealFraction);
   const sideMask = standUpSideMaskAt(s);
   const panelCrown = 1 - 0.018 * s * s;
@@ -472,7 +475,7 @@ function buildStandUpGeometry(
           const v = (yIndex + 0.5) / segmentsUp;
           const u = (xIndex + 0.5) / segmentsAcross;
           const s = u * 2 - 1;
-          const x = s * width * 0.5 * standUpWidthScaleAt(v, sealFraction);
+          const x = s * width * 0.5 * standUpWidthScaleAt();
           const y = (v - 0.5) * height;
           if (Math.hypot(x, y - hangHole.centreYmm)
             < hangHole.radiusMm + hangHoleCellPadding) {
@@ -512,7 +515,10 @@ function buildStandUpGeometry(
       for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
         const v = yIndex / segmentsUp;
         const inner = samplePacdoraLabStandUpSurface(solution, u, v, face);
-        const outerX = inner.x + side * endSealMm * MM_TO_SCENE;
+        // The outer cut edge is set by the canonical web, not by the deformed
+        // body vertex. Keeping it nominal makes the heat-seal rail a stable,
+        // vertical datum even if the chamber profile evolves independently.
+        const outerX = side * (width * 0.5 + endSealMm) * MM_TO_SCENE;
         const panel = solution.panels.find((candidate) => (
           candidate.id === (face > 0 ? "front-film" : "back-film")
         ));
@@ -549,7 +555,7 @@ function buildStandUpGeometry(
 
   const gussetRows = Math.max(10, Math.round(segmentsAcross * 0.42));
   const gussetOffset = positions.length / 3;
-  const bottomWidthScale = standUpWidthScaleAt(0, sealFraction);
+  const bottomWidthScale = standUpWidthScaleAt();
   const bottomDepthFactor = standUpDepthFactorAt(0, sealFraction);
   const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
   for (let qIndex = 0; qIndex <= gussetRows; qIndex++) {
