@@ -259,6 +259,70 @@ The final multi-angle pass also inspected two live Pacdora models in Chrome:
   artwork face stays comparatively flat. From the front, its lower edge is a
   lifted-corner U rather than the straight bottom of a rounded slab.
 
+### Flat-to-inflated correction pass for model 430041
+
+A final controlled comparison used the same camera while moving model `430041`
+between its minimum, midpoint, and maximum public `Inflate` positions. The
+model reports only `3.2677 × 4.7638 in` (approximately `83 × 121 mm`) in the
+size panel; expansion is a separate soft-shape parameter. The toolbar visually
+clamps its pointer inside the track rather than presenting expansion as a third
+manufacturing dimension.
+
+The important deformation is easier to see from the side than the front:
+
+- At minimum expansion, the front and back laminates are almost coincident. The
+  result is a thin vertical card with a rectangular front silhouette.
+- Inflation separates two broad face membranes. It does not scale a rounded
+  solid or push every face vertex outward equally.
+- The upper heat seal remains pinched, but the lower perimeter does not collapse
+  to the same point. The lower front and back walls remain separated and are
+  joined by the opening bottom gusset.
+- The zipper and headspace stay in the narrow upper transition. Maximum depth
+  occurs through the middle and lower body, then reduces through the shoulder
+  leading into the top seal.
+- Most of the printable face stays comparatively planar. Curvature is absorbed
+  by the side shoulders, sealed fins, and folded lower transition.
+- Across the supplied and live side captures, the apparent maximum opening was
+  approximately one fifth of overall height. This is a visual benchmark, not a
+  converter-approved capacity formula.
+
+This agrees with Pacdora's own description that filling swells the gusset,
+changes the zipper/headspace region, and bends the lower artwork area; those
+effects are construction features rather than generic mesh scaling. See
+[Pacdora's dry-goods packaging design page](https://www.pacdora.com/tools/ai-dry-goods-packaging-design).
+
+The `/test` stand-up solver missed that behavior in seven concrete ways across
+its first two iterations:
+
+1. Its first lower width contracted to `86%`, producing a bottle-like body and a
+   large rounded base.
+2. Its depth mask curved the whole artwork panel, which read as a ballooned
+   slab instead of two laminate faces.
+3. Its gusset arch stayed large even near the flat state.
+4. The decorative top-seal boxes were about `1.2 mm` deep around a `0.12 mm`
+   film—ten times the selected laminate caliper.
+5. The flat web contained side-seal allowances, but the 3D mesh had no separate
+   double-layer seal fins representing them.
+6. The first correction then over-read the side silhouette as a closed lens and
+   forced bottom depth to zero. That collapsed the lower face edges into a
+   diamond point.
+7. Its still-arched gusset could not occupy that collapsed boundary, so it
+   projected below the body as an unrelated oval foot.
+
+The corrected research mesh now uses an open lower body, an upper seal taper, a
+broad central artwork plateau across width, explicit doubled side fins, a
+caliper-scale top seal, and an inflation-dependent folded gusset membrane. Its
+default filled-depth ratio is `42 / 210 = 0.20`, while the control remains fully
+adjustable. At low inflation it is a vertical rectangle. At full inflation the
+lower front and back remain separated, and the gusset unfolds between their
+level bottom edges into the standing base without extending beneath them.
+
+The pouch viewport now starts with an orthographic product camera. This is a
+rendering choice, not a deformation shortcut: it removes perspective
+keystoning that made equal-height bottom vertices appear diagonally cut. Orbit
+and zoom remain available, while a front or side inspection preserves parallel
+seal edges like Pacdora's editor views.
+
 The corrected center-seal construction now has:
 
 - Wide, nearly flat cross-web heat-seal bands at the top and bottom.
@@ -270,15 +334,18 @@ The corrected center-seal construction now has:
 The corrected stand-up construction now has:
 
 - Independent front and back face membranes.
-- A narrower gusset entry, broad artwork face, and full-width top seal.
+- An open lower-body gusset entry, broad artwork face, and full-width top seal.
 - Flat side-seal rails built into the membrane topology rather than decorative
   bars placed over the surface.
 - Optional paired zipper tracks sampled from the same curved face, so they do
   not float or poke through when the pouch is viewed from the side.
+- An optional round hang hole cut through both face membranes and the
+  caliper-scale top-seal ring. The flat web shows the two registered cuts that
+  align when the front and back top seals are joined.
 - A separately tessellated bottom-gusset membrane. Its front and back edges
-  meet the face membranes while its centre folds sharply upward. Lifted lower
-  corners create the Doypack U profile and leave two physical standing rails
-  rather than a painted gusset line.
+  meet the separated face membranes; its centre folds upward only in the flat
+  state and settles toward a broad base as inflation rises. A sub-millimetre
+  corner lift preserves the Doypack fold cue without making the bottom slant.
 
 The two stable flat webs are consequently different:
 

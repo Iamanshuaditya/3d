@@ -77,6 +77,7 @@ export type PouchLabInput = {
   backSealMm: number;
   gussetMm: number;
   zipper: boolean;
+  hangHole: boolean;
 };
 
 export type PouchLabSolution = {

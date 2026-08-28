@@ -1,6 +1,10 @@
 "use client";
 
-import type { BoxLabSolution, PouchLabSolution } from "@/lib/pacdora-lab";
+import {
+  getPacdoraLabStandUpHangHole,
+  type BoxLabSolution,
+  type PouchLabSolution,
+} from "@/lib/pacdora-lab";
 
 const roleFill = {
   body: "#eef6ff",
@@ -16,6 +20,17 @@ export function DielinePreview({ solution }: { solution: BoxLabSolution | PouchL
   const height = solution.kind === "box" ? solution.blank.height : solution.web.height;
   const padding = Math.max(width, height) * 0.04;
   const fontSize = Math.max(width, height) * 0.025;
+  const hangHole = solution.kind === "pouch"
+    ? getPacdoraLabStandUpHangHole(solution.input)
+    : null;
+  const hangHoleCutYPositions = solution.kind === "pouch"
+    && solution.style === "stand-up"
+    && solution.input.hangHole
+    ? [
+        solution.input.endSealMm * 0.48,
+        solution.web.height - solution.input.endSealMm * 0.48,
+      ]
+    : [];
 
   return (
     <svg
@@ -66,6 +81,19 @@ export function DielinePreview({ solution }: { solution: BoxLabSolution | PouchL
           />
         );
       })}
+      {solution.kind === "pouch" && hangHole
+        ? hangHoleCutYPositions.map((cy) => (
+          <circle
+            key={`hang-hole-${cy}`}
+            cx={solution.input.endSealMm + solution.input.width * 0.5}
+            cy={cy}
+            r={hangHole.radiusMm}
+            fill="#f8fafc"
+            stroke="#111827"
+            strokeWidth={Math.max(0.7, width * 0.0022)}
+          />
+        ))
+        : null}
     </svg>
   );
 }

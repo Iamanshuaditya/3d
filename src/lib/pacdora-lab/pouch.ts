@@ -15,6 +15,16 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
+export function getPacdoraLabStandUpHangHole(input: PouchLabInput): {
+  centreYmm: number;
+  radiusMm: number;
+} {
+  return {
+    centreYmm: input.height * 0.5 - input.endSealMm * 0.48,
+    radiusMm: Math.min(3.2, Math.max(2.4, input.endSealMm * 0.24)),
+  };
+}
+
 export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
   const material = getPacdoraLabMaterial(input.materialId, "film");
   positive(input.width, "Pouch width");
@@ -128,7 +138,7 @@ export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
     assumptions: standUp
       ? [
           "Research construction: stand-up doypack with a generated bottom-gusset membrane.",
-          "The broad face, tapered shoulders, zipper ridge, and standing base are separate geometric features.",
+          "The broad face, tapered shoulders, zipper ridge, cut-through hang hole, and standing base are separate geometric features.",
           "Gusset depth, zipper offset, seal widths, and forming shrink require converter confirmation.",
         ]
       : [
@@ -168,6 +178,10 @@ function finishGeometry(
       width: solution.input.width,
       height: solution.input.height,
       depth: solution.inflatedDepth,
+    },
+    features: {
+      zipper: solution.input.zipper,
+      hangHole: solution.style === "stand-up" && solution.input.hangHole,
     },
     topology: solution.style === "stand-up" ? "front-back-bottom-gusset" : "front-back-fin-seal",
   };
@@ -261,22 +275,61 @@ function buildCenterSealGeometry(
 }
 
 function standUpWidthScaleAt(v: number, sealFraction: number): number {
-  const lowerBody = lerp(0.86, 0.975, smoothstep(0, 0.24, v));
-  const body = lowerBody + 0.012 * Math.sin(v * Math.PI);
-  const topSeal = smoothstep(1 - sealFraction * 1.2, 1, v);
-  return lerp(body, 1.015, topSeal);
+  // The artwork face remains a rectangle as the pouch opens. Only the lower
+  // gusset entry pulls the corners inward, and even there the contraction is
+  // slight. A stronger taper makes the pouch read as a bottle or rounded slab.
+  const lowerBody = lerp(0.97, 0.997, smoothstep(0, 0.14, v));
+  const topSeal = smoothstep(1 - sealFraction * 1.25, 1, v);
+  return lerp(lowerBody, 1, topSeal);
 }
 
 function standUpDepthFactorAt(v: number, sealFraction: number): number {
-  const gussetOpen = lerp(0.74, 1, smoothstep(0, 0.2, v));
-  const upperTaper = lerp(1, 0.5, smoothstep(0.28, 0.8, v));
-  const closure = 1 - smoothstep(1 - sealFraction * 2.8, 1 - sealFraction, v);
-  return gussetOpen * upperTaper * closure;
+  // A stand-up pouch closes at the upper heat seal, but it cannot also close
+  // to a point at the bottom: the opened gusset holds the lower front and back
+  // panels apart. Pinching both ends produces a diamond silhouette and forces
+  // the gusset to escape underneath as a false "foot".
+  const clampedV = clamp01(v);
+  const gussetOpening = lerp(0.78, 1, smoothstep(0, 0.18, clampedV));
+  const upperLean = lerp(1, 0.68, smoothstep(0.46, 0.78, clampedV));
+  const sealClosure = 1 - smoothstep(
+    1 - sealFraction * 3.2,
+    1 - sealFraction * 0.75,
+    clampedV,
+  );
+  return gussetOpening * upperLean * sealClosure;
 }
 
 function standUpSideMaskAt(s: number): number {
-  const sealedS = Math.min(1, Math.abs(s) / 0.9);
-  return Math.pow(Math.max(0, 1 - sealedS * sealedS), 0.46);
+  // Most of a filled pouch is still a broad, printable face. Curvature is
+  // concentrated in a shoulder close to the side heat seals instead of being
+  // spread across the entire panel like a balloon.
+  const shoulder = smoothstep(0.42, 0.97, Math.abs(s));
+  return Math.pow(Math.max(0, 1 - shoulder), 0.82);
+}
+
+function standUpMaximumCornerLift(width: number, gussetMm: number): number {
+  // A real Doypack may lift very slightly where its bottom fold enters the
+  // side seals, but the printable face still has an essentially level lower
+  // edge. Keep this below half a millimetre at the research defaults.
+  return Math.min(gussetMm * 0.006, width * 0.003);
+}
+
+function standUpLowerReliefMm(
+  s: number,
+  v: number,
+  depthFactor: number,
+  inflationProgress: number,
+): number {
+  const lowerFade = Math.pow(Math.max(0, 1 - v / 0.5), 1.45);
+  const leftGussetPull = -0.46
+    * Math.exp(-Math.pow((s - (-0.72 + v * 0.25)) / 0.06, 2))
+    * lowerFade;
+  const rightGussetPull = -0.42
+    * Math.exp(-Math.pow((s - (0.7 - v * 0.22)) / 0.064, 2))
+    * lowerFade;
+  return (leftGussetPull + rightGussetPull)
+    * inflationProgress
+    * Math.min(1, depthFactor * 1.8);
 }
 
 /**
@@ -297,9 +350,14 @@ export function samplePacdoraLabStandUpSurface(
   const widthScale = standUpWidthScaleAt(clampedV, sealFraction);
   const depthFactor = standUpDepthFactorAt(clampedV, sealFraction);
   const sideMask = standUpSideMaskAt(s);
-  const panelCrown = 0.94 + 0.06 * Math.cos(s * Math.PI);
+  const panelCrown = 1 - 0.018 * s * s;
   const bottomInfluence = 1 - smoothstep(0, 0.22, clampedV);
-  const cornerLift = Math.pow(Math.abs(s), 2.7) * gussetMm * 0.14 * bottomInfluence;
+  const inflationProgress = smoothstep(0.05, 0.86, solution.input.inflation);
+  const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
+  const cornerLift = Math.pow(Math.abs(s), 3)
+    * maximumCornerLift
+    * bottomInfluence
+    * inflationProgress;
   const filmHalf = Math.max(solution.material.caliperMm * 0.5, 0.035);
   const x = s * width * 0.5 * widthScale;
   const y = (clampedV - 0.5) * height + cornerLift;
@@ -324,28 +382,30 @@ function buildStandUpGeometry(
   const row = segmentsAcross + 1;
   const faceVertexCount = row * (segmentsUp + 1);
   const sealFraction = Math.min(0.15, Math.max(0.045, endSealMm / height));
+  const inflationProgress = smoothstep(0.05, 0.86, solution.input.inflation);
+  const hangHole = getPacdoraLabStandUpHangHole(solution.input);
+  const hangHoleCellPadding = Math.hypot(
+    width / segmentsAcross,
+    height / segmentsUp,
+  ) * 0.58;
 
-  // Two broad face membranes with a gentle shoulder taper. The bottom stays
-  // open here and is closed by a separately tessellated gusset below.
+  // Two broad face membranes. Their centres translate apart almost as planar
+  // cards; the side shoulders, top closure, and gusset entry absorb the bend.
   for (const face of [1, -1] as const) {
     for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
       const v = yIndex / segmentsUp;
       const depthFactor = standUpDepthFactorAt(v, sealFraction);
-      const bottomInfluence = 1 - smoothstep(0, 0.22, v);
       for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
         const u = xIndex / segmentsAcross;
         const s = u * 2 - 1;
-        const sideMask = standUpSideMaskAt(s);
-        const sideWrinkle = 0.18
-          * Math.sin(s * 17.1 + v * 13.7 + (face > 0 ? 0 : 1.7))
-          * Math.pow(Math.abs(s), 1.65)
-          * depthFactor
-          * sideMask;
-        const gussetCrease = 0.34
-          * Math.exp(-Math.pow((Math.abs(s) - (0.74 - v * 0.34)) / 0.075, 2))
-          * bottomInfluence;
+        const relief = standUpLowerReliefMm(
+          s,
+          v,
+          depthFactor,
+          inflationProgress,
+        );
         const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
-        point.z += face * (sideWrinkle - gussetCrease) * MM_TO_SCENE;
+        point.z += face * relief * MM_TO_SCENE;
         positions.push(point.x, point.y, point.z);
         uvs.push(face > 0 ? u : 1 - u, v);
       }
@@ -356,6 +416,17 @@ function buildStandUpGeometry(
     const offset = face * faceVertexCount;
     for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
       for (let xIndex = 0; xIndex < segmentsAcross; xIndex++) {
+        if (solution.input.hangHole) {
+          const v = (yIndex + 0.5) / segmentsUp;
+          const u = (xIndex + 0.5) / segmentsAcross;
+          const s = u * 2 - 1;
+          const x = s * width * 0.5 * standUpWidthScaleAt(v, sealFraction);
+          const y = (v - 0.5) * height;
+          if (Math.hypot(x, y - hangHole.centreYmm)
+            < hangHole.radiusMm + hangHoleCellPadding) {
+            continue;
+          }
+        }
         const a = offset + yIndex * row + xIndex;
         const b = a + 1;
         const c = a + row;
@@ -378,6 +449,33 @@ function buildStandUpGeometry(
       else indices.push(f0, f1, b0, b0, f1, b1);
     }
   }
+
+  // Separate double-layer side fins keep their laminate thickness while the
+  // body opens behind them. These rails are part of the final silhouette and
+  // account for the side-seal allowance already present in the flat web.
+  for (const side of [-1, 1] as const) {
+    const u = side < 0 ? 0 : 1;
+    for (const face of [1, -1] as const) {
+      const finOffset = positions.length / 3;
+      for (let yIndex = 0; yIndex <= segmentsUp; yIndex++) {
+        const v = yIndex / segmentsUp;
+        const inner = samplePacdoraLabStandUpSurface(solution, u, v, face);
+        const outerX = inner.x + side * endSealMm * MM_TO_SCENE;
+        positions.push(inner.x, inner.y, inner.z);
+        positions.push(outerX, inner.y, face * filmHalf * MM_TO_SCENE);
+        uvs.push(u, v, u, v);
+      }
+      for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
+        const a = finOffset + yIndex * 2;
+        const b = a + 1;
+        const c = a + 2;
+        const d = a + 3;
+        if (face > 0) indices.push(a, b, c, b, d, c);
+        else indices.push(a, c, b, b, c, d);
+      }
+    }
+  }
+
   // Close only the top seam. The lower perimeter is the gusset boundary.
   for (let xIndex = 0; xIndex < segmentsAcross; xIndex++) {
     const f0 = front(segmentsUp, xIndex);
@@ -391,6 +489,7 @@ function buildStandUpGeometry(
   const gussetOffset = positions.length / 3;
   const bottomWidthScale = standUpWidthScaleAt(0, sealFraction);
   const bottomDepthFactor = standUpDepthFactorAt(0, sealFraction);
+  const maximumCornerLift = standUpMaximumCornerLift(width, gussetMm);
   for (let qIndex = 0; qIndex <= gussetRows; qIndex++) {
     const q = qIndex / gussetRows;
     const frontBack = q * 2 - 1;
@@ -398,13 +497,31 @@ function buildStandUpGeometry(
       const u = xIndex / segmentsAcross;
       const s = u * 2 - 1;
       const sideMask = standUpSideMaskAt(s);
-      const boundaryDepth = filmHalf + halfDepth * sideMask * bottomDepthFactor * (0.94 + 0.06 * Math.cos(s * Math.PI));
+      const panelCrown = 1 - 0.018 * s * s;
+      const lowerRelief = standUpLowerReliefMm(
+        s,
+        0,
+        bottomDepthFactor,
+        inflationProgress,
+      );
+      const gussetDepth = filmHalf
+        + halfDepth * sideMask * bottomDepthFactor * panelCrown
+        + lowerRelief;
       const centreFold = Math.pow(Math.max(0, 1 - Math.abs(frontBack)), 0.72);
-      const centreArch = centreFold * (0.2 * gussetMm + 0.06 * halfDepth);
-      const edgePinch = Math.pow(Math.abs(s), 2.7) * gussetMm * 0.14;
+      // The unused gusset folds upward between the two face membranes. As the
+      // pouch opens, that fold settles into the broad standing base. It never
+      // moves below the face boundary, which prevents the oval protrusion seen
+      // in the earlier mesh.
+      const foldedCentreLift = centreFold
+        * gussetMm
+        * 0.11
+        * (1 - inflationProgress);
+      const cornerLift = Math.pow(Math.abs(s), 3)
+        * maximumCornerLift
+        * inflationProgress;
       const x = s * width * 0.5 * bottomWidthScale;
-      const y = -height * 0.5 + centreArch + edgePinch;
-      const z = frontBack * boundaryDepth;
+      const y = -height * 0.5 + cornerLift + foldedCentreLift;
+      const z = frontBack * gussetDepth;
       positions.push(x * MM_TO_SCENE, y * MM_TO_SCENE, z * MM_TO_SCENE);
       uvs.push(u, q);
     }
@@ -429,8 +546,8 @@ function buildStandUpGeometry(
  */
 export function buildPacdoraLabPouchGeometry(
   solution: PouchLabSolution,
-  segmentsAcross = 52,
-  segmentsUp = 68,
+  segmentsAcross = 72,
+  segmentsUp = 96,
 ): THREE.BufferGeometry {
   return solution.style === "stand-up"
     ? buildStandUpGeometry(solution, segmentsAcross, segmentsUp)

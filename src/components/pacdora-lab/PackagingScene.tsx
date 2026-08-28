@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import {
   buildPacdoraLabPouchGeometry,
+  getPacdoraLabStandUpHangHole,
   samplePacdoraLabStandUpSurface,
   type BoxLabSolution,
   type PouchLabSolution,
@@ -263,6 +264,55 @@ function StandUpZipperRidge({
   );
 }
 
+function StandUpTopSeal({ solution }: { solution: PouchLabSolution }) {
+  const sealedWidth = (solution.input.width + solution.input.endSealMm * 2) * MM;
+  const sealedHeight = solution.input.endSealMm * MM * 0.72;
+  const laminateThickness = Math.max(solution.material.caliperMm * MM, 0.0012);
+  const hangHole = getPacdoraLabStandUpHangHole(solution.input);
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-sealedWidth * 0.5, -sealedHeight * 0.5);
+    shape.lineTo(sealedWidth * 0.5, -sealedHeight * 0.5);
+    shape.lineTo(sealedWidth * 0.5, sealedHeight * 0.5);
+    shape.lineTo(-sealedWidth * 0.5, sealedHeight * 0.5);
+    shape.closePath();
+
+    if (solution.input.hangHole) {
+      const aperture = new THREE.Path();
+      aperture.absarc(0, 0, hangHole.radiusMm * MM, 0, Math.PI * 2, true);
+      shape.holes.push(aperture);
+    }
+
+    const sealGeometry = new THREE.ExtrudeGeometry(shape, {
+      depth: laminateThickness,
+      bevelEnabled: false,
+      curveSegments: 48,
+      steps: 1,
+    });
+    sealGeometry.translate(0, 0, -laminateThickness * 0.5);
+    sealGeometry.computeVertexNormals();
+    return sealGeometry;
+  }, [hangHole.radiusMm, laminateThickness, sealedHeight, sealedWidth, solution.input.hangHole]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+
+  return (
+    <mesh
+      geometry={geometry}
+      position={[0, hangHole.centreYmm * MM, 0]}
+      castShadow
+    >
+      <meshPhysicalMaterial
+        color={solution.material.color}
+        roughness={Math.min(0.9, solution.material.roughness + 0.14)}
+        metalness={solution.material.metalness}
+        clearcoat={0.08}
+        clearcoatRoughness={0.7}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
 function PouchModel({ solution }: { solution: PouchLabSolution }) {
   const geometry = useMemo(() => buildPacdoraLabPouchGeometry(solution), [solution]);
   useEffect(() => () => geometry.dispose(), [geometry]);
@@ -303,20 +353,7 @@ function PouchModel({ solution }: { solution: PouchLabSolution }) {
         </>
       ) : (
         <>
-          {[-1, 1].map((face) => (
-            <mesh
-              key={`top-seal-${face}`}
-              position={[
-                0,
-                solution.input.height * MM * 0.5 - solution.input.endSealMm * MM * 0.48,
-                face * 0.009,
-              ]}
-              castShadow
-            >
-              <boxGeometry args={[bodyWidth, solution.input.endSealMm * MM * 0.7, 0.012]} />
-              <meshStandardMaterial color={solution.material.color} roughness={0.82} />
-            </mesh>
-          ))}
+          <StandUpTopSeal solution={solution} />
           {solution.input.zipper ? (
             <>
               {([-1, 1] as const).flatMap((face) => [-1.7, 1.7].map((offsetMm) => (
@@ -349,19 +386,25 @@ export function PackagingScene({
   const cameraDistance = box
     ? Math.max(5.1, visualHeight * MM * 2.25)
     : Math.max(3.45, visualHeight * MM * 1.72);
+  const pouchZoom = Math.min(270, Math.max(120, 430 / (bodyHeight * MM)));
 
   return (
     <Canvas
       key={box ? "mailer-scene" : pouch?.style ?? "packaging-scene"}
       shadows
       dpr={[1, 1.75]}
+      orthographic={!box}
       camera={{
         position: [
-          cameraDistance * (box ? 0.72 : 0.58),
-          cameraDistance * (box ? 0.58 : 0.34),
+          cameraDistance * (box ? 0.72 : 0.34),
+          // Flexible pouches are judged by their seal and gusset silhouettes.
+          // Start exactly on the pouch midline so a level bottom edge cannot
+          // read as a diagonal cut; OrbitControls still allow full inspection.
+          cameraDistance * (box ? 0.58 : 0),
           cameraDistance,
         ],
         fov: 34,
+        zoom: box ? 1 : pouchZoom,
       }}
       gl={{ antialias: true, alpha: true }}
     >
@@ -391,6 +434,8 @@ export function PackagingScene({
         dampingFactor={0.08}
         minDistance={2.3}
         maxDistance={10}
+        minZoom={90}
+        maxZoom={440}
       />
     </Canvas>
   );

@@ -46,6 +46,7 @@ test("center-seal pouch keeps its flat web while inflation changes body depth", 
     backSealMm: 14,
     gussetMm: 58,
     zipper: false,
+    hangHole: false,
   };
   const flat = solvePacdoraLabPouch({ ...base, inflation: 0.1 });
   const inflated = solvePacdoraLabPouch({ ...base, inflation: 0.9 });
@@ -67,6 +68,7 @@ test("pouch geometry is regenerated with finite positions and manufacturing meta
     backSealMm: 14,
     gussetMm: 58,
     zipper: false,
+    hangHole: false,
   });
   const geometry = buildPacdoraLabPouchGeometry(solution, 12, 16);
   const positions = geometry.getAttribute("position");
@@ -81,7 +83,7 @@ test("pouch geometry is regenerated with finite positions and manufacturing meta
   geometry.dispose();
 });
 
-test("stand-up surface has Pacdora-like top taper, sealed sides, and lifted gusset corners", () => {
+test("stand-up surface keeps an open lower body and pinches only the top seal", () => {
   const solution = solvePacdoraLabPouch({
     style: "stand-up",
     width: 150,
@@ -93,16 +95,25 @@ test("stand-up surface has Pacdora-like top taper, sealed sides, and lifted guss
     backSealMm: 14,
     gussetMm: 62,
     zipper: true,
+    hangHole: true,
   });
+  const bottomSeal = samplePacdoraLabStandUpSurface(solution, 0.5, 0, 1);
   const lowerBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.28, 1);
+  const middleBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.5, 1);
+  const quarterFace = samplePacdoraLabStandUpSurface(solution, 0.25, 0.5, 1);
   const upperBody = samplePacdoraLabStandUpSurface(solution, 0.5, 0.78, 1);
   const topSeal = samplePacdoraLabStandUpSurface(solution, 0.5, 0.98, 1);
   const sideSeal = samplePacdoraLabStandUpSurface(solution, 0.99, 0.5, 1);
   const bottomCentre = samplePacdoraLabStandUpSurface(solution, 0.5, 0, 1);
   const bottomCorner = samplePacdoraLabStandUpSurface(solution, 0.01, 0, 1);
 
+  assert.ok(lowerBody.z > middleBody.z * 0.98);
   assert.ok(lowerBody.z > upperBody.z);
   assert.ok(upperBody.z > topSeal.z);
+  assert.ok(bottomSeal.z > middleBody.z * 0.7);
+  assert.ok(bottomSeal.z < middleBody.z * 0.85);
+  assert.ok(topSeal.z < middleBody.z * 0.05);
+  assert.ok(quarterFace.z > middleBody.z * 0.94);
   assert.ok(sideSeal.z < upperBody.z * 0.1);
   assert.ok(bottomCorner.y > bottomCentre.y);
 });
@@ -119,6 +130,7 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
     backSealMm: 14,
     gussetMm: 62,
     zipper: true,
+    hangHole: true,
   });
   assert.deepEqual(solution.web, { width: 174, height: 506 });
   assert.equal(solution.panels.find((panel) => panel.id === "bottom-gusset")?.height, 62);
@@ -127,6 +139,46 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   const geometry = buildPacdoraLabPouchGeometry(solution, 14, 18);
   assert.equal(geometry.userData.pacdoraLab.kind, "procedural-stand-up-pouch");
   assert.equal(geometry.userData.pacdoraLab.topology, "front-back-bottom-gusset");
+  assert.equal(geometry.userData.pacdoraLab.features.hangHole, true);
   assert.ok(geometry.getAttribute("position").count > 2 * 15 * 19);
+  assert.ok(geometry.boundingBox);
+  const sealedWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
+  assert.ok(Math.abs(sealedWidth - 1.74) < 0.002);
+  assert.ok(Math.abs(geometry.boundingBox.min.y + 1.05) < 0.002);
+
+  const solidGeometry = buildPacdoraLabPouchGeometry(
+    solvePacdoraLabPouch({ ...solution.input, hangHole: false }),
+    14,
+    18,
+  );
+  assert.ok(geometry.getIndex()!.count < solidGeometry.getIndex()!.count);
+  solidGeometry.dispose();
   geometry.dispose();
+});
+
+test("stand-up inflation opens the lower gusset while preserving the flat web", () => {
+  const base = {
+    style: "stand-up" as const,
+    width: 150,
+    height: 210,
+    depth: 42,
+    materialId: "matte-film",
+    endSealMm: 12,
+    backSealMm: 14,
+    gussetMm: 62,
+    zipper: true,
+    hangHole: true,
+  };
+  const flat = solvePacdoraLabPouch({ ...base, inflation: 0.1 });
+  const full = solvePacdoraLabPouch({ ...base, inflation: 1 });
+  const flatMiddle = samplePacdoraLabStandUpSurface(flat, 0.5, 0.5, 1);
+  const fullMiddle = samplePacdoraLabStandUpSurface(full, 0.5, 0.5, 1);
+  const flatBottom = samplePacdoraLabStandUpSurface(flat, 0.5, 0, 1);
+  const fullBottom = samplePacdoraLabStandUpSurface(full, 0.5, 0, 1);
+
+  assert.deepEqual(flat.web, full.web);
+  assert.ok(fullMiddle.z > flatMiddle.z * 8);
+  assert.ok(fullBottom.z > flatBottom.z * 8);
+  assert.ok(fullBottom.z > fullMiddle.z * 0.7);
+  assert.ok(fullBottom.z < fullMiddle.z * 0.85);
 });

@@ -75,13 +75,14 @@ export function PacdoraLab() {
     style: "center-seal",
     width: 150,
     height: 210,
-    depth: 68,
+    depth: 42,
     materialId: "matte-film",
-    inflation: 0.82,
+    inflation: 0.1,
     endSealMm: 12,
     backSealMm: 14,
     gussetMm: 62,
     zipper: false,
+    hangHole: false,
   });
   const box = useMemo(() => solvePacdoraLabBox(boxInput), [boxInput]);
   const pouch = useMemo(() => solvePacdoraLabPouch(pouchInput), [pouchInput]);
@@ -106,6 +107,7 @@ export function PacdoraLab() {
         ...current,
         style: candidate,
         zipper: candidate === "stand-up" ? true : current.zipper,
+        hangHole: candidate === "stand-up" ? true : current.hangHole,
       }));
     }
   };
@@ -190,15 +192,26 @@ export function PacdoraLab() {
                 <NumericField label="Heat seal" value={pouchInput.endSealMm} min={6} max={30} onChange={(value) => updatePouch("endSealMm", Math.max(1, value || 1))} />
               </div>
               {kind === "stand-up" ? (
-                <label className="flex items-center justify-between rounded-xl border border-[var(--st-line)] bg-slate-50 px-3 py-3 text-sm font-semibold text-[var(--st-dim)]">
-                  Zipper closure
-                  <input
-                    className="size-4 accent-slate-900"
-                    type="checkbox"
-                    checked={pouchInput.zipper}
-                    onChange={(event) => updatePouch("zipper", event.currentTarget.checked)}
-                  />
-                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex items-center justify-between rounded-xl border border-[var(--st-line)] bg-slate-50 px-3 py-3 text-sm font-semibold text-[var(--st-dim)]">
+                    Zipper
+                    <input
+                      className="size-4 accent-slate-900"
+                      type="checkbox"
+                      checked={pouchInput.zipper}
+                      onChange={(event) => updatePouch("zipper", event.currentTarget.checked)}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between rounded-xl border border-[var(--st-line)] bg-slate-50 px-3 py-3 text-sm font-semibold text-[var(--st-dim)]">
+                    Hang hole
+                    <input
+                      className="size-4 accent-slate-900"
+                      type="checkbox"
+                      checked={pouchInput.hangHole}
+                      onChange={(event) => updatePouch("hangHole", event.currentTarget.checked)}
+                    />
+                  </label>
+                </div>
               ) : null}
               <label>
                 <span className={labelClass}>Film structure</span>
@@ -208,7 +221,7 @@ export function PacdoraLab() {
               </label>
               <label>
                 <span className={labelClass}>Inflate · {Math.round(pouchInput.inflation * 100)}%</span>
-                <input className="w-full accent-slate-900" type="range" min={0.05} max={1} step={0.01} value={pouchInput.inflation} onChange={(event) => updatePouch("inflation", Number(event.currentTarget.value))} />
+                <input className="w-full accent-slate-900" type="range" min={0.1} max={1} step={0.01} value={pouchInput.inflation} onChange={(event) => updatePouch("inflation", Number(event.currentTarget.value))} />
               </label>
             </div>
           )}
