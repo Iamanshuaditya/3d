@@ -1,6 +1,7 @@
 import type { GlbArticulationSpec } from "./unfold";
 import type { ArtworkRenderMode, ArtworkTreatment } from "./embroidery";
 import type { CartonSpec } from "./carton";
+import type { ProvenanceLedger } from "./provenance";
 
 /**
  * Core contracts for the product customization engine.
@@ -301,6 +302,14 @@ export type ProductConfig = {
   pouchSpecId?: string;
   /** Required for family "flat-sheet". One source for editor, 3D and export. */
   flatSheetSpec?: FlatSheetSpec;
+  /**
+   * Explicit provenance for this product's critical dimensions and semantics.
+   *
+   * Omit it and `resolveManufacturingProvenance` derives the ledger from the
+   * construction spec. Set it to override that derivation for a product whose
+   * evidence lives outside the spec — never to upgrade an assumption.
+   */
+  manufacturingProvenance?: ProvenanceLedger;
   /**
    * @deprecated Presentation is derived from the product's construction by
    * `resolveProductPresentation`. Kept so existing configs keep type-checking.

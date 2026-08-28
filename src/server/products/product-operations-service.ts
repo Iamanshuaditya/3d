@@ -9,6 +9,7 @@ import type {
   ProductVersion,
 } from "@/platform/products/types";
 import { validateProductVersion } from "@/platform/products/configuration-resolver";
+import { productProvenanceDiagnostics } from "@/lib/provenance/diagnostics";
 import type { ProductConfig } from "@/types/configurator";
 import {
   supportedProductionFormats,
@@ -84,6 +85,7 @@ export class ProductOperationsService {
       surfaceCount: config?.editableSurfaces.length ?? null,
       manufacturingFormats: formats,
       inspectUrl,
+      provenance: config ? productProvenanceDiagnostics(config) : null,
       validation: { passed, issues },
     };
   }

@@ -1,3 +1,4 @@
+import type { CertifiedClaimMetadata } from "@/lib/provenance/claims";
 import type {
   DesignDocument,
   EditableSurface,
@@ -92,6 +93,14 @@ export type PreflightReport = {
     passed: boolean;
     detail: string;
   }[];
+  /**
+   * Manufacturing claims this output is entitled to make (#24).
+   *
+   * Built by filtering supported claims out of the product's provenance
+   * ledger, never assembled by hand, so an assumed or unresolved parameter has
+   * no path into certified output metadata.
+   */
+  provenance?: CertifiedClaimMetadata;
 };
 
 export type RasterizedPrintSurface = NormalizedPrintSurface & {

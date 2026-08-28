@@ -1,3 +1,5 @@
+import type { ProductProvenanceDiagnostics } from "@/lib/provenance/diagnostics";
+
 export type ProductValidationIssueDto = {
   code: string;
   severity: "error" | "warning";
@@ -22,6 +24,8 @@ export type ProductOperationsItemDto = {
   surfaceCount: number | null;
   manufacturingFormats: Array<"pdf" | "svg">;
   inspectUrl: string | null;
+  /** Manufacturing-fact provenance for the default configuration (#24). */
+  provenance: ProductProvenanceDiagnostics | null;
   validation: {
     passed: boolean;
     issues: ProductValidationIssueDto[];

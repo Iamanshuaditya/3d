@@ -10,6 +10,7 @@ import {
   ExternalLink,
   FileCheck2,
   Layers3,
+  ScrollText,
 } from "lucide-react";
 import { getProductOperationsService } from "@/server/products/container";
 import { PlatformError } from "@/platform/projects/errors";
@@ -20,6 +21,7 @@ import { AccountControl } from "@/components/auth/AccountControl";
 import { OnboardingPanel } from "@/components/admin/OnboardingPanel";
 import { TemplateAssetPanel } from "@/components/admin/TemplateAssetPanel";
 import { TemplateDraftPanel } from "@/components/admin/TemplateDraftPanel";
+import type { ProductProvenanceDiagnostics } from "@/lib/provenance/diagnostics";
 
 export const metadata: Metadata = {
   title: "Product operations",
@@ -35,6 +37,103 @@ function dateLabel(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+
+const CLAIM_STATE_STYLE = {
+  supported: "bg-emerald-50 text-emerald-700",
+  refused: "bg-amber-50 text-amber-800",
+  "not-applicable": "bg-[var(--st-raised)] text-[var(--st-dim)]",
+} as const;
+
+/**
+ * Manufacturing-fact provenance for one product (#24).
+ *
+ * Measured values and preview assumptions are shown apart on purpose: the
+ * whole point of the ledger is that a number's standing is visible at a glance,
+ * not buried in a spec file.
+ */
+function ProvenanceSection({ provenance }: { provenance: ProductProvenanceDiagnostics }) {
+  const { summary } = provenance;
+  const hasOpenItems = provenance.unresolved.length > 0 || provenance.assumptions.length > 0;
+  return (
+    <section className="mt-4 border-t border-[var(--st-line)] pt-4" aria-label="Manufacturing provenance">
+      <div className="flex flex-wrap items-center gap-2">
+        <ScrollText className="h-4 w-4 text-[var(--st-faint)]" />
+        <p className="text-[12px] font-medium text-[var(--st-text)]">Manufacturing provenance</p>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${provenance.productionBlocked ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}
+        >
+          {provenance.productionBlocked ? "Export refused" : "Export permitted"}
+        </span>
+        <span className="font-mono text-[11px] text-[var(--st-faint)]">
+          {summary.measured} measured · {summary.derived} derived · {summary.authored} authored ·{" "}
+          {summary.assumed} assumed · {summary.unresolved} unresolved
+        </span>
+      </div>
+
+      <ul className="mt-3 flex flex-wrap gap-2">
+        {provenance.claims.map((claim) => (
+          <li
+            key={claim.id}
+            title={claim.reasons.join(" ") || claim.label}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${CLAIM_STATE_STYLE[claim.state]}`}
+          >
+            {claim.label}
+          </li>
+        ))}
+      </ul>
+
+      {hasOpenItems && (
+        <dl className="mt-4 grid gap-4 text-[12px] sm:grid-cols-2">
+          <div>
+            <dt className="text-[var(--st-faint)]">
+              Unresolved source semantics ({provenance.unresolved.length})
+            </dt>
+            <dd className="mt-1 space-y-1.5">
+              {provenance.unresolved.length === 0 ? (
+                <p className="text-[var(--st-dim)]">None outstanding.</p>
+              ) : (
+                provenance.unresolved.map((record) => (
+                  <p key={record.id} className="leading-5 text-[var(--st-text)]">
+                    <span className="font-medium">{record.label}</span>{" "}
+                    <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-amber-800">
+                      {record.needs}
+                    </span>
+                    <span className="block text-[var(--st-dim)]">{record.note}</span>
+                  </p>
+                ))
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[var(--st-faint)]">
+              Preview assumptions ({provenance.assumptions.length})
+            </dt>
+            <dd className="mt-1 space-y-1.5">
+              {provenance.assumptions.length === 0 ? (
+                <p className="text-[var(--st-dim)]">None declared.</p>
+              ) : (
+                provenance.assumptions.map((record) => (
+                  <p key={record.id} className="leading-5 text-[var(--st-text)]">
+                    <span className="font-medium">{record.label}</span>
+                    {record.value !== null && (
+                      <span className="font-mono text-[11px] text-[var(--st-faint)]">
+                        {" "}
+                        {record.value}
+                        {record.unit === "mm" ? " mm" : ""}
+                      </span>
+                    )}
+                    <span className="block text-[var(--st-dim)]">{record.note}</span>
+                  </p>
+                ))
+              )}
+            </dd>
+          </div>
+        </dl>
+      )}
+    </section>
+  );
 }
 
 export default async function ProductOperationsPage() {
@@ -211,6 +310,8 @@ export default async function ProductOperationsPage() {
                   ))}
                 </ul>
               )}
+              {product.provenance && <ProvenanceSection provenance={product.provenance} />}
+
               <ProductDraftPanel
                 productId={product.id}
                 canEdit={operatorHasPermission(operator.permissions, "products:edit")}
