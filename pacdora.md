@@ -369,6 +369,44 @@ finite, opposing slopes at each mirrored lens tip create the visible corner;
 the centre remains the only depth maximum, preventing the two shoulder lobes
 that previously read as independent left/right inflation.
 
+### Final gusset, aperture, UV, and material audit
+
+The final live Chrome pass held Pacdora model `430041` at its underside view and
+compared it directly with `/test`. The remaining extra crescent was not a
+second gusset or an X/Y taper. It was the rear gusset facet becoming separately
+visible because the generated centre fold still rose `3.4%` of gusset depth at
+full inflation (about `2.1 mm` for the default `62 mm` web). Pacdora's filled
+base reads as one perimeter containing two nearly level facets. The research
+solver now reduces the full-fill rise to `0.6%` (about `0.37 mm`) while retaining
+the deep V required at low inflation. Both facets share the same sharp-ended
+lens boundary; no bottom cap or duplicate oval is generated.
+
+The white block around the hang hole had a separate cause. The old regular mesh
+deleted every rectangular grid cell near the aperture, so the back laminate was
+visible through a square window. The upper heat-seal band is now triangulated as
+a shape with a 48-segment circular hole on both face membranes. A narrow rim is
+the only added geometry, so disabling the hole restores a solid band and enabling
+it cannot reveal a rectangular patch.
+
+The UV check used demo artwork, moved it from Front across the gusset fold, and
+then inspected the mapped model from the front, side, and underneath. The front
+and back faces have opposing web orientations. The gusset already duplicates
+its centre row for independent facet normals, so that same structural fold now
+owns the UV orientation change: the back facet meets Back, and the front facet
+meets the 180-degree Front placement. This prevents interpolation through a
+collapsed centre strip, keeps the finished front artwork upright, and lets one
+object continue visibly onto the bottom membrane.
+
+Pacdora's live custom-material panel also exposed five appearance presets and
+separate `Body`, `Surface`, `Bottom inner`, and `Bottom` zones. Its expanded
+surface panel provided Metalness, Roughness, Transmission, and Opacity controls;
+the inspected glossy preset read approximately `3%`, `0%`, `0%`, and `100%`.
+`/test` now mirrors the useful public behavior with neutral-white Matte,
+Glossy, Soft-touch, Clear, Pearlescent, and Aluminium film profiles plus bounded
+custom sliders for those four PBR properties. These settings change rendering
+only; caliper and the canonical manufacturing web remain the structural source
+of truth.
+
 The pouch viewport now starts with an orthographic product camera. This is a
 rendering choice, not a deformation shortcut: it removes perspective
 keystoning that made equal-height bottom vertices appear diagonally cut. Orbit
@@ -393,13 +431,14 @@ The corrected stand-up construction now has:
 - Optional paired zipper tracks sampled from the same curved face, so they do
   not float or poke through when the pouch is viewed from the side.
 - An optional round hang hole cut through both face membranes with a narrow
-  aperture rim. The former full overlapping top-seal rectangle was removed;
-  it covered the artwork at the same depth and caused the reported shimmer.
+  aperture rim. The former full overlapping top-seal rectangle and later
+  square grid-cell approximation were removed; neither can cover the artwork
+  or reveal a white block behind the cutout.
 - A separately tessellated bottom-gusset membrane. Its front and back edges
-  meet the separated face membranes; its two facets retain a shallow upward
-  centre fold even at full inflation. The fold changes depth only: all four
-  lower face/rail corners share one level Y coordinate, so no front-view notch
-  or funnel can be produced.
+  meet the separated face membranes; its two facets become nearly level at
+  full inflation while retaining independent normals and UV orientation. All
+  four lower face/rail corners share one level Y coordinate, so no front-view
+  notch or funnel can be produced.
 
 The two stable flat webs are consequently different:
 
@@ -586,6 +625,8 @@ The `/test` route provides:
 - Separate center-fin, bottom-gusset, heat-seal, and zipper controls.
 - Dynamic minimum/maximum guidance in mm and inches for every pouch dimension.
 - Pouch film-material switching.
+- Six film presets plus bounded Metalness, Roughness, Transmission, and Opacity
+  controls for custom preview finishes.
 - The real Studio artwork UI with upload, text, colour, layers, crop/adjust,
   proportional transforms, and pan/fit/zoom; artwork crosses region folds on
   one continuous film web.

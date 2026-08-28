@@ -39,6 +39,11 @@ export type MaterialProfile = {
   color: string;
   roughness: number;
   metalness: number;
+  /** Physically based surface controls shared by the preview and Studio model. */
+  transmission: number;
+  opacity: number;
+  clearcoat: number;
+  clearcoatRoughness: number;
   /** Inner-to-score allowance per material layer. */
   scoreAllowanceFactor: number;
   /** Score-to-outer allowance per material layer on length and width. */
@@ -46,6 +51,11 @@ export type MaterialProfile = {
   /** Additional vertical stack above manufacture height. */
   closureStackFactor: number;
 };
+
+export type PouchSurfaceSettings = Pick<
+  MaterialProfile,
+  "roughness" | "metalness" | "transmission" | "opacity"
+>;
 
 export type DielinePanel = {
   id: string;
@@ -96,6 +106,8 @@ export type PouchLabInput = {
   height: number;
   depth: number;
   materialId: string;
+  /** Optional custom finish layered over the selected film construction. */
+  surface?: Partial<PouchSurfaceSettings>;
   inflation: number;
   endSealMm: number;
   backSealMm: number;

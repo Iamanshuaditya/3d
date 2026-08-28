@@ -6,6 +6,7 @@ import {
   createPacdoraLabStudioDieline,
   getPacdoraLabMaterial,
   getPacdoraLabPouchPanelUv,
+  getPacdoraLabStandUpHangHole,
   PACDORA_LAB_EDITOR_PX_PER_MM,
   constrainPouchLabInput,
   getPouchDimensionLimits,
@@ -19,9 +20,55 @@ import {
   standUpLensDepthMask,
 } from "@/lib/packaging/stand-up-profile";
 
+function geometryCoversPointInXY(
+  geometry: ReturnType<typeof buildPacdoraLabPouchGeometry>,
+  x: number,
+  y: number,
+): boolean {
+  const positions = geometry.getAttribute("position");
+  const indices = geometry.getIndex();
+  if (!indices) return false;
+  const signedArea = (
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+    px: number,
+    py: number,
+  ) => (px - bx) * (ay - by) - (ax - bx) * (py - by);
+  for (let index = 0; index < indices.count; index += 3) {
+    const a = indices.getX(index);
+    const b = indices.getX(index + 1);
+    const c = indices.getX(index + 2);
+    const d1 = signedArea(
+      positions.getX(a), positions.getY(a),
+      positions.getX(b), positions.getY(b),
+      x, y,
+    );
+    const d2 = signedArea(
+      positions.getX(b), positions.getY(b),
+      positions.getX(c), positions.getY(c),
+      x, y,
+    );
+    const d3 = signedArea(
+      positions.getX(c), positions.getY(c),
+      positions.getX(a), positions.getY(a),
+      x, y,
+    );
+    const hasNegative = d1 < -1e-9 || d2 < -1e-9 || d3 < -1e-9;
+    const hasPositive = d1 > 1e-9 || d2 > 1e-9 || d3 > 1e-9;
+    if (!(hasNegative && hasPositive)) return true;
+  }
+  return false;
+}
+
 test("research assets start with neutral white board and film", () => {
   assert.equal(getPacdoraLabMaterial("folding-board", "rigid").color, "#ffffff");
   assert.equal(getPacdoraLabMaterial("matte-film", "film").color, "#ffffff");
+  const glossy = getPacdoraLabMaterial("glossy-film", "film");
+  assert.equal(glossy.color, "#ffffff");
+  assert.ok(glossy.roughness < 0.1);
+  assert.equal(glossy.metalness, 0.03);
 });
 
 test("stand-up gusset is a sharp-ended lens with one centre crown", () => {
@@ -269,7 +316,9 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
   assert.equal(geometry.userData.pacdoraLab.features.hangHole, true);
   assert.equal(geometry.userData.pacdoraLab.features.inflationProfile, "single-centre-crown");
   assert.equal(geometry.userData.pacdoraLab.features.gussetProfile, "sharp-lens-two-facet");
+  assert.equal(geometry.userData.pacdoraLab.features.gussetFootprint, "single-clean-perimeter");
   assert.equal(geometry.userData.pacdoraLab.features.sideSealTopology, "single-fused-rail");
+  assert.equal(geometry.userData.pacdoraLab.features.hangHoleProfile, "round-triangulated-aperture");
   assert.ok(geometry.getAttribute("position").count > 2 * 15 * 19);
   assert.ok(geometry.boundingBox);
   const sealedWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
@@ -294,7 +343,11 @@ test("stand-up pouch has a separate gusset web and generated bottom membrane", (
     14,
     18,
   );
-  assert.ok(geometry.getIndex()!.count < solidGeometry.getIndex()!.count);
+  const hangHole = getPacdoraLabStandUpHangHole(solution.input);
+  const holeCentreX = 0;
+  const holeCentreY = hangHole.centreYmm * 0.01;
+  assert.equal(geometryCoversPointInXY(geometry, holeCentreX, holeCentreY), false);
+  assert.equal(geometryCoversPointInXY(solidGeometry, holeCentreX, holeCentreY), true);
   solidGeometry.dispose();
   geometry.dispose();
 });
@@ -329,6 +382,8 @@ test("Studio uses one continuous pouch web across Front, gusset, and Back", () =
   assert.ok(front && gusset && back);
   assert.equal(back.yCm + back.heightCm, gusset.yCm);
   assert.equal(gusset.yCm + gusset.heightCm, front.yCm);
+  assert.equal(front.contentRotation, 180);
+  assert.equal(back.contentRotation, 0);
   assert.deepEqual(
     surface.sections?.slice(0, 3).map((section) => section.id),
     ["front-film", "bottom-gusset", "back-film"],
@@ -421,6 +476,42 @@ test("stand-up face UVs address the same canonical web shown by the dieline", ()
   assert.ok(Math.abs(frontCentre.y - (1 - 389 / 506)) < 1e-12);
   assert.ok(Math.abs(backCentre.x - 0.5) < 1e-12);
   assert.ok(Math.abs(backCentre.y - (1 - 117 / 506)) < 1e-12);
+
+  // The continuous web must meet at the same UV on both fold boundaries.
+  // Mirroring the back face here would split artwork at the gusset seam.
+  const lateral = 0.23;
+  const backBottom = getPacdoraLabPouchPanelUv(solution, "back-film", lateral, 0);
+  const gussetBack = getPacdoraLabPouchPanelUv(solution, "bottom-gusset", lateral, 1);
+  const frontBottom = getPacdoraLabPouchPanelUv(solution, "front-film", 1 - lateral, 1);
+  const gussetFront = getPacdoraLabPouchPanelUv(solution, "bottom-gusset", 1 - lateral, 0);
+  assert.ok(backBottom.distanceTo(gussetBack) < 1e-12);
+  assert.ok(frontBottom.distanceTo(gussetFront) < 1e-12);
+});
+
+test("custom pouch surface controls are finite and clamped", () => {
+  const solution = solvePacdoraLabPouch({
+    style: "stand-up",
+    width: 150,
+    height: 210,
+    depth: 42,
+    materialId: "glossy-film",
+    surface: {
+      roughness: -2,
+      metalness: 4,
+      transmission: Number.NaN,
+      opacity: 0.72,
+    },
+    inflation: 1,
+    endSealMm: 12,
+    backSealMm: 14,
+    gussetMm: 62,
+    zipper: true,
+    hangHole: true,
+  });
+  assert.equal(solution.material.roughness, 0);
+  assert.equal(solution.material.metalness, 1);
+  assert.equal(solution.material.transmission, 0);
+  assert.equal(solution.material.opacity, 0.72);
 });
 
 test("stand-up inflation opens the lower gusset while preserving the flat web", () => {

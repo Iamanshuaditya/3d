@@ -39,7 +39,10 @@ function sectionFor(panel: DielinePanel): EditableSection {
     yCm: panel.y / 10,
     widthCm: panel.width / 10,
     heightCm: panel.height / 10,
-    contentRotation: 0,
+    // Front and back are joined bottom-to-bottom through the gusset. Rotating
+    // the front placement keeps an uploaded logo upright after that physical
+    // fold while the underlying canvas remains one continuous, draggable web.
+    contentRotation: panel.id === "front-film" ? 180 : 0,
   };
 }
 

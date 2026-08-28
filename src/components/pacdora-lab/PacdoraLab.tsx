@@ -124,6 +124,34 @@ function DimensionTriplet({ label, values }: { label: string; values: { length: 
   );
 }
 
+function SurfaceControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex items-center justify-between text-[10px] font-medium text-slate-600">
+        {label}
+        <span className="font-mono text-slate-400">{Math.round(value * 100)}%</span>
+      </span>
+      <input
+        className="w-full accent-slate-900"
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={value}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+      />
+    </label>
+  );
+}
+
 export function PacdoraLab() {
   const [kind, setKind] = useState<PackagingKind>("stand-up");
   const [fold, setFold] = useState(0.43);
@@ -177,6 +205,25 @@ export function PacdoraLab() {
   };
   const updatePouch = (key: keyof PouchLabInput, value: number | string | boolean) => {
     setPouchInput((current) => constrainPouchLabInput({ ...current, [key]: value }));
+  };
+  const selectPouchMaterial = (materialId: string) => {
+    setPouchInput((current) => constrainPouchLabInput({
+      ...current,
+      materialId,
+      surface: undefined,
+    }));
+  };
+  const updatePouchSurface = (
+    key: "roughness" | "metalness" | "transmission" | "opacity",
+    value: number,
+  ) => {
+    setPouchInput((current) => constrainPouchLabInput({
+      ...current,
+      surface: {
+        ...current.surface,
+        [key]: Math.min(1, Math.max(0, value)),
+      },
+    }));
   };
   const selectConstruction = (candidate: PackagingKind) => {
     setKind(candidate);
@@ -330,12 +377,56 @@ export function PacdoraLab() {
                   </label>
                 </div>
               ) : null}
-              <label>
+              <div>
                 <span className={labelClass}>Film structure</span>
-                <select className={inputClass} value={pouchInput.materialId} onChange={(event) => updatePouch("materialId", event.currentTarget.value)}>
+                <div className="mb-2 grid grid-cols-6 gap-1.5" aria-label="Film finish presets">
+                  {PACDORA_LAB_POUCH_MATERIALS.map((material) => {
+                    const selected = pouchInput.materialId === material.id && !pouchInput.surface;
+                    const glossy = material.roughness < 0.3;
+                    return (
+                      <button
+                        key={material.id}
+                        type="button"
+                        title={material.label}
+                        aria-label={material.label}
+                        aria-pressed={selected}
+                        onClick={() => selectPouchMaterial(material.id)}
+                        className={`flex aspect-square items-center justify-center rounded-xl border transition ${selected ? "border-violet-500 bg-violet-50 ring-2 ring-violet-100" : "border-[var(--st-line)] bg-slate-50 hover:border-slate-400"}`}
+                      >
+                        <span
+                          className="size-7 rounded-full border border-black/5"
+                          style={{
+                            background: glossy
+                              ? `radial-gradient(circle at 32% 25%, #ffffff 0 10%, ${material.color} 28%, #aeb4bc 100%)`
+                              : `radial-gradient(circle at 32% 25%, #ffffff 0, ${material.color} 46%, #d6d8dc 100%)`,
+                            opacity: material.opacity,
+                            boxShadow: material.metalness > 0.3 ? "inset -4px -5px 8px rgba(31,41,55,.34)" : "inset -3px -4px 7px rgba(100,116,139,.14)",
+                          }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                <select className={inputClass} value={pouchInput.materialId} onChange={(event) => selectPouchMaterial(event.currentTarget.value)}>
                   {PACDORA_LAB_POUCH_MATERIALS.map((material) => <option key={material.id} value={material.id}>{material.label}</option>)}
                 </select>
-              </label>
+                <details className="mt-2 rounded-xl border border-[var(--st-line)] bg-slate-50 px-3 py-2">
+                  <summary className="cursor-pointer text-[11px] font-semibold text-slate-600">Custom surface</summary>
+                  <div className="mt-3 space-y-3 border-t border-slate-200 pt-3">
+                    <SurfaceControl label="Metalness" value={pouch.material.metalness} onChange={(value) => updatePouchSurface("metalness", value)} />
+                    <SurfaceControl label="Roughness" value={pouch.material.roughness} onChange={(value) => updatePouchSurface("roughness", value)} />
+                    <SurfaceControl label="Transmission" value={pouch.material.transmission} onChange={(value) => updatePouchSurface("transmission", value)} />
+                    <SurfaceControl label="Opacity" value={pouch.material.opacity} onChange={(value) => updatePouchSurface("opacity", value)} />
+                    <button
+                      type="button"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[10px] font-semibold text-slate-600 hover:bg-slate-100"
+                      onClick={() => setPouchInput((current) => ({ ...current, surface: undefined }))}
+                    >
+                      Reset to selected preset
+                    </button>
+                  </div>
+                </details>
+              </div>
               <label>
                 <span className={labelClass}>Inflate · {Math.round(pouchInput.inflation * 100)}%</span>
                 <input className="w-full accent-slate-900" type="range" min={0.1} max={1} step={0.01} value={pouchInput.inflation} onChange={(event) => updatePouch("inflation", Number(event.currentTarget.value))} />

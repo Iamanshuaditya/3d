@@ -57,7 +57,23 @@ function getPacdoraLabPouchWebUv(
 }
 
 export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
-  const material = getPacdoraLabMaterial(input.materialId, "film");
+  const baseMaterial = getPacdoraLabMaterial(input.materialId, "film");
+  const surfaceValue = (
+    value: number | undefined,
+    fallback: number,
+  ) => clamp01(typeof value === "number" && Number.isFinite(value) ? value : fallback);
+  const resolvedSurface = {
+    roughness: surfaceValue(input.surface?.roughness, baseMaterial.roughness),
+    metalness: surfaceValue(input.surface?.metalness, baseMaterial.metalness),
+    transmission: surfaceValue(input.surface?.transmission, baseMaterial.transmission),
+    opacity: surfaceValue(input.surface?.opacity, baseMaterial.opacity),
+  };
+  const material = input.surface
+    ? {
+        ...baseMaterial,
+        ...resolvedSurface,
+      }
+    : baseMaterial;
   positive(input.width, "Pouch width");
   positive(input.height, "Pouch height");
   positive(input.depth, "Pouch depth");
@@ -163,7 +179,11 @@ export function solvePacdoraLabPouch(input: PouchLabInput): PouchLabSolution {
   return {
     kind: "pouch",
     material,
-    input: { ...input, inflation },
+    input: {
+      ...input,
+      ...(input.surface ? { surface: resolvedSurface } : {}),
+      inflation,
+    },
     style: input.style,
     inflatedDepth: formingDepth * inflation,
     web: { width: webWidth, height: webHeight },
@@ -225,7 +245,9 @@ function finishGeometry(
       ...(solution.style === "stand-up" ? {
         inflationProfile: "single-centre-crown",
         gussetProfile: "sharp-lens-two-facet",
+        gussetFootprint: "single-clean-perimeter",
         sideSealTopology: "single-fused-rail",
+        hangHoleProfile: solution.input.hangHole ? "round-triangulated-aperture" : "none",
       } : {}),
     },
     artworkUv: "canonical-flat-web",
@@ -403,6 +425,68 @@ export function samplePacdoraLabStandUpSurface(
   return new THREE.Vector3(x * MM_TO_SCENE, y * MM_TO_SCENE, z * MM_TO_SCENE);
 }
 
+function appendStandUpTopSealFace(
+  solution: PouchLabSolution,
+  face: 1 | -1,
+  sealStartV: number,
+  positions: number[],
+  uvs: number[],
+  indices: number[],
+): void {
+  const { width, height } = solution.input;
+  const hangHole = getPacdoraLabStandUpHangHole(solution.input);
+  const sealBottomY = (sealStartV - 0.5) * height;
+  const sealTopY = height * 0.5;
+  const shape = new THREE.Shape();
+  shape.moveTo(-width * 0.5, sealBottomY);
+  shape.lineTo(width * 0.5, sealBottomY);
+  shape.lineTo(width * 0.5, sealTopY);
+  shape.lineTo(-width * 0.5, sealTopY);
+  shape.closePath();
+
+  const aperture = new THREE.Path();
+  aperture.absarc(
+    0,
+    hangHole.centreYmm,
+    hangHole.radiusMm,
+    0,
+    Math.PI * 2,
+    true,
+  );
+  shape.holes.push(aperture);
+
+  const sealGeometry = new THREE.ShapeGeometry(shape, 48);
+  const sealPositions = sealGeometry.getAttribute("position");
+  const sealIndices = sealGeometry.getIndex();
+  const vertexOffset = positions.length / 3;
+  for (let index = 0; index < sealPositions.count; index++) {
+    const xMm = sealPositions.getX(index);
+    const yMm = sealPositions.getY(index);
+    const u = clamp01(xMm / width + 0.5);
+    const v = clamp01(yMm / height + 0.5);
+    const point = samplePacdoraLabStandUpSurface(solution, u, v, face);
+    const artworkUv = getPacdoraLabPouchPanelUv(
+      solution,
+      face > 0 ? "front-film" : "back-film",
+      face > 0 ? 1 - u : u,
+      face > 0 ? 1 - v : v,
+    );
+    positions.push(point.x, point.y, point.z);
+    uvs.push(artworkUv.x, artworkUv.y);
+  }
+
+  if (sealIndices) {
+    for (let index = 0; index < sealIndices.count; index += 3) {
+      const a = vertexOffset + sealIndices.getX(index);
+      const b = vertexOffset + sealIndices.getX(index + 1);
+      const c = vertexOffset + sealIndices.getX(index + 2);
+      if (face > 0) indices.push(a, b, c);
+      else indices.push(a, c, b);
+    }
+  }
+  sealGeometry.dispose();
+}
+
 function buildStandUpGeometry(
   solution: PouchLabSolution,
   segmentsAcross: number,
@@ -419,10 +503,14 @@ function buildStandUpGeometry(
   const sealFraction = Math.min(0.15, Math.max(0.045, endSealMm / height));
   const inflationProgress = smoothstep(0.05, 0.86, solution.input.inflation);
   const hangHole = getPacdoraLabStandUpHangHole(solution.input);
-  const hangHoleCellPadding = Math.hypot(
-    width / segmentsAcross,
-    height / segmentsUp,
-  ) * 0.58;
+  const apertureStartV = clamp01(
+    (hangHole.centreYmm - hangHole.radiusMm * 1.8 + height * 0.5) / height,
+  );
+  const apertureStartRow = Math.max(
+    1,
+    Math.min(segmentsUp - 1, Math.floor(apertureStartV * segmentsUp)),
+  );
+  const apertureSealStartV = apertureStartRow / segmentsUp;
 
   // Two broad face membranes. Their centres translate apart almost as planar
   // cards; the side shoulders, top closure, and gusset entry absorb the bend.
@@ -435,8 +523,8 @@ function buildStandUpGeometry(
         const artworkUv = getPacdoraLabPouchPanelUv(
           solution,
           face > 0 ? "front-film" : "back-film",
-          face > 0 ? u : 1 - u,
-          v,
+          face > 0 ? 1 - u : u,
+          face > 0 ? 1 - v : v,
         );
         positions.push(point.x, point.y, point.z);
         uvs.push(artworkUv.x, artworkUv.y);
@@ -448,17 +536,10 @@ function buildStandUpGeometry(
     const offset = face * faceVertexCount;
     for (let yIndex = 0; yIndex < segmentsUp; yIndex++) {
       for (let xIndex = 0; xIndex < segmentsAcross; xIndex++) {
-        if (solution.input.hangHole) {
-          const v = (yIndex + 0.5) / segmentsUp;
-          const u = (xIndex + 0.5) / segmentsAcross;
-          const s = u * 2 - 1;
-          const x = s * width * 0.5 * standUpWidthScaleAt();
-          const y = (v - 0.5) * height;
-          if (Math.hypot(x, y - hangHole.centreYmm)
-            < hangHole.radiusMm + hangHoleCellPadding) {
-            continue;
-          }
-        }
+        // The top seal is rebuilt below as a ShapeGeometry with a true round
+        // aperture. Removing regular grid cells here produced the white square
+        // visible around the old hang hole.
+        if (solution.input.hangHole && yIndex >= apertureStartRow) continue;
         const a = offset + yIndex * row + xIndex;
         const b = a + 1;
         const c = a + row;
@@ -538,7 +619,9 @@ function buildStandUpGeometry(
   const gussetOffset = positions.length / 3;
   const bottomWidthScale = standUpWidthScaleAt();
   const bottomDepthFactor = standUpDepthFactorAt(0, sealFraction);
-  for (const q of qSamples) {
+  for (let qIndex = 0; qIndex < qSamples.length; qIndex++) {
+    const q = qSamples[qIndex];
+    const frontFacet = qIndex > gussetRows / 2;
     const frontBack = q * 2 - 1;
     for (let xIndex = 0; xIndex <= segmentsAcross; xIndex++) {
       const u = xIndex / segmentsAcross;
@@ -547,21 +630,21 @@ function buildStandUpGeometry(
       const panelCrown = 1 - 0.018 * s * s;
       const gussetDepth = filmHalf
         + halfDepth * sideMask * bottomDepthFactor * panelCrown;
-      const centreFold = Math.pow(Math.max(0, 1 - Math.abs(frontBack)), 0.72);
-      // The two gusset facets retain a shallow central fold even at full fill.
-      // That fold is the single structural line visible from underneath in the
-      // Pacdora reference; flattening it entirely made our base read as a solid
-      // oval plate.
+      const centreFold = Math.max(0, 1 - Math.abs(frontBack));
+      // The folded web needs a deep V while flat, but its two facets become an
+      // almost level standing membrane when inflated. Keeping several
+      // millimetres of centre lift at full fill exposed the rear facet as a
+      // second translucent "petal" and made the base look slanted underneath.
       const foldedCentreLift = centreFold
         * gussetMm
-        * lerp(0.15, 0.034, inflationProgress);
+        * lerp(0.17, 0.006, inflationProgress);
       const x = s * width * 0.5 * bottomWidthScale;
       const y = -height * 0.5 + foldedCentreLift;
       const z = frontBack * gussetDepth;
       const artworkUv = getPacdoraLabPouchPanelUv(
         solution,
         "bottom-gusset",
-        u,
+        frontFacet ? 1 - u : u,
         1 - q,
       );
       positions.push(x * MM_TO_SCENE, y * MM_TO_SCENE, z * MM_TO_SCENE);
@@ -577,6 +660,25 @@ function buildStandUpGeometry(
       const d = c + 1;
       indices.push(a, c, b, b, c, d);
     }
+  }
+
+  if (solution.input.hangHole) {
+    appendStandUpTopSealFace(
+      solution,
+      1,
+      apertureSealStartV,
+      positions,
+      uvs,
+      indices,
+    );
+    appendStandUpTopSealFace(
+      solution,
+      -1,
+      apertureSealStartV,
+      positions,
+      uvs,
+      indices,
+    );
   }
 
   return finishGeometry(solution, positions, uvs, indices);
