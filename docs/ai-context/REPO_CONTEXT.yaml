@@ -1,0 +1,487 @@
+# Machine-readable index of the Vortex repository.
+# Generated 2026-08-29 from commit 616e26fd48fc978b0eb7b0c48435593944dd1541.
+# Companion prose lives beside this file in docs/ai-context/.
+
+meta:
+  generated: "2026-08-29"
+  commit: "616e26fd48fc978b0eb7b0c48435593944dd1541"
+  branch: main
+  confidence: high            # platform layer; medium for src/lib/structure internals
+  directory_name_is_misleading: true   # repo dir is "ai-website-cloner-template"
+
+project:
+  name: vortex
+  version: 0.1.0
+  description: >-
+    3D packaging configurator and structural carton engine. A production dieline
+    is the single geometric authority for the 2D editor, the exact folding 3D
+    model, artwork mapping and print-ready manufacturing output.
+  invariant: "fully flattened 3D structural geometry == canonical production dieline"
+  framework: "Next.js 16 (App Router, React 19, RSC)"
+  language: "TypeScript 5 (strict, no any)"
+  node: ">=24"
+  architecture: modular-monolith
+  database: "SQLite (better-sqlite3), schema version 17"
+  orm: none                   # hand-written SQL in sqlite-*-repository.ts
+  cache: none                 # no Redis; HTTP Cache-Control only
+  queue: "in-process runners (a durable background_jobs queue exists but is unused)"
+  object_store: "filesystem (default) | S3-compatible (hand-written SigV4)"
+  auth: better-auth
+  deployment: "Node standalone build, single node, Docker"
+  scaling: "single-node only; scaled mode fails closed"
+
+entry_points:
+  - path: src/instrumentation.ts
+    role: startup config gate; throws to refuse startup
+  - path: src/proxy.ts
+    role: middleware; security headers + per-request frame-ancestors
+  - path: src/app/layout.tsx
+    role: root layout
+  - path: src/app/page.tsx
+    role: product library (home)
+  - path: src/app/studio/page.tsx
+    role: the Studio editor
+  - path: src/app/templates/page.tsx
+    role: template chooser
+  - path: src/app/designs/page.tsx
+    role: saved project library
+  - path: src/app/admin/products/page.tsx
+    role: operator console (requires products:read)
+  - path: src/app/embed/[clientId]/[productId]/page.tsx
+    role: embedded configurator, fail-closed
+  - path: src/app/studio/golden-reference/page.tsx
+    role: dev-only reference preview; disabled when NODE_ENV=production
+  - path: src/app/test/page.tsx
+    role: PacdoraLab research prototype; not production surface
+  - path: src/app/api/auth/[...all]/route.ts
+    role: Better Auth catch-all
+  - path: src/app/api/health/route.ts
+    role: liveness probe
+  - path: src/app/api/ready/route.ts
+    role: readiness probe
+  - path: product-onboarding/onboard.py
+    role: Python CLI (inspect|build|validate|integrate), spawned by the server
+  - path: .next/standalone/server.js
+    role: production process (npm start)
+
+core_domains:
+  - name: structural-engine
+    path: src/lib/structure
+    owns: canonical vector domain, PDF/SVG/DXF import, planar topology, panel
+      extraction, meshes, hinge rig, quality gates, golden-reference lane
+    rule: must never import from src/lib/configurator
+  - name: configurator
+    path: src/lib/configurator
+    owns: product definitions and specs, unfold plan and hinge motion, carton and
+      pouch geometry, editor state, texture management
+  - name: print
+    path: src/lib/print
+    owns: printer profiles, preflight gates, PDF/X-4 and manufacturing SVG
+  - name: provenance
+    path: src/lib/provenance
+    owns: manufacturing-fact ledger and claim gating
+  - name: embroidery
+    path: src/lib/embroidery
+    owns: visual stitch simulation only; machine output deliberately unsupported
+  - name: platform-domain
+    path: src/platform
+    owns: pure types, resolvers, validators, repository interfaces, errors
+  - name: platform-adapters
+    path: src/server
+    owns: services, SQLite repositories, auth, storage, HTTP boundaries, containers
+  - name: onboarding
+    path: product-onboarding
+    owns: Python GLB -> customizable product pipeline
+
+layering:
+  direction: "src/app -> src/server -> src/platform -> src/lib -> src/types"
+  hard_rules:
+    - "src/lib/structure must never import src/lib/configurator"
+    - "src/platform performs no I/O"
+    - "route handlers contain no business logic"
+    - "storage keys and provider references never appear in a DTO"
+
+database:
+  engine: sqlite
+  file: "${VORTEX_DATA_DIR:-.data}/vortex.sqlite"
+  pragmas: [ "foreign_keys=ON", "busy_timeout=5000", "journal_mode=WAL" ]
+  schema_file: src/server/persistence/database.ts
+  schema_version: 17
+  migrations: "17 forward-only numbered blocks, each in a transaction"
+  postgres_target_ddl: docs/platform/postgresql/schema.sql
+
+database_entities:
+  - { name: design_projects,        pk: id,                       notes: "owner-scoped; revision CAS; status machine; creation_key idempotency" }
+  - { name: project_revisions,      pk: "(project_id, revision)",  notes: "immutable snapshots; production binds here" }
+  - { name: project_assets,         pk: id,                       notes: "kind artwork|preview; storage_key UNIQUE; server-only" }
+  - { name: production_artifacts,   pk: id,                       notes: "UNIQUE(project_id, project_revision, kind); immutable" }
+  - { name: product_definitions,    pk: id,                       notes: "status draft|published; visibility public|unlisted" }
+  - { name: product_versions,       pk: id,                       notes: "id = productId@n; immutable; sha256 of canonical JSON" }
+  - { name: product_drafts,         pk: id,                       notes: "revisioned; onboarding provenance columns" }
+  - { name: product_audit_events,   pk: id,                       notes: "one row per draft state change, same transaction" }
+  - { name: product_version_onboarding_provenance, pk: product_version_id, notes: "1:1 with a published version" }
+  - { name: design_template_definitions, pk: id }
+  - { name: design_template_versions,    pk: id,                  notes: "id = templateId@n; immutable" }
+  - { name: template_drafts,        pk: id }
+  - { name: template_draft_events,  pk: id }
+  - { name: template_assets,        pk: id,                       notes: "shared, content-addressed artwork" }
+  - { name: price_quotes,           pk: id,                       notes: "UNIQUE(owner, request_key); immutable; expiry computed at read" }
+  - { name: personalization_datasets, pk: id,                     notes: "content-addressed; expires 30 days" }
+  - { name: personalization_jobs,   pk: id,                       notes: "status machine; attempt<=3; Idempotency-Key unique" }
+  - { name: onboarding_jobs,        pk: id,                       notes: "command_version = sha256(onboard.py)" }
+  - { name: onboarding_assets,      pk: id,                       notes: "role-tagged; jobs reference assets, not vice versa" }
+  - { name: production_fonts,       pk: id,                       notes: "licensed font registry; read only for preflight wording" }
+  - { name: operator_grants,        pk: "(user_id, permission)",   notes: "READ-ONLY in code; nothing inserts rows" }
+  - { name: project_owner_claims,   pk: guest_id,                 notes: "retires a guest identity permanently" }
+  - { name: auth_users,             pk: id,                       notes: "Better Auth" }
+  - { name: auth_sessions,          pk: id,                       notes: "Better Auth; token UNIQUE" }
+  - { name: auth_accounts,          pk: id,                       notes: "Better Auth; UNIQUE(issuer, accountId)" }
+  - { name: auth_verifications,     pk: id,                       notes: "Better Auth" }
+  - { name: rate_limit_windows,     pk: "(bucket_key, window_started_at)", notes: "atomic upsert; sweep() never called -> unbounded growth" }
+  - { name: background_jobs,        pk: id,                       notes: "DORMANT: no production producer or consumer" }
+  - { name: schema_migrations,      pk: version }
+
+api_groups:
+  - group: operational
+    auth: none
+    routes: [ "GET /api/health", "GET /api/ready" ]
+  - group: authentication
+    auth: better-auth
+    routes: [ "GET|POST /api/auth/[...all]", "GET /api/v1/session", "POST /api/v1/session/claim" ]
+  - group: public-catalogue
+    auth: none
+    boundary: withPublicApi
+    routes:
+      - "GET /api/v1/products"
+      - "GET /api/v1/products/:productId"
+      - "POST /api/v1/products/:productId/configurations/resolve"
+      - "GET /api/v1/templates"
+      - "GET /api/v1/templates/:templateId"
+      - "GET /api/v1/templates/:templateId/preview"
+  - group: projects
+    auth: owner
+    boundary: withOwner
+    routes:
+      - "GET|POST /api/v1/projects"
+      - "GET|PATCH|DELETE /api/v1/projects/:projectId"
+      - "POST /api/v1/projects/:projectId/duplicate"
+      - "POST /api/v1/projects/:projectId/preview"
+      - "POST /api/v1/projects/:projectId/assets"
+      - "GET /api/v1/projects/:projectId/assets/:assetId/content"
+      - "POST /api/v1/templates/:templateId/instantiate"
+  - group: production
+    auth: owner
+    routes:
+      - "POST /api/v1/projects/:projectId/production/preflight"
+      - "GET|POST /api/v1/projects/:projectId/production/artifacts"
+      - "GET /api/v1/production-artifacts/:artifactId"
+      - "GET /api/v1/production-artifacts/:artifactId/content"
+  - group: pricing
+    auth: owner
+    routes: [ "POST /api/v1/products/:productId/quotes", "GET /api/v1/price-quotes/:quoteId" ]
+  - group: personalization
+    auth: owner
+    routes:
+      - "GET|POST /api/v1/personalization-datasets"
+      - "GET /api/v1/personalization-datasets/:datasetId/preview"
+      - "GET|POST /api/v1/personalization-jobs"
+      - "GET /api/v1/personalization-jobs/:jobId"
+      - "POST /api/v1/personalization-jobs/:jobId/cancel"
+      - "POST /api/v1/personalization-jobs/:jobId/retry"
+      - "GET /api/v1/personalization-jobs/:jobId/output"
+  - group: admin
+    auth: operator-grant
+    boundary: withAdminApi
+    rate_limited: false
+    routes:
+      - "GET /api/v1/admin/products"
+      - "POST /api/v1/admin/products/:productId/drafts"
+      - "GET /api/v1/admin/product-drafts"
+      - "GET|PATCH /api/v1/admin/product-drafts/:draftId"
+      - "POST /api/v1/admin/product-drafts/:draftId/validate"
+      - "POST /api/v1/admin/product-drafts/:draftId/publish"
+      - "GET /api/v1/admin/product-drafts/:draftId/audit"
+      - "GET|POST /api/v1/admin/template-drafts"
+      - "GET|PATCH /api/v1/admin/template-drafts/:draftId"
+      - "POST /api/v1/admin/template-drafts/:draftId/validate"
+      - "POST /api/v1/admin/template-drafts/:draftId/publish"
+      - "GET /api/v1/admin/template-drafts/:draftId/audit"
+      - "GET|POST /api/v1/admin/template-assets"
+      - "GET|POST /api/v1/admin/production-fonts"
+      - "POST /api/v1/admin/onboarding/jobs"
+      - "GET /api/v1/admin/onboarding/jobs/:jobId"
+      - "GET /api/v1/admin/onboarding/jobs/:jobId/assets/:assetId/content"
+      - "POST /api/v1/admin/onboarding/jobs/:jobId/attach"
+
+api_conventions:
+  version_prefix: /api/v1
+  success_envelope: "a single named key, e.g. { project } / { products }"
+  error_envelope: "{ error: { code, message, details? } }"
+  json_cache_control: no-store
+  json_body_limit_bytes: 5242880
+  csrf: "assertSameOriginMutation on every mutation (Sec-Fetch-Site + Origin)"
+  pagination: none
+  api_keys: none
+  webhooks: none
+
+background_jobs:
+  - name: personalization-generation
+    status: live
+    producer: "PersonalizationService.createJob / retry / recover"
+    consumer: src/server/personalization/personalization-runner.ts
+    scheduling: "in-process, queueMicrotask, MAX_CONCURRENT_JOBS=2"
+    persistence: personalization_jobs
+    retry: "manual only; max_attempts=3; no backoff"
+    recovery: "recoverInterruptedJobs() at container construction"
+    idempotency: "client Idempotency-Key, unique per job"
+    cancellation: "cooperative, polled once per output row"
+  - name: glb-onboarding
+    status: live
+    producer: "OnboardingService.create"
+    consumer: src/server/onboarding/onboarding-runner.ts
+    scheduling: "in-process, maxConcurrent=2"
+    persistence: onboarding_jobs
+    retry: none
+    recovery: none          # RISK: a restart strands jobs in "running"
+    external: "spawn python product-onboarding/onboard.py"
+    timeout_ms_default: 300000
+  - name: background_jobs-queue
+    status: dormant
+    note: "Fully implemented (lease, backoff, idempotency, abandonment) but no
+      production code enqueues or drains it. Tests only."
+    files:
+      - src/platform/jobs/worker.ts
+      - src/platform/jobs/types.ts
+      - src/server/jobs/sqlite-job-queue-repository.ts
+      - src/server/persistence/postgres/postgres-job-queue-repository.ts
+
+schedulers: []                 # no cron, no setInterval on the server
+client_polling:                # the only job-progress mechanism; no SSE/WebSocket
+  - { file: src/components/templates/BulkPersonalizationPanel.tsx, interval_ms: 1000 }
+  - { file: src/components/admin/OnboardingPanel.tsx,              interval_ms: 1500 }
+webhooks:
+  inbound: []
+  outbound: []
+  note: "No webhook surface of any kind. See docs/ai-context/WEBHOOKS.md."
+
+integrations:
+  - { name: s3-compatible-storage, kind: optional-runtime, sdk: "hand-written SigV4", files: [ src/server/storage/s3-object-store.ts ] }
+  - { name: better-auth,           kind: required-library,  files: [ src/server/auth/create-auth.ts, src/server/auth/better-auth.ts ] }
+  - { name: sharp,                 kind: required-native,   purpose: "upload decode, preview render, production rasterisation" }
+  - { name: better-sqlite3,        kind: required-native,   purpose: "the database" }
+  - { name: pdf-lib,               kind: library,           purpose: "write PDF/X-4" }
+  - { name: pdfjs-dist,            kind: library,           purpose: "read dieline PDFs and separations" }
+  - { name: three + r3f + drei,    kind: browser,           purpose: "3D preview" }
+  - { name: konva + react-konva,   kind: browser,           purpose: "2D editor" }
+  - { name: python-onboarding,     kind: subprocess,        purpose: "GLB -> product", packages: [trimesh, numpy, pillow, pygltflib, scipy, networkx] }
+  - { name: embed-host-sites,      kind: inbound-browser,   purpose: "iframe + postMessage", config: VORTEX_EMBED_CLIENTS }
+  - { name: cloudflare-workers,    kind: configured-unsupported, note: "native modules make it impossible" }
+
+auth:
+  provider: better-auth
+  mechanism: "email+password sessions; opaque token in auth_sessions"
+  password_policy: { min: 10, max: 128 }
+  guest_identity:
+    cookie: vortex_guest
+    format: "uuid.base64url(HMAC-SHA256(uuid, VORTEX_GUEST_COOKIE_SECRET))"
+    max_age_seconds: 31536000
+    same_site: "Lax; None+Secure+Partitioned when embedded over https"
+  boundaries: [ withOwner, withPublicApi, withAdminApi ]
+  authorization_model: "owner-scoped SQL for customers; 9 operator permissions with an implication lattice"
+  operator_permissions:
+    - products:read
+    - products:edit
+    - products:validate
+    - products:publish
+    - templates:read
+    - templates:edit
+    - templates:publish
+    - assets:upload
+    - onboarding:run
+  operator_bootstrap: VORTEX_BOOTSTRAP_OPERATOR_USER_IDS
+  service_to_service: none
+
+state_machines:
+  design_project: [ draft, ready_for_preflight, production_ready, archived ]
+  personalization_job: [ queued, running, completed, failed, cancelled ]
+  onboarding_job: [ queued, running, passed, failed, "cancelled(unreachable)" ]
+  product_draft: [ draft, validated, published ]
+  template_draft: [ draft, validated, published ]
+  background_job: [ queued, running, succeeded, failed, abandoned ]
+
+critical_business_rules:
+  - "The dieline is the single geometric authority; flat 3D must reproduce it exactly (4.5e-13 mm on the reference)."
+  - "Fail closed on unknown construction; reference-derived estimates must be labelled and never presented as certification."
+  - "Every customer read and write is owner-scoped in SQL; there is no admin override path."
+  - "A save is a compare-and-swap on revision and writes an immutable project_revisions row."
+  - "Production binds to a frozen revision and re-resolves the product server-side; artifacts are immutable per (project, revision, kind)."
+  - "A design's surface id set must equal the product version's exactly."
+  - "Image elements must reference project-owned assets; the server overwrites all client-supplied image metadata."
+  - "configurationId encoding is a wire format; changing it invalidates stored projects, quotes and artifacts."
+  - "Manufacturing claims are built by filtering a provenance ledger, never assembled by hand."
+  - "Embroidery is preview-only and is blocked at preflight."
+  - "Publishing re-runs validation and refuses if the report changed."
+  - "Embed features default to false so shipping a capability never enables it for an existing client."
+  - "A claimed guest identity is retired permanently."
+  - "Camera state is independent of fold state."
+
+important_constants:
+  MAX_JSON_BYTES: 5242880
+  MAX_UPLOAD_BYTES: 20971520
+  MAX_UPLOAD_PIXELS: 40000000
+  MAX_GLB_BYTES: 67108864
+  MAX_MANIFEST_BYTES: 1048576
+  MAX_PERSONALIZATION_CSV_BYTES: 5242880
+  MAX_PERSONALIZATION_OUTPUT_BYTES: 67108864
+  MAX_PRODUCTION_FONT_BYTES: 10485760
+  MAX_DRAFT_BYTES_PRODUCT: 10485760
+  MAX_DRAFT_BYTES_TEMPLATE: 2097152
+  MAX_PREVIEW_EDGE: 720
+  PROJECT_MAX_SURFACES: 64
+  PROJECT_MAX_ELEMENTS: 2000
+  PROJECT_TITLE_MAX_LENGTH: 120
+  PRICE_QUOTE_MAX_QUANTITY: 1000000
+  PERSONALIZATION_MAX_ROWS: 10000
+  PERSONALIZATION_RETENTION_DAYS: 30
+  PERSONALIZATION_MAX_CONCURRENT_JOBS: 2
+  PERSONALIZATION_PROGRESS_INTERVAL: 25
+  PERSONALIZATION_MAX_ATTEMPTS: 3
+  ONBOARDING_DEFAULT_TIMEOUT_MS: 300000
+  ONBOARDING_MAX_CONCURRENT: 2
+  JOB_DEFAULT_LEASE_MS: 30000
+  JOB_DEFAULT_MAX_ATTEMPTS: 3
+  JOB_BACKOFF: "min(60000, 1000 * 2^(attempts-1))"
+  AUTOSAVE_DELAY_MS: 700
+  PREVIEW_DELAY_MS: 1500
+  GUEST_COOKIE_MAX_AGE_SECONDS: 31536000
+  DEFAULT_HINGE_DURATION_MS: 575
+  DEFAULT_HINGE_STAGGER_MS: 90
+  DEFAULT_STRUCTURAL_TOLERANCES:
+    coordinateEpsilonMm: 1.0e-9
+    topologySnapMm: 0.01
+    curveFlatteningMm: 0.05
+    boundaryComparisonMm: 0.05
+    metricSampleSpacingMm: 0.05
+    maxSubdivisionDepth: 32
+
+rate_limits:                    # bucket: limit per 60s window, keyed bucket:ownerType:ownerId
+  project-mutation: 120
+  price-quote: 60
+  preview-generation: 30
+  production-preflight: 30
+  production-generation: 10
+  asset-upload: 20
+  personalization-dataset: 20
+  personalization-job: 20
+  project-claim: 10
+
+environment_variables:
+  required_in_production: [ VORTEX_AUTH_SECRET, VORTEX_GUEST_COOKIE_SECRET, VORTEX_AUTH_URL, VORTEX_DATA_DIR ]
+  optional: [ VORTEX_DEPLOYMENT_MODE, VORTEX_DATABASE, VORTEX_OBJECT_STORE, VORTEX_S3_ENDPOINT,
+              VORTEX_S3_REGION, VORTEX_S3_BUCKET, VORTEX_S3_ACCESS_KEY_ID, VORTEX_S3_SECRET_ACCESS_KEY,
+              VORTEX_EMBED_CLIENTS, VORTEX_BOOTSTRAP_OPERATOR_USER_IDS, VORTEX_ONBOARDING_PYTHON,
+              VORTEX_ONBOARDING_TIMEOUT_MS, VORTEX_ENABLE_DEVELOPMENT_PRICING,
+              VORTEX_GOLDEN_REFERENCE_PDF, VORTEX_POSTGRES_URL, VORTEX_POSTGRES_MAX_CONNECTIONS,
+              VORTEX_POSTGRES_CONNECT_TIMEOUT_MS, VORTEX_POSTGRES_STATEMENT_TIMEOUT_MS,
+              VORTEX_POSTGRES_IDLE_TIMEOUT_MS, VORTEX_POSTGRES_SSL, VORTEX_POSTGRES_TEST_URL,
+              VORTEX_SMOKE_URL, VORTEX_SMOKE_PRODUCT_ID, NEXT_DIST_DIR ]
+  documented_but_unused: [ VORTEX_DATABASE_URL ]     # .env.example slip; code reads VORTEX_POSTGRES_URL
+  validated_at_startup: src/server/config/environment.ts
+
+testing:
+  runner: "node:test via tsx"
+  command: npm test
+  suites: 78
+  tests_total: 484
+  tests_pass: 475
+  tests_skipped: 9              # postgres-integration, needs VORTEX_POSTGRES_TEST_URL
+  coverage_tooling: none
+  e2e: "scripts/smoke-deployment.mjs (Playwright), run by CI against the shipping artifact"
+  uncovered:
+    - "HTTP route handlers (no test imports src/app/api)"
+    - "React components"
+    - "useProjectSession autosave logic"
+    - "src/proxy.ts middleware"
+    - "S3 SigV4 signing vectors"
+
+ci:
+  workflows: [ .github/workflows/ci.yml, .github/workflows/structural-quality.yml ]
+  services: [ "postgres:17 (for the 9 integration tests)" ]
+  deploy_automation: none
+
+high_risk_areas:
+  - id: rate-limit-bypass
+    severity: high
+    summary: "withOwner mints a fresh guest identity for cookieless requests before assertRateLimit runs, so every per-owner limit is bypassable; no IP-based limiter exists."
+    files: [ src/server/http/api.ts, src/server/auth/owner-context.ts, src/server/http/rate-limit.ts ]
+  - id: rate-limit-table-growth
+    severity: medium
+    summary: "RateLimitStore.sweep() is never called outside tests; rate_limit_windows grows without bound."
+    files: [ src/server/http/rate-limit-stores.ts ]
+  - id: dormant-job-queue
+    severity: medium
+    summary: "background_jobs + JobWorker are complete but unused; the two live runners duplicate it less safely."
+    files: [ src/platform/jobs/worker.ts, src/server/personalization/personalization-runner.ts, src/server/onboarding/onboarding-runner.ts ]
+  - id: onboarding-no-recovery
+    severity: medium
+    summary: "An onboarding job interrupted by a restart stays 'running' forever; personalization recovers, onboarding does not."
+    files: [ src/server/onboarding/container.ts ]
+  - id: onboarding-missing-in-container
+    severity: medium
+    summary: "The Dockerfile runtime stage installs no Python and copies no product-onboarding/, so onboarding always fails in the reference image."
+    files: [ Dockerfile ]
+  - id: ready-endpoint-disclosure
+    severity: medium
+    summary: "/api/ready returns raw configuration and driver error text to anonymous callers."
+    files: [ src/app/api/ready/route.ts ]
+  - id: forwarded-header-trust
+    severity: medium
+    summary: "x-forwarded-host and x-forwarded-proto are trusted unconditionally by the same-origin check and by the HSTS/cookie decision."
+    files: [ src/server/http/api.ts, src/server/http/request-security.ts ]
+  - id: guest-claim-skips-quotes
+    severity: low
+    summary: "claimAll migrates projects, datasets and jobs but not price_quotes; guest quotes become unreachable."
+    files: [ src/server/persistence/sqlite-project-repository.ts ]
+  - id: postgres-fails-closed
+    severity: acknowledged
+    summary: "12 domain repositories and the Better Auth adapter are unported; VORTEX_DATABASE=postgresql refuses to start."
+    files: [ src/server/persistence/backend.ts, docs/platform/POSTGRESQL.md ]
+  - id: manufacturing-not-certified
+    severity: acknowledged
+    summary: "Reference recreation is certified; manufacturing construction is not, and requires converter evidence."
+    files: [ quality-report.json ]
+
+important_files:
+  schema: src/server/persistence/database.ts
+  config_gate: src/server/config/environment.ts
+  http_boundaries: src/server/http/api.ts
+  identity: src/server/auth/owner-context.ts
+  operator_authz: src/server/operators/operator-authorization-service.ts
+  project_service: src/server/projects/project-service.ts
+  design_document_validation: src/platform/projects/design-document.ts
+  option_resolver: src/platform/products/configuration-resolver.ts
+  product_catalog: src/server/products/product-catalog-service.ts
+  publishing: src/server/products/product-publishing-service.ts
+  production: src/server/production/production-service.ts
+  preflight: src/lib/print/preflight.ts
+  printer_profiles: src/lib/print/printer-profiles.ts
+  provenance_claims: src/lib/provenance/claims.ts
+  vector_domain: src/lib/structure/vector-domain.ts
+  topology: src/lib/structure/topology.ts
+  structural_mesh: src/lib/structure/structural-mesh.ts
+  structural_rig: src/lib/structure/structural-rig.ts
+  unfold_plan: src/lib/configurator/unfold-plan.ts
+  autosave: src/lib/projects/use-project-session.ts
+  embed_resolver: src/platform/embed/resolve-embed.ts
+  middleware: src/proxy.ts
+  quality_record: [ quality-report.json, QUALITY_STATE.md, quality-run-log.md ]
+
+do_not_change_casually:
+  - src/server/persistence/database.ts       # migrations are forward-only and shipped
+  - src/platform/products/configuration-resolver.ts   # configurationId is a wire format
+  - src/lib/structure/structural-mesh.ts     # sheet UV convention; a flip mirrors all artwork
+  - src/lib/print/printer-profiles.ts        # approval status is a manufacturing claim
+  - src/lib/provenance/ledger.ts             # derivation soundness gates certification
+  - src/server/auth/owner-context.ts         # cookie signing and partitioning
+  - src/proxy.ts                             # framing policy for every embed client
+  - quality-report.json                      # consistency is enforced by a test
