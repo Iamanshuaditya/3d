@@ -95,6 +95,39 @@ non-technical and technical readers. Deeper contracts live in
 [`docs/structural-engine/`](docs/structural-engine/) and
 [`docs/platform/ARCHITECTURE.md`](docs/platform/ARCHITECTURE.md).
 
+### AI context layer
+
+[`docs/ai-context/`](docs/ai-context/) is a reverse-engineered technical map of
+this repository, written so an AI coding agent or a new engineer can start work
+without rediscovering the system from source. Start with
+[`AGENT_START_HERE.md`](docs/ai-context/AGENT_START_HERE.md); the index and
+recommended reading order are in
+[`docs/ai-context/README.md`](docs/ai-context/README.md).
+
+| Document | Covers |
+|---|---|
+| [`AGENT_START_HERE.md`](docs/ai-context/AGENT_START_HERE.md) | Compact onboarding: concepts, dangerous files, conventions, traps |
+| [`ARCHITECTURE.md`](docs/ai-context/ARCHITECTURE.md) | Layers, boundaries, entry points, cross-cutting concerns |
+| [`DATA_FLOW.md`](docs/ai-context/DATA_FLOW.md) | Seven end-to-end flows, traced through real files |
+| [`DATABASE_MAP.md`](docs/ai-context/DATABASE_MAP.md) | All 29 tables, relationships, constraints, load-bearing fields |
+| [`API_MAP.md`](docs/ai-context/API_MAP.md) | Every endpoint with auth, limits, validation and error cases |
+| [`BACKGROUND_JOBS.md`](docs/ai-context/BACKGROUND_JOBS.md) | The two live runners and the durable queue nothing uses |
+| [`WEBHOOKS.md`](docs/ai-context/WEBHOOKS.md) | There are none, and the evidence for that |
+| [`THIRD_PARTY_INTEGRATIONS.md`](docs/ai-context/THIRD_PARTY_INTEGRATIONS.md) | External systems that materially affect behaviour |
+| [`BUSINESS_RULES.md`](docs/ai-context/BUSINESS_RULES.md) | 32 rules with enforcement points, constants and edge cases |
+| [`STATE_MACHINES.md`](docs/ai-context/STATE_MACHINES.md) | Seven stateful entities and their transition guards |
+| [`AUTH_AND_PERMISSIONS.md`](docs/ai-context/AUTH_AND_PERMISSIONS.md) | Guest/user identity, operator grants, CSRF, framing |
+| [`CONFIGURATION.md`](docs/ai-context/CONFIGURATION.md) | Every environment variable, grouped by subsystem |
+| [`CODEBASE_MAP.md`](docs/ai-context/CODEBASE_MAP.md) | "Where do I start if I need to change X?" |
+| [`KNOWN_RISKS.md`](docs/ai-context/KNOWN_RISKS.md) | Architecture-risk review; findings only, nothing fixed |
+| [`TESTING_MAP.md`](docs/ai-context/TESTING_MAP.md) | Suites, seams, CI, and the areas with no coverage |
+| [`DEPLOYMENT_AND_RUNTIME.md`](docs/ai-context/DEPLOYMENT_AND_RUNTIME.md) | Build, container, probes, backup, what blocks scaling |
+| [`GLOSSARY.md`](docs/ai-context/GLOSSARY.md) | Domain vocabulary and every status value in one place |
+| [`REPO_CONTEXT.yaml`](docs/ai-context/REPO_CONTEXT.yaml) | Machine-readable index for fast agent consumption |
+
+It is a snapshot of commit `616e26f`, not a living contract — re-verify any
+claim against the code before relying on it.
+
 ---
 
 ## Private reference material
