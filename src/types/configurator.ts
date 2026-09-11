@@ -244,6 +244,8 @@ export type EditableSurface = {
    * transparent — without this the empty canvas' zero alpha renders as black.
    */
   defaultBackground?: string;
+  /** Canvas orientation for an authored UV atlas. Defaults to the legacy flip. */
+  textureFlipY?: boolean;
   /**
    * Print renderer base when it differs from the visual substrate preview.
    * For kraft, process-white means no CMYK ink and reveals the brown stock.
@@ -327,6 +329,8 @@ export type ProductConfig = {
    * exists — it is never silently ignored.
    */
   articulation?: GlbArticulationSpec;
+  /** Authored GLB shape key. Inflation changes the pose, never the artwork UVs. */
+  inflation?: { targetName: string; defaultValue: number };
   editableSurfaces: EditableSurface[];
   /** Camera framing for this product. */
   camera: {
@@ -376,6 +380,7 @@ export type ProductConfig = {
   /** Product-specific production material response. */
   materialProfile?:
     | "standard"
+    | "satin-laminate"
     | "glossy-laminate"
     | "clear-barrier-gloss"
     | "kraft-corrugated"

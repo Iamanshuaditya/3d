@@ -17,6 +17,7 @@ import {
 } from "@/lib/pacdora-lab";
 import { StudioPanel } from "@/components/studio/StudioPanel";
 import { StudioToolRail, type StudioTool } from "@/components/studio/StudioToolRail";
+import type { ProductConfig } from "@/types/configurator";
 
 const DesignEditor = dynamic(
   () => import("@/components/configurator/DesignEditor").then((module) => module.DesignEditor),
@@ -45,6 +46,21 @@ export function PouchStudioEditor({
   onArtworkCanvasChange,
 }: PouchStudioEditorProps) {
   const config = useMemo(() => createPacdoraLabStudioConfig(solution), [solution]);
+  return <PouchArtworkEditor config={config} onArtworkCanvasChange={onArtworkCanvasChange} />;
+}
+
+/** The same editor can consume a mesh-authored atlas without inventing a film web. */
+export function PouchArtworkEditor({
+  config,
+  onArtworkCanvasChange,
+  regionLabel = "Production regions",
+  compact = false,
+}: {
+  config: ProductConfig;
+  onArtworkCanvasChange: PouchStudioEditorProps["onArtworkCanvasChange"];
+  regionLabel?: string;
+  compact?: boolean;
+}) {
   const c = useCustomizer(config, null, true);
   const {
     activeDesign,
@@ -246,7 +262,7 @@ export function PouchStudioEditor({
   return (
     <div
       data-testid="pouch-studio-editor"
-      className="flex h-[660px] min-h-0 min-w-0 overflow-hidden rounded-xl border border-[var(--st-line)] bg-[var(--st-bg)] text-[var(--st-text)]"
+      className={`flex min-w-0 overflow-hidden rounded-xl border border-[var(--st-line)] bg-[var(--st-bg)] text-[var(--st-text)] ${compact ? "h-[calc(100dvh-260px)] min-h-[390px]" : "h-[660px] min-h-0"}`}
     >
       <div className="flex shrink-0">
         <StudioToolRail active={tool} onSelect={setTool} />
@@ -255,6 +271,7 @@ export function PouchStudioEditor({
         <StudioPanel
           tool={tool}
           customizer={c}
+          previewOnly={config.previewOnly}
           demoArtwork={{ label: "Add demo artwork", onAdd: addDemoArtwork }}
         />
       </div>
@@ -334,7 +351,7 @@ export function PouchStudioEditor({
                 <div className="relative" data-design-editor>
                   <div className="pointer-events-none absolute -top-7 right-0 z-10 flex gap-2 text-[11px]">
                     <span className="rounded-full bg-white px-2.5 py-0.5 ring-1 ring-inset ring-black/10">
-                      Production regions
+                      {regionLabel}
                     </span>
                     <span className="rounded-full bg-white px-2.5 py-0.5 ring-1 ring-inset ring-black/10">
                       Technical guides

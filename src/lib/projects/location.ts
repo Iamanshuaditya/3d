@@ -1,5 +1,21 @@
 import type { DesignProjectDto, ProjectSummaryDto } from "@/platform/projects/types";
 
+export type StudioSearchParams = {
+  product?: string;
+  project?: string;
+  version?: string;
+  options?: string;
+};
+
+/** One editor location for library cards, saved projects and legacy URLs. */
+export function studioHref(selection: StudioSearchParams = {}) {
+  const query = new URLSearchParams();
+  for (const key of ["product", "project", "version", "options"] as const) {
+    if (selection[key]) query.set(key, selection[key]);
+  }
+  return query.size ? `/?${query}` : "/";
+}
+
 type ProjectLocation = Pick<
   DesignProjectDto | ProjectSummaryDto,
   "id" | "productId" | "productVersionId" | "optionSelection"
@@ -32,13 +48,13 @@ export function applyProjectLocation(url: URL, project: ProjectLocation) {
 }
 
 export function configurationStudioHref(configuration: ConfigurationLocation) {
-  return applyResolvedConfiguration(new URL("http://vortex.invalid/studio"), configuration)
+  return applyResolvedConfiguration(new URL("http://vortex.invalid/"), configuration)
     .toString()
     .replace("http://vortex.invalid", "");
 }
 
 export function projectStudioHref(project: ProjectLocation) {
-  return applyProjectLocation(new URL("http://vortex.invalid/studio"), project)
+  return applyProjectLocation(new URL("http://vortex.invalid/"), project)
     .toString()
     .replace("http://vortex.invalid", "");
 }

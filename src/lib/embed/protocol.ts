@@ -8,6 +8,8 @@
  * unexpected origin must be indistinguishable from noise.
  */
 
+import type { EditorSessionResult } from "./editor-session-types";
+
 export const EMBED_PROTOCOL_VERSION = 1 as const;
 export const EMBED_MESSAGE_NAMESPACE = "vortex-embed" as const;
 
@@ -20,12 +22,13 @@ export type EmbedErrorCode =
   | "PRODUCT_UNAVAILABLE"
   | "SESSION_FAILED"
   | "SAVE_FAILED"
+  | "EXPORT_FAILED"
   | "UPLOAD_REJECTED";
 
 /** Frame → host. */
 export type EmbedOutboundMessage =
   /** The configurator has mounted and is ready for host messages. */
-  | { type: "ready"; productId: string; clientId: string }
+  | { type: "ready"; productId: string; clientId: string; sessionId?: string }
   /** Content height changed; the host resizes the iframe to match. */
   | { type: "resize"; heightPx: number }
   /** Long-running work the host may reflect in its own UI. */
@@ -38,6 +41,8 @@ export type EmbedOutboundMessage =
       revision: number;
       productId: string;
       configurationId: string | null;
+      sessionId?: string;
+      result?: EditorSessionResult;
     }
   | { type: "error"; code: EmbedErrorCode; message: string };
 

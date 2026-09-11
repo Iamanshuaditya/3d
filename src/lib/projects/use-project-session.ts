@@ -17,6 +17,7 @@ import {
   uploadProjectAsset,
 } from "./client";
 import { applyProjectLocation } from "./location";
+import { currentEditorSessionId } from "@/lib/embed/embed-request-context";
 
 const AUTOSAVE_DELAY_MS = 700;
 const PREVIEW_DELAY_MS = 1_500;
@@ -134,6 +135,7 @@ export type ProjectSession = {
   uploadAsset: (file: File) => Promise<ProjectAssetDto>;
   retrySave: () => void;
   saveNow: () => Promise<boolean>;
+  saveSnapshot: () => Promise<DesignProjectDto | null>;
 };
 
 export function useProjectSession(
@@ -143,7 +145,8 @@ export function useProjectSession(
   commitSequence: number,
   onDocumentLoaded: (document: DesignDocument) => void,
 ): ProjectSession {
-  const previewOnly = config.previewOnly === true;
+  // API preview sessions persist artwork but can never generate production output.
+  const previewOnly = config.previewOnly === true && !currentEditorSessionId();
   const creationIdentity = pendingCreationIdentity(config);
   const [project, setProject] = useState<DesignProjectDto | null>(null);
   const [saveState, setSaveState] = useState<ProjectSaveState>("loading");
@@ -242,9 +245,8 @@ export function useProjectSession(
     revisionRef.current = 0;
     lastQueuedSequenceRef.current = 0;
 
-    // A preview-only product has no catalogue row to own a project, so opening
-    // one would fail with "product is not published" and leave the editor
-    // permanently blocked. Report the session as settled instead.
+    // Standalone prototypes keep their artwork in the tab. API sessions have
+    // an explicitly owned preview project and follow the durable path below.
     if (previewOnly) {
       setSaveState("saved");
       return () => {
@@ -413,6 +415,10 @@ export function useProjectSession(
 
   const saveNow = useCallback(async () => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    if (projectRef.current && commitSequence > lastQueuedSequenceRef.current) {
+      lastQueuedSequenceRef.current = commitSequence;
+      pendingRef.current = { sequence: commitSequence, design };
+    }
     const deadline = Date.now() + 10_000;
     while (savingRef.current && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 25));
@@ -428,7 +434,11 @@ export function useProjectSession(
       if (pendingRef.current?.sequence === sequence) return false;
     }
     return !pendingRef.current && !savingRef.current;
-  }, [flush]);
+  }, [flush, commitSequence, design]);
+
+  const saveSnapshot = useCallback(async () => {
+    return await saveNow() ? projectRef.current : null;
+  }, [saveNow]);
 
   return {
     project,
@@ -438,5 +448,6 @@ export function useProjectSession(
     uploadAsset,
     retrySave,
     saveNow,
+    saveSnapshot,
   };
 }

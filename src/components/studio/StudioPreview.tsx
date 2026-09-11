@@ -9,30 +9,21 @@ import type { useCustomizer } from "@/lib/configurator/use-customizer";
 import type { useUnfold } from "@/lib/configurator/use-unfold";
 import type { ResolvedStudioPresentation } from "@/platform/presentation/types";
 import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
-import { UnfoldControl } from "@/components/configurator/UnfoldControl";
+import { StudioViewport } from "./StudioViewport";
+import type { useInflation } from "@/lib/configurator/use-inflation";
 
 const DesignEditor = dynamic(
   () => import("@/components/configurator/DesignEditor").then((module) => module.DesignEditor),
   { ssr: false },
 );
-const Product3DViewer = dynamic(
-  () => import("@/components/configurator/Product3DViewer").then((module) => module.Product3DViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center text-[13px] text-[var(--st-dim)]">
-        Loading product proof…
-      </div>
-    ),
-  },
-);
-
 type StudioPreviewProps = {
   config: ProductConfig;
   customizer: ReturnType<typeof useCustomizer>;
   studioPresentation: ResolvedStudioPresentation;
   structuralPresentation: ProductPresentation;
   unfold: ReturnType<typeof useUnfold>;
+  inflation: ReturnType<typeof useInflation>;
+  onPresetChange: (preset: CameraPreset) => void;
   animated: boolean;
   onAnimatedChange: (animated: boolean) => void;
   pendingPreset: CameraPreset | null;
@@ -48,6 +39,8 @@ export function StudioPreview({
   studioPresentation,
   structuralPresentation,
   unfold,
+  inflation,
+  onPresetChange,
   animated,
   onAnimatedChange,
   pendingPreset,
@@ -181,51 +174,13 @@ export function StudioPreview({
           </div>
         </main>
       ) : (
-        <main className="relative min-h-0 flex-1 p-3 sm:p-5">
-          <div className="absolute left-1/2 top-4 z-10 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-[var(--st-surface)]/95 p-1.5 shadow-lg ring-1 ring-[var(--st-line)] backdrop-blur">
-            <UnfoldControl
-              presentation={structuralPresentation}
-              status={unfold.status}
-              onNext={unfold.next}
-              onPrevious={unfold.previous}
-              onReset={unfold.reset}
-            />
-            <button
-              type="button"
-              role="switch"
-              aria-checked={animated}
-              onClick={() => onAnimatedChange(!animated)}
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--st-dim)] hover:text-[var(--st-text)]"
-            >
-              Auto-motion
-              <span
-                aria-hidden="true"
-                className={`relative h-[18px] w-8 rounded-full ${animated ? "bg-[var(--st-accent)]" : "bg-[var(--st-raised)]"}`}
-              >
-                <span
-                  className={`absolute top-[3px] h-3 w-3 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-all ${animated ? "left-[17px]" : "left-[3px]"}`}
-                />
-              </span>
-            </button>
-          </div>
-          <div className="h-full overflow-hidden rounded-2xl bg-[var(--st-surface)] ring-1 ring-[var(--st-line)]">
-            <Product3DViewer
-              config={config}
-              textures={c.textures}
-              materialTextures={c.materialTextures}
-              consumeDirty={c.consumeDirty}
-              pendingPreset={pendingPreset}
-              onPresetApplied={onPresetApplied}
-              onValidated={c.handleValidated}
-              onSurfaceClick={c.selectSurface}
-              highlightedMeshName={c.hoveredMeshName}
-              onMeshHover={c.setHoveredMeshName}
-              onMeshClick={c.selectMesh}
-              hoverParallax={animated}
-              hingeAngles={unfold.angles}
-              dielineView={Boolean(unfold.status?.isFlat)}
-            />
-          </div>
+        <main className="min-h-0 flex-1">
+          <StudioViewport
+            config={config} customizer={c} structuralPresentation={structuralPresentation}
+            unfold={unfold} inflation={inflation} animated={animated}
+            onAnimatedChange={onAnimatedChange} pendingPreset={pendingPreset}
+            onPresetApplied={onPresetApplied} onPresetChange={onPresetChange}
+          />
         </main>
       )}
     </div>

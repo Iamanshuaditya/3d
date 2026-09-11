@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { configuredPersistenceBackend } from "./backend";
 
 /** Current schema version. Exported so tests assert against it, not a literal. */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export type VortexDatabase = Database.Database;
 
@@ -733,6 +733,27 @@ function migrate(database: VortexDatabase) {
 
         INSERT INTO schema_migrations(version, applied_at)
           VALUES (17, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+      `);
+    })();
+  }
+
+  if (current.version < 18) {
+    database.transaction(() => {
+      database.exec(`
+        CREATE TABLE editor_sessions (
+          id TEXT PRIMARY KEY,
+          client_id TEXT NOT NULL,
+          project_id TEXT NOT NULL REFERENCES design_projects(id) ON DELETE CASCADE,
+          token_sha256 TEXT NOT NULL,
+          session_json TEXT NOT NULL,
+          result_json TEXT,
+          completed_revision INTEGER,
+          expires_at TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+        CREATE INDEX editor_sessions_client_idx ON editor_sessions(client_id, created_at);
+        INSERT INTO schema_migrations(version, applied_at)
+          VALUES (18, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
       `);
     })();
   }

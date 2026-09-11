@@ -14,6 +14,7 @@ import {
   type GlbArticulationRig,
 } from "@/lib/configurator/glb-articulation";
 import { stepPose } from "@/lib/configurator/hinge-animation";
+import { applyInflation, editableMeshes } from "@/lib/configurator/model-surfaces";
 
 type SurfaceTextures = Record<string, THREE.CanvasTexture | null>;
 
@@ -37,6 +38,8 @@ type ProductModelProps = {
    * from the config, and the model renders exactly at its authored rest pose.
    */
   hingeAngles?: HingeAngles;
+  inflation?: number;
+  finish?: "satin" | "gloss";
   onValidated: (result: ValidationResult, debug: SceneDebugInfo[]) => void;
   onSurfaceClick?: (surfaceId: string) => void;
   highlightedMeshName?: string | null;
@@ -50,16 +53,14 @@ const VISTAPRINT_POUCH_REFLECTION_FACES = Array(6).fill(
 
 const EMPTY_POSE: HingeAngles = {};
 
-function meshNamesFor(surface: ProductConfig["editableSurfaces"][number]) {
-  return surface.meshNames?.length ? surface.meshNames : [surface.meshName];
-}
-
 export function ProductModel({
   config,
   textures,
   materialTextures,
   consumeDirty,
   hingeAngles = EMPTY_POSE,
+  inflation = config.inflation?.defaultValue ?? 1,
+  finish = "satin",
   onValidated,
   onSurfaceClick,
   highlightedMeshName = null,
@@ -77,6 +78,13 @@ export function ProductModel({
 
   // Clone so multiple mounts (or product switches) never mutate the cached GLB.
   const model = useMemo(() => scene.clone(true), [scene]);
+  const surfaceMeshes = useMemo(() => new Map(
+    config.editableSurfaces.map((surface) => [surface.id, editableMeshes(model, surface)]),
+  ), [config.editableSurfaces, model]);
+
+  useEffect(() => {
+    if (config.inflation) applyInflation(model, config.inflation.targetName, inflation);
+  }, [model, config.inflation, inflation]);
 
   const meshMaterials = useRef<
     Record<string, THREE.MeshPhongMaterial | THREE.MeshStandardMaterial>
@@ -109,7 +117,7 @@ export function ProductModel({
     // as a patch stuck onto a different material.
     if (isFabric && weave) {
       const printMeshNames = new Set(
-        config.editableSurfaces.flatMap((surface) => meshNamesFor(surface)),
+        [...surfaceMeshes.values()].flat().map((mesh) => mesh.name),
       );
       const plain = createFabricMaterial({ name: "CottonFabric:body", weave });
       created.push(plain);
@@ -123,9 +131,8 @@ export function ProductModel({
 
       for (const surface of config.editableSurfaces) {
         const maps = materialTextures?.[surface.id] ?? null;
-        for (const meshName of meshNamesFor(surface)) {
-          const mesh = model.getObjectByName(meshName) as THREE.Mesh | undefined;
-          if (!mesh) continue;
+        for (const mesh of surfaceMeshes.get(surface.id) ?? []) {
+          const meshName = mesh.name;
           const material = createFabricMaterial({
             name: `CottonFabric:${meshName}`,
             weave,
@@ -150,7 +157,8 @@ export function ProductModel({
     for (const surface of config.editableSurfaces) {
       const isPouch = config.materialProfile === "clear-barrier-gloss";
       const isGlossyLaminate = config.materialProfile === "glossy-laminate";
-      const sharedMaterial = isPouch || isGlossyLaminate
+      const isSatinLaminate = config.materialProfile === "satin-laminate";
+      const sharedMaterial = isPouch || isGlossyLaminate || isSatinLaminate
         ? null
         : new THREE.MeshStandardMaterial({
               name: `PrintAreaMaterial:${surface.id}`,
@@ -167,9 +175,8 @@ export function ProductModel({
             });
       if (sharedMaterial) created.push(sharedMaterial);
 
-      for (const meshName of meshNamesFor(surface)) {
-        const mesh = model.getObjectByName(meshName) as THREE.Mesh | undefined;
-        if (!mesh) continue;
+      for (const mesh of surfaceMeshes.get(surface.id) ?? []) {
+        const meshName = mesh.name;
         // Each pouch panel needs its own material instance. Vortex highlights
         // one `surfaceId` by tinting only that material; sharing one instance
         // would incorrectly turn front, gusset and back yellow together.
@@ -188,6 +195,18 @@ export function ProductModel({
               transparent: true,
               side: THREE.FrontSide,
             })
+          : isSatinLaminate
+            ? new THREE.MeshPhysicalMaterial({
+                name: `SatinLaminate:${meshName}`,
+                color: 0xffffff,
+                roughness: 0.42,
+                metalness: 0,
+                clearcoat: 0.12,
+                clearcoatRoughness: 0.3,
+                envMapIntensity: 0.65,
+                side: THREE.FrontSide,
+                map: textures[surface.id] ?? null,
+              })
           : isGlossyLaminate
             ? new THREE.MeshPhysicalMaterial({
                 name: `GlossyLaminate:${meshName}`,
@@ -213,7 +232,7 @@ export function ProductModel({
           material instanceof THREE.MeshStandardMaterial
         ) {
           meshMaterials.current[meshName] = material;
-          if (isPouch || isGlossyLaminate) created.push(material);
+          if (isPouch || isGlossyLaminate || isSatinLaminate) created.push(material);
         }
       }
     }
@@ -222,14 +241,26 @@ export function ProductModel({
       created.forEach((m) => m.dispose());
       meshMaterials.current = {};
     };
-  }, [model, config, textures, materialTextures, pouchReflectionMap, isFabric, weave]);
+  }, [model, config, textures, materialTextures, pouchReflectionMap, isFabric, weave, surfaceMeshes]);
+
+  useEffect(() => {
+    if (config.materialProfile !== "satin-laminate") return;
+    for (const material of Object.values(meshMaterials.current)) {
+      if (!(material instanceof THREE.MeshPhysicalMaterial)) continue;
+      material.roughness = finish === "gloss" ? 0.24 : 0.42;
+      material.clearcoat = finish === "gloss" ? 0.28 : 0.12;
+    }
+  }, [config.materialProfile, finish, model, textures]);
 
   // Exact Vortex fallback highlight colour: new Color(1, 1, .3).
   useEffect(() => {
     for (const [meshName, material] of Object.entries(meshMaterials.current)) {
-      material.color.setHex(meshName === highlightedMeshName ? 0xffff4d : 0xffffff);
+      const highlighted = meshName === highlightedMeshName ||
+        config.editableSurfaces.some((surface) => surface.meshName === highlightedMeshName &&
+          surfaceMeshes.get(surface.id)?.some((mesh) => mesh.name === meshName));
+      material.color.setHex(highlighted ? 0xffff4d : 0xffffff);
     }
-  }, [highlightedMeshName, model, textures]);
+  }, [highlightedMeshName, model, textures, config.editableSurfaces, surfaceMeshes]);
 
   // ---- Authored articulation -------------------------------------------------
   // A GLB carries no structural information, so a hinge graph has to be
@@ -289,7 +320,6 @@ export function ProductModel({
   // `needsUpdate` is three.js's required re-upload signal and must be written on
   // the texture instance itself; the React Compiler cannot know that a texture
   // passed via props is an externally-owned mutable GPU handle.
-  /* eslint-disable react-hooks/immutability */
   useFrame(() => {
     for (const surface of config.editableSurfaces) {
       const texture = textures[surface.id];
@@ -298,7 +328,6 @@ export function ProductModel({
       }
     }
   });
-  /* eslint-enable react-hooks/immutability */
 
   // Dispose cloned geometry on unmount to avoid GPU leaks (§38).
   useEffect(() => {
@@ -321,7 +350,7 @@ export function ProductModel({
         object={model}
         onPointerOver={(e: { object: THREE.Object3D; stopPropagation: () => void }) => {
           const surface = config.editableSurfaces.find((s) =>
-            meshNamesFor(s).includes(e.object.name),
+            surfaceMeshes.get(s.id)?.some((mesh) => mesh.name === e.object.name),
           );
           if (!surface) return;
           e.stopPropagation();
@@ -329,7 +358,7 @@ export function ProductModel({
         }}
         onPointerOut={(e: { object: THREE.Object3D; stopPropagation: () => void }) => {
           const surface = config.editableSurfaces.find((s) =>
-            meshNamesFor(s).includes(e.object.name),
+            surfaceMeshes.get(s.id)?.some((mesh) => mesh.name === e.object.name),
           );
           if (!surface) return;
           e.stopPropagation();
@@ -337,7 +366,7 @@ export function ProductModel({
         }}
         onPointerDown={(e: { object: THREE.Object3D; stopPropagation: () => void }) => {
           const surface = config.editableSurfaces.find((s) =>
-            meshNamesFor(s).includes(e.object.name),
+            surfaceMeshes.get(s.id)?.some((mesh) => mesh.name === e.object.name),
           );
           if (!surface) return;
           e.stopPropagation();

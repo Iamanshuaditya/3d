@@ -17,8 +17,8 @@ export async function GET(request: NextRequest, context: Context) {
         "Content-Type": asset.mimeType,
         "Content-Length": String(object.byteSize),
         "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(asset.filename)}`,
-        "Cache-Control": "private, max-age=3600, immutable",
-        Vary: "Cookie",
+        "Cache-Control": request.headers.has("x-vortex-session") ? "private, no-store" : "private, max-age=3600, immutable",
+        Vary: "Cookie, X-Vortex-Session",
         "X-Content-Type-Options": "nosniff",
       },
     });

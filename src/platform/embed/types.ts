@@ -73,6 +73,8 @@ export type EmbedClient = {
   theme: EmbedTheme;
   features: EmbedFeatures;
   completion: EmbedCompletion;
+  /** Server-only SHA-256 of the merchant API key; never sent to the iframe. */
+  apiKeySha256?: string;
 };
 
 /** The resolved, safe-to-serialize configuration handed to the embed frame. */

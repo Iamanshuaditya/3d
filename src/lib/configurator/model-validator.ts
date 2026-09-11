@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { ProductConfig, ValidationResult } from "@/types/configurator";
+import { editableMeshes, meshNamesFor } from "./model-surfaces";
 
 /**
  * Checks a loaded GLB scene against its ProductConfig (§33).
@@ -17,24 +18,31 @@ export function validateProductModel(
   });
 
   for (const surface of config.editableSurfaces) {
-    const meshNames = surface.meshNames?.length ? surface.meshNames : [surface.meshName];
-    for (const meshName of meshNames) {
-      const mesh = scene.getObjectByName(meshName) as THREE.Mesh | undefined;
-
-      if (!mesh) {
+    for (const meshName of meshNamesFor(surface)) {
+      const node = scene.getObjectByName(meshName);
+      if (!node) {
         errors.push(
           `Expected editable mesh "${meshName}" (surface "${surface.id}") was not found.`,
         );
         continue;
       }
 
-      if (!(mesh as THREE.Mesh).isMesh) {
-        errors.push(`"${meshName}" exists but is not a mesh.`);
+      const meshes = editableMeshes(scene, { ...surface, meshName, meshNames: [meshName] });
+      if (!meshes.length) {
+        errors.push(`"${meshName}" exists but contains no editable meshes.`);
         continue;
       }
 
-      if (!mesh.geometry?.getAttribute("uv")) {
-        errors.push(`"${meshName}" has no UV coordinates — artwork cannot be mapped.`);
+      for (const mesh of meshes) {
+        if (!mesh.geometry?.getAttribute("uv")) {
+          errors.push(`"${mesh.name}" has no UV coordinates — artwork cannot be mapped.`);
+        }
+        if (config.inflation && (
+          mesh.morphTargetDictionary?.[config.inflation.targetName] === undefined ||
+          !mesh.morphTargetInfluences
+        )) {
+          errors.push(`"${mesh.name}" is missing the ${config.inflation.targetName} shape key.`);
+        }
       }
     }
   }

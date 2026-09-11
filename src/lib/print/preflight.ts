@@ -5,6 +5,8 @@ import type {
   PreflightReport,
 } from "./types";
 import { pixelsForMm } from "./physical-resolution";
+import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
+import { normalizeManufacturingGeometry } from "./manufacturing-geometry";
 
 const MM_PER_INCH = 25.4;
 
@@ -98,6 +100,19 @@ export function preflightPrintJob(
   let imageMetadataOk = true;
   let bleedOk = true;
   let artworkTreatmentsOk = true;
+
+  // PDF and SVG must use the same physical structural authority. Positive
+  // surface dimensions alone do not establish that they match the actual die.
+  if (resolveCartonSpec(job.product)) {
+    try {
+      normalizeManufacturingGeometry(job);
+      checks.push({ name: "Structural geometry", passed: true, detail: "Print surfaces match the canonical structural blank." });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Invalid structural print geometry.";
+      checks.push({ name: "Structural geometry", passed: false, detail });
+      issue(issues, { code: "STRUCTURAL_GEOMETRY_MISMATCH", severity: "error", message: detail });
+    }
+  }
 
   for (const entry of job.surfaces) {
     const { surface, design, dieline } = entry;

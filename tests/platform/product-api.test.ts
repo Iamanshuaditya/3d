@@ -39,7 +39,7 @@ test("public product DTOs omit engine, provider, and storage internals", async (
   assert.equal(products.length, expected.length);
   assert.deepEqual(
     products.map((product) => product.name),
-    products.map((product) => product.name).toSorted(),
+    products.map((product) => product.name).toSorted((left, right) => left.localeCompare(right)),
   );
   assert.ok(products.some((product) => product.id === "mailer-box-001"));
   assert.ok(products.every((product) => product.visibility === "public"));
@@ -99,7 +99,7 @@ test("public resolution returns one safe authoritative mailer configuration", as
   });
   assert.deepEqual(configuration.production.formats, ["pdf", "svg"]);
   assert.equal(configuration.links.quotes, "/api/v1/products/mailer-box-001/quotes");
-  assert.match(configuration.links.studio, /^\/studio\?/);
+  assert.match(configuration.links.studio, /^\/\?/);
   assert.match(configuration.links.templates, /^\/templates\?/);
   assert.equal(JSON.stringify(configuration).includes("LID_TOP"), false);
 
@@ -122,6 +122,11 @@ test("public resolution returns one safe authoritative mailer configuration", as
       error.status === 400 &&
       error.code === "OPTION_SELECTION_INVALID",
   );
+});
+
+test("preview-only products never advertise production formats", async (t) => {
+  const { api } = fixture(t);
+  assert.deepEqual((await api.resolve("blender-pouch-v3-preview", null, {})).production.formats, []);
 });
 
 test("database-authored public products are discoverable without a registry entry", async (t) => {

@@ -16,6 +16,8 @@ import {
 type StudioPanelProps = {
   tool: StudioTool;
   customizer: ReturnType<typeof useCustomizer>;
+  previewOnly?: boolean;
+  compact?: boolean;
   demoArtwork?: {
     label: string;
     onAdd: () => void;
@@ -96,7 +98,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const inputClass =
   "w-full rounded-lg bg-[var(--st-raised)] px-3 py-2 text-[14px] text-[var(--st-text)] outline-none ring-[var(--st-accent)] focus-visible:ring-2";
 
-export function StudioPanel({ tool, customizer: c, demoArtwork }: StudioPanelProps) {
+export function StudioPanel({ tool, customizer: c, demoArtwork, previewOnly = false, compact = false }: StudioPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const elements = c.activeDesign?.elements ?? [];
   const selected = c.selectedElement;
@@ -133,12 +135,12 @@ export function StudioPanel({ tool, customizer: c, demoArtwork }: StudioPanelPro
   return (
     <aside
       aria-label={`${TITLES[tool]} panel`}
-      className="flex max-h-[42vh] w-full shrink-0 flex-col overflow-y-auto border-t border-[var(--st-line)] bg-[var(--st-surface)] px-5 py-4 lg:max-h-none lg:w-[320px] lg:border-r lg:border-t-0 lg:py-5"
+      className={`flex max-h-[42vh] w-full shrink-0 flex-col overflow-y-auto border-t border-[var(--st-line)] bg-[var(--st-surface)] px-5 py-4 lg:max-h-none lg:border-t-0 lg:py-5 ${compact ? "lg:w-full" : "lg:w-[320px] lg:border-r"}`}
     >
       <h2 className="text-[17px] font-semibold tracking-tight text-[var(--st-text)]">
         {TITLES[tool]}
       </h2>
-      <p className="mt-1.5 text-[13px] leading-[1.5] text-[var(--st-dim)]">{HINTS[tool]}</p>
+      <p className="mt-1.5 text-[13px] leading-[1.5] text-[var(--st-dim)]">{previewOnly && (tool === "Uploads" || tool === "Text") ? "Design the selected panel. Download the artwork PNG to keep this preview." : HINTS[tool]}</p>
 
       <div className="mt-5 flex flex-col gap-3">
         {selectedImage && quality && (tool === "Uploads" || tool === "Editor") && (

@@ -69,10 +69,7 @@ export function summarize(
   };
 }
 
-/**
- * Preview backdrop. Clear-barrier film is almost invisible against the default
- * light stage, so that material gets a deeper one.
- */
-export function previewBackground(config: ProductConfig): string {
-  return config.materialProfile === "clear-barrier-gloss" ? "#dcdde1" : "#eaeaec";
+/** One neutral library stage, independent of the editor's material profiles. */
+export function previewBackground(): string {
+  return "#e1e2e5";
 }

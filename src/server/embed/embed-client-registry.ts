@@ -55,6 +55,10 @@ function parseClient(raw: unknown): EmbedClient {
 
   const completion = (record.completion ?? {}) as Record<string, unknown>;
   const mode = completion.mode;
+  if (record.apiKeySha256 !== undefined &&
+    (typeof record.apiKeySha256 !== "string" || !/^[a-f0-9]{64}$/.test(record.apiKeySha256))) {
+    throw new InvalidEmbedClientConfig(`Embed client ${id}.apiKeySha256 must be a SHA-256 hex digest.`);
+  }
 
   return {
     id,
@@ -62,6 +66,7 @@ function parseClient(raw: unknown): EmbedClient {
     status: record.status === "disabled" ? "disabled" : "active",
     allowedOrigins: origins.map((origin) => normalizeOrigin(origin)!),
     productIds: requireStringArray(record.productIds, `${id}.productIds`),
+    ...(typeof record.apiKeySha256 === "string" ? { apiKeySha256: record.apiKeySha256 } : {}),
     theme: { ...DEFAULT_EMBED_THEME, ...(record.theme as object | undefined) },
     features: { ...DEFAULT_EMBED_FEATURES, ...(record.features as object | undefined) },
     completion: {
@@ -120,7 +125,18 @@ let registry: EmbedClientReader | null = null;
 export function getEmbedClientRegistry(): EmbedClientReader {
   if (!registry) {
     const raw = process.env.VORTEX_EMBED_CLIENTS?.trim();
-    registry = new StaticEmbedClientRegistry(raw ? parseEmbedClients(raw) : []);
+    const clients = raw ? parseEmbedClients(raw) : [];
+    if (process.env.NODE_ENV === "development" && !clients.some((client) => client.id === "local-demo")) {
+      clients.push(parseClient({
+        id: "local-demo", name: "Vortex Studio",
+        allowedOrigins: ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"],
+        productIds: ["blender-pouch-v3-preview", "mailer-box-001", "coffee-cup"],
+        theme: { accent: "#17191c" },
+        features: { text: true, uploads: true, background: true, adjust: true, preview3d: true, unfold: true, downloadArtifact: true },
+        completion: { ctaLabel: "Finish design", confirmationText: "Your design is ready." },
+      }));
+    }
+    registry = new StaticEmbedClientRegistry(clients);
   }
   return registry;
 }

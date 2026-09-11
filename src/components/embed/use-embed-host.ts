@@ -13,6 +13,7 @@ type UseEmbedHostInput = {
   hostOrigin: string;
   clientId: string;
   productId: string;
+  sessionId?: string;
   rootRef: RefObject<HTMLDivElement | null>;
 };
 
@@ -25,7 +26,7 @@ type UseEmbedHostInput = {
  * origin allow-list exists to prevent. Inbound messages from any other origin
  * are dropped without a reply.
  */
-export function useEmbedHost({ hostOrigin, clientId, productId, rootRef }: UseEmbedHostInput) {
+export function useEmbedHost({ hostOrigin, clientId, productId, sessionId, rootRef }: UseEmbedHostInput) {
   const completeHandlerRef = useRef<(() => void) | null>(null);
   const lastHeightRef = useRef(0);
 
@@ -48,13 +49,7 @@ export function useEmbedHost({ hostOrigin, clientId, productId, rootRef }: UseEm
   );
 
   const notifyCompleted = useCallback(
-    (input: {
-      mode: "save" | "quote" | "inquiry";
-      projectId: string;
-      revision: number;
-      productId: string;
-      configurationId: string | null;
-    }) => post({ type: "completed", ...input }),
+    (input: Omit<Extract<EmbedOutboundMessage, { type: "completed" }>, "type">) => post({ type: "completed", ...input }),
     [post],
   );
 
@@ -71,9 +66,9 @@ export function useEmbedHost({ hostOrigin, clientId, productId, rootRef }: UseEm
   }, [post, rootRef]);
 
   useEffect(() => {
-    post({ type: "ready", clientId, productId });
+    post({ type: "ready", clientId, productId, ...(sessionId ? { sessionId } : {}) });
     measure();
-  }, [clientId, measure, post, productId]);
+  }, [clientId, measure, post, productId, sessionId]);
 
   useEffect(() => {
     const element = rootRef.current;
@@ -85,7 +80,7 @@ export function useEmbedHost({ hostOrigin, clientId, productId, rootRef }: UseEm
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.origin !== hostOrigin) return;
+      if (event.origin !== hostOrigin || event.source !== window.parent) return;
       const message = parseInboundMessage(event.data);
       if (!message) return;
       if (message.type === "remeasure") {

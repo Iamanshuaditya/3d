@@ -38,6 +38,8 @@ import { createEmptyDocument } from "@/lib/configurator/design-state";
 import { mailerBoxProduct } from "@/lib/configurator/product-config";
 import { anglesAtStage, cartonUnfoldPlan } from "@/lib/configurator/unfold-plan";
 import { normalizePrintJob } from "@/lib/print/normalize-job";
+import { preflightPrintJob } from "@/lib/print/preflight";
+import { generateProductionPdf } from "@/lib/print/generate-production-pdf";
 import {
   normalizeManufacturingGeometry,
   supportsManufacturingSvg,
@@ -467,6 +469,23 @@ test("manufacturing SVG fails closed for the historical Mailer surface/spec drif
     ),
     /does not match structural blank 376×552 mm/,
   );
+});
+
+test("PDF preflight rejects a print surface that disagrees with the structural blank", async () => {
+  const job = normalizePrintJob(mailerBoxProduct, createEmptyDocument(mailerBoxProduct));
+  const report = preflightPrintJob(job);
+  assert.equal(report.passed, false);
+  assert.ok(report.issues.some((issue) =>
+    issue.code === "STRUCTURAL_GEOMETRY_MISMATCH" && issue.severity === "error",
+  ));
+  assert.equal(new PdfProductionExporter().supports(job), false);
+
+  // A caller-supplied passing report must not bypass independent geometry checks.
+  await assert.rejects(generateProductionPdf(job, {
+    preflightReport: { ...report, passed: true, issues: [] },
+    loadProfile: async () => { throw new Error("ICC loading must not start"); },
+    renderArtwork: async () => { throw new Error("Artwork rendering must not start"); },
+  }), /does not match structural blank 376×552 mm/);
 });
 
 test("later schemas preserve immutable PDFs while adding one SVG per revision", async (t) => {

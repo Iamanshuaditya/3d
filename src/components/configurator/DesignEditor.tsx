@@ -87,6 +87,8 @@ type DesignEditorProps = {
   cropMode?: boolean;
   /** Renders the same artwork without selection, dragging, guides, or texture ownership. */
   readOnly?: boolean;
+  /** Fit the complete sheet inside a bounded embedded workspace. */
+  fitToContainer?: boolean;
 };
 
 export function DesignEditor({
@@ -120,6 +122,7 @@ export function DesignEditor({
   onReplaceSelectedFile,
   cropMode = false,
   readOnly = false,
+  fitToContainer = false,
 }: DesignEditorProps) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -145,17 +148,22 @@ export function DesignEditor({
     [H, W, surface.physicalHeightCm, surface.physicalWidthCm, surface.sections],
   );
 
-  // Fit the fixed-resolution stage to whatever width the column gives us.
+  // Keep the artwork's native resolution; fitting changes only its UI scale.
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
+    // The stage sits inside the optional production-chrome wrapper.
+    const target = fitToContainer ? el.parentElement?.parentElement : el;
+    if (!target) return;
     const observer = new ResizeObserver(([entry]) => {
       const available = entry.contentRect.width;
-      if (available > 0) setScale(available / W);
+      const availableHeight = entry.contentRect.height;
+      if (available > 0) setScale(fitToContainer && availableHeight > 0
+        ? Math.min(available / W, availableHeight / H) : available / W);
     });
-    observer.observe(el);
+    observer.observe(target);
     return () => observer.disconnect();
-  }, [W]);
+  }, [W, H, fitToContainer]);
 
   // Vistaprint does not upload the transparent Konva/document canvas directly.
   // Vortex first composites it over the substrate colour (white for this film),
@@ -353,10 +361,10 @@ export function DesignEditor({
   const heightLabel = `${(surface.physicalHeightCm / 2.54).toFixed(2)}in`;
 
   const stage = (
-    <div ref={wrapperRef} className="w-full">
+    <div ref={wrapperRef} className="flex w-full justify-center">
       <div
-        style={{ height: displayHeight }}
-        className={`relative w-full overflow-hidden border ${
+        style={{ height: displayHeight, width: W * scale }}
+        className={`relative shrink-0 overflow-hidden border ${
           isPanelWeb
             ? "border-[#87bde0] bg-[#ececec]"
             : "rounded-lg border-black/12 bg-[repeating-conic-gradient(#e4e4e6_0%_25%,#ffffff_0%_50%)] bg-[length:20px_20px]"

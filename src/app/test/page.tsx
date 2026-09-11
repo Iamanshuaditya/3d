@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
-import { PacdoraLab } from "@/components/pacdora-lab/PacdoraLab";
+import { redirect } from "next/navigation";
+import { studioHref, type StudioSearchParams } from "@/lib/projects/location";
 
-export const metadata: Metadata = {
-  title: "Procedural Packaging Lab",
-  description: "Research prototype for adjustable carton and flexible pouch geometry.",
-};
-
-export default function TestPage() {
-  return <PacdoraLab />;
+export default async function LegacyLabPage({ searchParams }: {
+  searchParams: Promise<StudioSearchParams>;
+}) {
+  redirect(studioHref(await searchParams));
 }

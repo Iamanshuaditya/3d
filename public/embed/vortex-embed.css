@@ -1,0 +1,26 @@
+.vortex-dialog {
+  box-sizing: border-box;
+  width: min(1500px, calc(100vw - 48px));
+  height: calc(100dvh - 48px);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid #dedfe2;
+  border-radius: 18px;
+  margin: auto;
+  overflow: hidden;
+  background: #fff;
+  color: #17191c;
+  box-shadow: 0 24px 100px #0004;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+.vortex-dialog::backdrop { background: #11182799; backdrop-filter: blur(5px); }
+.vortex-dialog-bar { box-sizing: border-box; height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid #e7e7e9; font-weight: 600; }
+.vortex-close { appearance: none; border: 0; border-radius: 8px; background: #f2f2f4; color: #17191c; padding: 7px 11px; cursor: pointer; font: 500 12px/1.4 system-ui, sans-serif; }
+.vortex-close:hover { background: #e7e7e9; }
+.vortex-close:focus-visible { outline: 2px solid #17191c; outline-offset: 3px; }
+.vortex-dialog-workspace { position: relative; height: calc(100% - 52px); }
+.vortex-loading { position: absolute; z-index: 2; inset: 0; display: grid; place-items: center; padding: 24px; background: #fafafa; text-align: center; color: #666; }
+@media (max-width: 720px) {
+  .vortex-dialog { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+}

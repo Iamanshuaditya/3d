@@ -198,6 +198,9 @@ export class ProductionService {
     if (!revision) throw new NotFoundError("Project revision not found.");
     const resolved = await this.resolveConfiguration(project);
     const product = resolved.productConfig;
+    if (product.previewOnly) {
+      throw new ValidationError("PRODUCT_PREVIEW_ONLY", "This product is a visual prototype and is not enabled for production export.");
+    }
     const parsed = parseDesignDocument(revision.design);
     if (parsed.productId !== project.productId) {
       throw new ValidationError(
@@ -376,6 +379,9 @@ export class ProductionService {
     const project = await this.projects.findById(projectId, owner);
     if (!project) throw new NotFoundError("Project not found.");
     const projectRevision = validateRevision(revision, project.revision);
+    if ((await this.resolveConfiguration(project)).productConfig.previewOnly) {
+      throw new ValidationError("PRODUCT_PREVIEW_ONLY", "This product is a visual prototype and is not enabled for production export.");
+    }
     const existing = await this.artifacts.findForRevision(
       projectId,
       projectRevision,

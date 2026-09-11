@@ -156,6 +156,11 @@ function isEmbeddedRequest(request: NextRequest): boolean {
 
 export async function resolveOwnerContext(request: NextRequest): Promise<OwnerContext> {
   const embedded = isEmbeddedRequest(request);
+  if (request.headers.has("x-vortex-session")) {
+    const { editorRequestSession } = await import("@/server/embed/editor-session-auth");
+    const session = editorRequestSession(request)!;
+    return { owner: { type: "guest", id: session.ownerId }, pendingGuestCookie: null, embedded: true };
+  }
   const authenticated = await resolveAuthenticatedOwner(request);
   if (authenticated) return { owner: authenticated, pendingGuestCookie: null, embedded };
 

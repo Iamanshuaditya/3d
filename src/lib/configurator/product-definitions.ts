@@ -17,6 +17,8 @@ const LEGACY_PUBLISHED_AT = "2026-08-23T00:00:00.000Z";
  * existing number, making accidental published-version mutation fail loudly.
  */
 export const PRODUCT_VERSION_NUMBERS: Readonly<Record<string, number>> = {
+  // Pin the Blender asset checksum in the unified library's immutable snapshot.
+  "blender-pouch-v3-preview": 2,
   // v2 publishes the first compatible editable-template catalogue. Engine
   // geometry is unchanged; the immutable capability snapshot is not.
   "bottle-001": 2,

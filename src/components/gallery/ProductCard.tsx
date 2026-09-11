@@ -1,131 +1,45 @@
-"use client";
-
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowUpRight, Box, Layers, Ruler } from "lucide-react";
-import type { ProductConfig } from "@/types/configurator";
-import {
-  formatBytes,
-  previewBackground,
-  type ProductSummary,
-} from "@/lib/configurator/product-summary";
-
-const Product3DPreview = dynamic(
-  () => import("./Product3DPreview").then((m) => m.Product3DPreview),
-  { ssr: false },
-);
+import { ArrowUpRight } from "lucide-react";
+import { studioHref } from "@/lib/projects/location";
+import type { FeaturedProduct } from "@/lib/configurator/library-showcase";
+import { ProductPoster } from "./ProductPoster";
 
 type ProductCardProps = {
-  config: ProductConfig;
-  summary: ProductSummary;
+  feature: FeaturedProduct;
 };
 
-/** Starts loading a little before the card is on screen. */
-const PRELOAD_MARGIN = "300px";
-
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-function subscribeToMotionPreference(onChange: () => void) {
-  const query = window.matchMedia(REDUCED_MOTION_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeToMotionPreference,
-    () => window.matchMedia(REDUCED_MOTION_QUERY).matches,
-    () => false,
-  );
-}
-
-export function ProductCard({ config, summary }: ProductCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(false);
-  const reducedMotion = usePrefersReducedMotion();
-
-  // Meshes here run to tens of megabytes, so a card only pulls its model once
-  // it is close to the viewport. Off-screen cards cost nothing.
-  useEffect(() => {
-    const node = containerRef.current;
-    if (!node || inView) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setInView(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: PRELOAD_MARGIN },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [inView]);
-
+export function ProductCard({ feature }: ProductCardProps) {
   return (
-    <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-[var(--st-surface)] ring-1 ring-[var(--st-line)] transition-shadow hover:shadow-[0_8px_28px_rgba(16,18,22,0.10)] hover:ring-[var(--st-line-strong)]">
-      <div
-        ref={containerRef}
-        className="relative aspect-[5/4] w-full overflow-hidden"
-        style={{ background: previewBackground(config) }}
-      >
-        {inView ? (
-          <Product3DPreview config={config} spin={!reducedMotion} />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <span className="text-[12px] text-black/35">Preparing preview…</span>
-          </div>
-        )}
-
-        <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[var(--st-dim)] ring-1 ring-black/5 backdrop-blur">
-          {summary.familyLabel}
-        </span>
+    <article
+      id={feature.slug}
+      aria-labelledby={`${feature.slug}-title`}
+      className="group relative flex h-full w-full scroll-mt-6 flex-col rounded-2xl"
+    >
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-[#e1e2e5]">
+        <ProductPoster src={feature.poster} name={feature.name} />
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-5">
+      <div className="flex flex-1 flex-col px-1 pb-1 pt-5 sm:pt-6">
         <div>
-          <h2 className="text-[16px] font-semibold leading-tight tracking-tight text-[var(--st-text)]">
-            {summary.name}
-          </h2>
-          <p className="mt-1 font-mono text-[11px] text-[var(--st-faint)]">{summary.id}</p>
+          <p className="mb-2 text-xs font-medium text-[var(--st-dim)]">{feature.category}</p>
+          <h3 id={`${feature.slug}-title`} className="text-2xl font-semibold tracking-tight text-[var(--st-text)] sm:text-[28px]">
+            {feature.name}
+          </h3>
+          <p className="mt-2 max-w-[44ch] text-sm leading-relaxed text-[var(--st-dim)] sm:text-[15px]">
+            {feature.description}
+          </p>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-[12px]">
-          <div className="flex items-center gap-2 text-[var(--st-dim)]">
-            <Ruler className="h-3.5 w-3.5 shrink-0 text-[var(--st-faint)]" />
-            <dt className="sr-only">Print size</dt>
-            <dd className="truncate">{summary.printSize}</dd>
-          </div>
-          <div className="flex items-center gap-2 text-[var(--st-dim)]">
-            <Layers className="h-3.5 w-3.5 shrink-0 text-[var(--st-faint)]" />
-            <dt className="sr-only">Printable surfaces</dt>
-            <dd className="truncate">
-              {summary.surfaceCount} surface{summary.surfaceCount === 1 ? "" : "s"}
-              {summary.sectionCount > 0 ? ` · ${summary.sectionCount} panels` : ""}
-            </dd>
-          </div>
-          <div className="flex items-center gap-2 text-[var(--st-dim)]">
-            <Box className="h-3.5 w-3.5 shrink-0 text-[var(--st-faint)]" />
-            <dt className="sr-only">Model weight</dt>
-            <dd className="truncate">{formatBytes(summary.modelBytes)}</dd>
-          </div>
-          <div className="flex items-center gap-2 text-[var(--st-dim)]">
-            <dt className="sr-only">Editor canvas</dt>
-            <dd className="truncate font-mono text-[11px]">{summary.canvasSize}</dd>
-          </div>
-        </dl>
-
         <Link
-          href={`/templates?product=${encodeURIComponent(summary.id)}`}
-          className="mt-auto flex items-center justify-between rounded-lg px-1 py-1 text-[13px] font-medium text-[var(--st-dim)] outline-none transition-colors group-hover:text-[var(--st-text)] focus-visible:ring-2 focus-visible:ring-[var(--st-accent)]"
+          href={studioHref({ product: feature.productId })}
+          className="mt-auto inline-flex min-h-11 items-center justify-between gap-4 rounded-lg pt-5 text-sm font-semibold text-[var(--st-text)] outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-[var(--st-accent)] focus-visible:after:ring-offset-4"
         >
-          {/* Stretched so the whole card is one target, while the link itself
-              stays the only focusable element. */}
-          <span className="after:absolute after:inset-0 after:content-['']">
-            Choose design
+          <span className="underline-offset-4 group-hover:underline">
+            {feature.action}
           </span>
-          <ArrowUpRight className="h-4 w-4" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--st-line)] transition-colors group-hover:border-[var(--st-text)] group-hover:bg-[var(--st-text)] group-hover:text-white">
+            <ArrowUpRight aria-hidden="true" className="h-4 w-4" />
+          </span>
         </Link>
       </div>
     </article>

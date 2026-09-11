@@ -1,6 +1,6 @@
 import type { ProductConfig } from "@/types/configurator";
 
-export type StudioLightingProfile = "clear-film" | "fabric" | "kraft" | "print-studio";
+export type StudioLightingProfile = "clear-film" | "soft-film" | "fabric" | "kraft" | "print-studio";
 
 export type StudioScenePresentation = Readonly<{
   background: string;
@@ -15,6 +15,17 @@ export type StudioScenePresentation = Readonly<{
 }>;
 
 const PRESENTATIONS: Record<StudioLightingProfile, StudioScenePresentation> = {
+  "soft-film": Object.freeze({
+    background: "#ffffff",
+    ground: "#ffffff",
+    lighting: "soft-film",
+    toneMapping: "aces",
+    exposure: 1,
+    environment: false,
+    framePadding: 1.14,
+    shadowOpacity: 0,
+    shadowBlur: 3,
+  }),
   "clear-film": Object.freeze({
     background: "#737d8d",
     ground: "#626c7b",
@@ -72,6 +83,7 @@ const PRESENTATIONS: Record<StudioLightingProfile, StudioScenePresentation> = {
 export function resolveStudioScenePresentation(
   config: Pick<ProductConfig, "materialProfile">,
 ): StudioScenePresentation {
+  if (config.materialProfile === "satin-laminate") return PRESENTATIONS["soft-film"];
   if (config.materialProfile === "clear-barrier-gloss") {
     return PRESENTATIONS["clear-film"];
   }
@@ -113,4 +125,3 @@ export function shouldRefitExtent(
   if (previousRadius === null || previousRadius <= 0) return true;
   return Math.abs(nextRadius - previousRadius) / previousRadius > relativeThreshold;
 }
-

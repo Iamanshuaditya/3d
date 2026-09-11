@@ -14,7 +14,7 @@ import { isSecureRequest } from "@/server/http/request-security";
  * no multi-origin form, so `frame-ancestors` is the authority and
  * `X-Frame-Options: DENY` is sent only where it agrees.
  */
-const EMBED_PATH = /^\/embed\/([^/]+)\/([^/]+)/;
+const EMBED_PATH = /^\/(?:embed|editor)\/([^/]+)\/([^/]+)/;
 
 function applyBaselineHeaders(response: NextResponse, request: NextRequest) {
   response.headers.set("X-Content-Type-Options", "nosniff");

@@ -164,7 +164,7 @@ export function useCustomizer(
         continue;
       }
       const texture = new THREE.CanvasTexture(canvas);
-      configureDesignTexture(texture);
+      configureDesignTexture(texture, 16, surface.textureFlipY ?? true);
       next[surface.id] = texture;
     }
     return next;
@@ -862,5 +862,6 @@ export function useCustomizer(
     projectError: projectSession.error,
     retrySave: projectSession.retrySave,
     saveNow: projectSession.saveNow,
+    saveSnapshot: projectSession.saveSnapshot,
   };
 }

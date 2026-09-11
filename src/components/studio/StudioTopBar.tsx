@@ -1,11 +1,12 @@
 "use client";
 
-import type { Ref } from "react";
+import type { ReactNode, Ref } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Download, Eye, FileCode2, FolderOpen, LayoutGrid, Redo2, Undo2 } from "lucide-react";
 import type { ProjectSaveState } from "@/platform/projects/types";
 import type { ProductionArtifactKind } from "@/platform/production/types";
 import { AccountControl } from "@/components/auth/AccountControl";
+import { studioHref } from "@/lib/projects/location";
 
 export type CatalogueEntry = { id: string; name: string };
 
@@ -24,6 +25,9 @@ type StudioTopBarProps = {
   saveState: ProjectSaveState;
   beforeNavigate: () => Promise<boolean>;
   exporting?: ProductionArtifactKind | null;
+  previewOnly?: boolean;
+  previewDownloads?: ReactNode;
+  designSetupHref?: string;
 };
 
 const SAVE_STATUS: Record<ProjectSaveState, { label: string; dot: string }> = {
@@ -50,6 +54,9 @@ export function StudioTopBar({
   saveState,
   beforeNavigate,
   exporting = null,
+  previewOnly = false,
+  previewDownloads,
+  designSetupHref,
 }: StudioTopBarProps) {
   const router = useRouter();
   const status = SAVE_STATUS[saveState];
@@ -76,14 +83,14 @@ export function StudioTopBar({
 
       {/* Product switcher — options come from the product registry, so there is
           no per-product copy to keep in sync here. */}
-      <div className="relative min-w-0 max-w-[46vw] sm:max-w-none">
+      <div className="relative min-w-0 max-w-[46vw] sm:max-w-[320px]">
         <select
           aria-label="Product"
           value={activeProductId}
           onChange={(event) => {
             const nextProductId = event.target.value;
             event.target.value = activeProductId;
-            void navigate(`/studio?product=${nextProductId}`);
+            void navigate(studioHref({ product: nextProductId }));
           }}
           className="h-9 w-full cursor-pointer appearance-none truncate rounded-lg bg-[var(--st-raised)] pl-3 pr-9 text-[14px] font-medium text-[var(--st-text)] outline-none ring-[var(--st-accent)] transition-colors hover:bg-[var(--st-line-strong)] focus-visible:ring-2"
         >
@@ -98,6 +105,15 @@ export function StudioTopBar({
           className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--st-dim)]"
         />
       </div>
+
+      {designSetupHref && (
+        <button type="button" onClick={() => void navigate(designSetupHref)} title="Templates & size"
+          className="hidden h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-[13px] font-medium text-[var(--st-dim)] hover:bg-[var(--st-raised)] sm:flex">
+          <LayoutGrid className="h-4 w-4" />
+          <span className="hidden xl:inline">Templates & size</span>
+          <span className="sr-only xl:hidden">Templates & size</span>
+        </button>
+      )}
 
       <button
         type="button"
@@ -143,7 +159,7 @@ export function StudioTopBar({
           aria-hidden="true"
           className={`h-1.5 w-1.5 rounded-full ${status.dot}`}
         />
-        {status.label}
+        {previewOnly ? "Session only" : status.label}
       </p>
 
       <button
@@ -158,7 +174,7 @@ export function StudioTopBar({
         <span className="sr-only sm:hidden">Open design preview</span>
       </button>
 
-      <button
+      {previewOnly ? previewDownloads : <button
         type="button"
         onClick={onExport}
         disabled={Boolean(exporting) || saveState === "loading"}
@@ -171,9 +187,9 @@ export function StudioTopBar({
         <span className="sr-only sm:hidden">
           {exporting === "pdf" ? "Preparing print PDF" : "Download print-ready PDF"}
         </span>
-      </button>
+      </button>}
 
-      {canExportSvg && (
+      {!previewOnly && canExportSvg && (
         <button
           type="button"
           onClick={onExportSvg}

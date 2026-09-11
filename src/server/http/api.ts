@@ -95,6 +95,9 @@ export async function withPublicApi(handler: () => Promise<NextResponse>) {
   try {
     return await handler();
   } catch (error) {
+    if (error instanceof ProductDomainError || error instanceof TemplateDomainError) {
+      return json({ error: { code: error.code, message: error.message } }, adminDomainStatus(error.code));
+    }
     if (error instanceof PlatformError) {
       return json(
         {

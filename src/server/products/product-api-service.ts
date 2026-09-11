@@ -168,8 +168,8 @@ function configurationDto(
   );
   const targets = new Map(presentation.targets.map((target) => [target.surfaceId, target]));
   const profile = getPrinterProfile(productConfig.printProfileId);
-  const formats: Array<"pdf" | "svg"> = ["pdf"];
-  if (supportsManufacturingSvg(productConfig)) formats.push("svg");
+  const formats: Array<"pdf" | "svg"> = productConfig.previewOnly ? [] : ["pdf"];
+  if (!productConfig.previewOnly && supportsManufacturingSvg(productConfig)) formats.push("svg");
   return {
     productId: resolved.productId,
     name: productConfig.name,

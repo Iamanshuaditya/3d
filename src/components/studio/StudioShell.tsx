@@ -9,11 +9,13 @@ import { resolveStudioPresentation } from "@/platform/presentation/resolve-studi
 import { useCustomizer } from "@/lib/configurator/use-customizer";
 import { useUnfold } from "@/lib/configurator/use-unfold";
 import { resolveProductPresentation } from "@/lib/configurator/presentation";
-import { UnfoldControl } from "@/components/configurator/UnfoldControl";
+import { useInflation } from "@/lib/configurator/use-inflation";
+import { StudioViewport } from "./StudioViewport";
 import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
 import { StudioPanel } from "./StudioPanel";
 import { StudioPreview } from "./StudioPreview";
+import { StudioPreviewDownloads } from "./StudioPreviewDownloads";
 import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
 import { generateProductionArtifact } from "@/lib/production/client";
 import { ProjectApiError } from "@/lib/projects/client";
@@ -36,18 +38,6 @@ const DesignEditor = dynamic(
     ),
   },
 );
-const Product3DViewer = dynamic(
-  () => import("@/components/configurator/Product3DViewer").then((m) => m.Product3DViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-[13px] text-[var(--st-dim)]">Loading 3D preview…</p>
-      </div>
-    ),
-  },
-);
-
 type StudioShellProps = {
   config: ProductConfig;
   presentationMode: ProductPresentationMode;
@@ -115,6 +105,7 @@ export function StudioShell({
       ? presentation.plan
       : null;
   const unfold = useUnfold(unfoldPlan);
+  const inflation = useInflation(config.inflation?.defaultValue);
 
   // Fold/unfold owns structural transforms only. Camera state remains entirely
   // user-controlled; reaching the flat dieline must never reset an orbit,
@@ -341,6 +332,12 @@ export function StudioShell({
         saveState={c.saveState}
         beforeNavigate={c.saveNow}
         exporting={exporting}
+        previewOnly={config.previewOnly}
+        previewDownloads={<StudioPreviewDownloads config={config} texture={c.textures[c.activeSurfaceId]} />}
+        designSetupHref={config.previewOnly ? undefined : `/templates?${new URLSearchParams({
+          product: config.id,
+          ...(config.optionSelection ? { options: JSON.stringify(config.optionSelection) } : {}),
+        })}`}
       />
 
       {c.projectError && (
@@ -433,21 +430,34 @@ export function StudioShell({
           </div>
 
           <div className="order-2 flex min-h-0 shrink-0 lg:order-2">
-            <StudioPanel tool={tool} customizer={c} />
+            <StudioPanel tool={tool} customizer={c} previewOnly={config.previewOnly} />
           </div>
 
           {/* ---- Working stage ---- */}
           <div className="relative order-1 flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--st-stage)] text-[var(--st-stage-ink)] lg:order-3">
-            {config.editableSurfaces.length > 1 && (
-              <div className="absolute left-1/2 top-4 z-20 -translate-x-1/2 rounded-xl bg-[var(--st-surface)]/95 p-1.5 shadow-lg backdrop-blur">
-                <SurfaceSelector
+            {(config.editableSurfaces.length > 1 || Boolean(surface.sections?.length)) && (
+              <div className="absolute left-4 right-4 top-4 z-20 flex flex-wrap justify-center gap-2">
+                {config.editableSurfaces.length > 1 && <SurfaceSelector
                   surfaces={studioPresentation.targets.map((target) =>
                     config.editableSurfaces.find((candidate) => candidate.id === target.surfaceId)!,
                   )}
                   activeId={c.activeSurfaceId}
                   onSelect={c.selectSurface}
                   ariaLabel={studioPresentation.navigationLabel}
-                />
+                />}
+                {Boolean(surface.sections?.length) && (
+                  <div role="group" aria-label="Artwork panels" className="flex flex-wrap gap-1 rounded-xl bg-[var(--st-surface)]/95 p-1.5 shadow-sm ring-1 ring-[var(--st-line)] backdrop-blur">
+                    {surface.sections?.map((section) => (
+                      <button type="button" key={section.id} aria-pressed={c.activeSectionId === section.id}
+                        onClick={() => c.selectSection(section.id)}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium ${c.activeSectionId === section.id
+                          ? "bg-[var(--st-accent)] text-[var(--st-accent-ink)]"
+                          : "text-[var(--st-dim)] hover:bg-[var(--st-raised)]"}`}>
+                        {section.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             <div
@@ -687,63 +697,12 @@ export function StudioShell({
               mobileTab === "preview" ? "flex" : "hidden"
             } relative min-w-0 flex-1 flex-col border-l border-[var(--st-line)] bg-[var(--st-bg)] lg:flex lg:w-[36vw] lg:min-w-[460px] lg:max-w-[720px] lg:flex-none`}
           >
-            <div className="flex items-center justify-between gap-3 border-b border-[var(--st-line)] px-4 py-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-[var(--st-faint)]">
-                Preview
-              </span>
-
-              <div className="flex items-center gap-2">
-                <UnfoldControl
-                  presentation={presentation}
-                  status={unfold.status}
-                  onNext={unfold.next}
-                  onPrevious={unfold.previous}
-                  onReset={unfold.reset}
-                />
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={animated}
-                  onClick={() => setAnimated((v) => !v)}
-                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-[var(--st-dim)] transition-colors hover:text-[var(--st-text)]"
-                >
-                  Auto-motion
-                  <span
-                    aria-hidden="true"
-                    className={`relative h-[18px] w-8 rounded-full transition-colors ${
-                      animated ? "bg-[var(--st-accent)]" : "bg-[var(--st-raised)]"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-[3px] h-3 w-3 rounded-full bg-white shadow-sm ring-1 ring-black/10 transition-all ${
-                        animated ? "left-[17px]" : "left-[3px]"
-                      }`}
-                    />
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 p-3">
-              <div className="h-full overflow-hidden rounded-xl ring-1 ring-[var(--st-line)]">
-                <Product3DViewer
-                  config={config}
-                  textures={c.textures}
-                  materialTextures={c.materialTextures}
-                  consumeDirty={c.consumeDirty}
-                  pendingPreset={pendingPreset}
-                  onPresetApplied={() => setPendingPreset(null)}
-                  onValidated={c.handleValidated}
-                  onSurfaceClick={c.selectSurface}
-                  highlightedMeshName={c.hoveredMeshName}
-                  onMeshHover={c.setHoveredMeshName}
-                  onMeshClick={c.selectMesh}
-                  hoverParallax={animated}
-                  hingeAngles={unfold.angles}
-                  dielineView={Boolean(unfold.status?.isFlat)}
-                />
-              </div>
-            </div>
+            <StudioViewport
+              config={config} customizer={c} structuralPresentation={presentation}
+              unfold={unfold} inflation={inflation} animated={animated}
+              onAnimatedChange={setAnimated} pendingPreset={pendingPreset}
+              onPresetApplied={() => setPendingPreset(null)} onPresetChange={setPendingPreset}
+            />
           </section>
         )}
       </div>
@@ -755,6 +714,8 @@ export function StudioShell({
           studioPresentation={studioPresentation}
           structuralPresentation={presentation}
           unfold={unfold}
+          inflation={inflation}
+          onPresetChange={setPendingPreset}
           animated={animated}
           onAnimatedChange={setAnimated}
           pendingPreset={pendingPreset}

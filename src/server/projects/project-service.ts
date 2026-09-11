@@ -398,8 +398,9 @@ export class ProjectService {
     title?: unknown,
     creationKey?: unknown,
     optionSelection?: unknown,
+    productVersionId: string | null = null,
   ): Promise<DesignProjectDto> {
-    const resolved = await this.resolveConfiguration(productId, null, optionSelection);
+    const resolved = await this.resolveConfiguration(productId, productVersionId, optionSelection);
     return this.createResolvedProject({
       owner,
       resolved,

@@ -12,12 +12,13 @@ import { ProductModel } from "./ProductModel";
 import { CartonModel } from "./CartonModel";
 import { PouchModel } from "./PouchModel";
 import { FlatSheetModel } from "./FlatSheetModel";
+import { FilmLighting } from "./FilmLighting";
+import { InitialProductFraming } from "@/lib/configurator/initial-product-framing";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
 import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 import {
   frameDistanceForSphere,
   resolveStudioScenePresentation,
-  shouldRefitExtent,
 } from "@/lib/configurator/studio-scene-presentation";
 
 type Product3DViewerProps = {
@@ -47,6 +48,8 @@ type Product3DViewerProps = {
   hingeAngles?: HingeAngles;
   /** True when an articulated product has reached its flat, dieline pose. */
   dielineView?: boolean;
+  inflation?: number;
+  finish?: "satin" | "gloss";
 };
 
 function LoadingOverlay() {
@@ -67,12 +70,20 @@ function CameraRig({
   preset,
   onApplied,
   controlsRef,
+  frameProduct,
+  minDistance,
+  maxDistance,
+  padding,
 }: {
   preset: CameraPreset | null;
   onApplied: () => void;
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
+  frameProduct: boolean;
+  minDistance: number;
+  maxDistance: number;
+  padding: number;
 }) {
-  const { camera } = useThree();
+  const { camera, scene, size } = useThree();
   const from = useRef(new THREE.Vector3());
   const to = useRef(new THREE.Vector3());
   const targetTo = useRef(new THREE.Vector3());
@@ -83,8 +94,28 @@ function CameraRig({
     from.current.copy(camera.position);
     to.current.set(...preset.position);
     targetTo.current.set(...preset.target);
+    // A camera button chooses a direction. Articulated products also fit their
+    // current extent, so a top view can show both a box and its much larger web.
+    if (frameProduct) {
+      const root = scene.getObjectByName("PRODUCT_PRESENTATION_ROOT");
+      if (root) {
+        const bounds = new THREE.Box3().setFromObject(root);
+        if (!bounds.isEmpty()) {
+          const sphere = bounds.getBoundingSphere(new THREE.Sphere());
+          const direction = to.current.clone().sub(targetTo.current).normalize();
+          const distance = frameDistanceForSphere({
+            radius: sphere.radius,
+            verticalFovDeg: (camera as THREE.PerspectiveCamera).fov,
+            aspect: size.width / Math.max(1, size.height),
+            padding, minDistance, maxDistance,
+          });
+          targetTo.current.copy(sphere.center);
+          to.current.copy(sphere.center).addScaledVector(direction, distance);
+        }
+      }
+    }
     t.current = 0;
-  }, [preset, camera]);
+  }, [preset, camera, scene, size.width, size.height, frameProduct, minDistance, maxDistance, padding]);
 
   useFrame((_, delta) => {
     if (t.current >= 1) return;
@@ -238,22 +269,9 @@ function HoverParallaxRig({
   return null;
 }
 
-/** Exposes a screenshot function for cart thumbnails / proofs (§42). */
-/**
- * Keeps the orbit pivot and the zoom on the product itself.
- *
- * Structural cartons live in canonical sheet coordinates: the flat pose is
- * centred on the origin, but the assembled body sits wherever its root panel
- * happens to fall on the sheet. Orbiting a fixed world target then swings the
- * carton through a wide arc around a pivot that is not on it, which reads as
- * the camera revolving around the viewer rather than turning the product.
- *
- * The same product also changes size dramatically between poses — a 300 mm
- * carton unfolds into a 742 mm sheet — so one authored distance cannot frame
- * both. This rig re-fits only when the model's extent actually changes, so a
- * fold re-frames the view while ordinary manual zooming is left alone.
- */
+/** Initial framing is separate from fold animation and explicit camera presets. */
 function AutoFrameRig({
+  productKey,
   enabled,
   controlsRef,
   minDistance,
@@ -262,6 +280,7 @@ function AutoFrameRig({
   interactingRef,
   interactionRevisionRef,
 }: {
+  productKey: string;
   enabled: boolean;
   controlsRef: React.RefObject<OrbitControlsImpl | null>;
   minDistance: number;
@@ -271,98 +290,21 @@ function AutoFrameRig({
   interactionRevisionRef: React.RefObject<number>;
 }) {
   const { scene, camera, size } = useThree();
-  const box = useRef(new THREE.Box3());
-  const centre = useRef(new THREE.Vector3());
-  const sphere = useRef(new THREE.Sphere());
-  const desiredTarget = useRef(new THREE.Vector3());
-  const lastCentre = useRef(new THREE.Vector3());
-  const offset = useRef(new THREE.Vector3());
-  const settled = useRef(false);
-  const targetPending = useRef(false);
-  const lastRadius = useRef<number | null>(null);
-  const desiredDistance = useRef(0);
-  const sampleCountdown = useRef(0);
-  const seenInteractionRevision = useRef(-1);
-
-  useFrame((_, delta) => {
-    if (!enabled) return;
+  const framing = useRef(new InitialProductFraming());
+  useFrame(() => {
     const controls = controlsRef.current;
-    if (!controls) return;
-
-    if (seenInteractionRevision.current !== interactionRevisionRef.current) {
-      seenInteractionRevision.current = interactionRevisionRef.current;
-      desiredDistance.current = 0;
-      targetPending.current = false;
-    }
-
-    sampleCountdown.current -= 1;
-    if (sampleCountdown.current <= 0) {
-      sampleCountdown.current = 6;
-      const root =
-        scene.getObjectByName("PRODUCT_PRESENTATION_ROOT") ??
-        scene.getObjectByName("STRUCTURAL_PACKAGE_ROOT") ??
-        scene.getObjectByName("CARTON_ROOT");
-      if (root) {
-        box.current.setFromObject(root);
-        if (!box.current.isEmpty()) {
-          box.current.getCenter(centre.current);
-          box.current.getBoundingSphere(sphere.current);
-          desiredTarget.current.copy(centre.current);
-          settled.current = true;
-
-          const radius = sphere.current.radius;
-          const centreThreshold = Math.max(radius * 0.01, 0.001);
-          if (
-            lastRadius.current === null ||
-            centre.current.distanceTo(lastCentre.current) > centreThreshold
-          ) {
-            lastCentre.current.copy(centre.current);
-            targetPending.current = true;
-          }
-          // Re-fit only when the product's extent really changed, so folding
-          // re-frames but a deliberate manual zoom is not fought every frame.
-          if (shouldRefitExtent(lastRadius.current, radius)) {
-            lastRadius.current = radius;
-            const perspective = camera as THREE.PerspectiveCamera;
-            const aspect = size.width / Math.max(1, size.height);
-            desiredDistance.current = frameDistanceForSphere({
-              radius,
-              verticalFovDeg: perspective.fov,
-              aspect,
-              padding,
-              minDistance,
-              maxDistance,
-            });
-          }
-        }
-      }
-    }
-
-    if (!settled.current || interactingRef.current) return;
-    const ease = 1 - Math.pow(0.0015, delta);
-    if (targetPending.current) {
-      controls.target.lerp(desiredTarget.current, ease);
-      if (controls.target.distanceTo(desiredTarget.current) < 0.001) {
-        controls.target.copy(desiredTarget.current);
-        targetPending.current = false;
-      }
-    }
-
-    if (desiredDistance.current > 0) {
-      offset.current.copy(camera.position).sub(controls.target);
-      const distance = offset.current.length();
-      if (distance > 1e-4 && Math.abs(distance - desiredDistance.current) > 0.01) {
-        const next = THREE.MathUtils.lerp(distance, desiredDistance.current, ease);
-        camera.position.copy(controls.target).addScaledVector(offset.current.normalize(), next);
-      } else {
-        // A completed initial/re-fit is a one-shot action. Clearing this is
-        // what preserves every subsequent user wheel/pinch zoom.
-        desiredDistance.current = 0;
-      }
-    }
-    controls.update();
+    if (!controls || !(camera instanceof THREE.PerspectiveCamera)) return;
+    const fitted = framing.current.fit({
+      productKey,
+      root: scene.getObjectByName("PRODUCT_PRESENTATION_ROOT"),
+      camera,
+      target: controls.target,
+      cancelled: !enabled || interactingRef.current || interactionRevisionRef.current > 0,
+      aspect: size.width / Math.max(1, size.height),
+      padding, minDistance, maxDistance,
+    });
+    if (fitted) controls.update();
   });
-
   return null;
 }
 
@@ -400,6 +342,8 @@ export function Product3DViewer({
   onCaptureReady,
   hingeAngles,
   dielineView = false,
+  inflation,
+  finish,
 }: Product3DViewerProps) {
   const cartonSpec = resolveCartonSpec(config);
   const pouchSpec = config.family === "pouch" ? POUCHES[config.pouchSpecId ?? ""] : null;
@@ -438,7 +382,8 @@ export function Product3DViewer({
   }
 
   return (
-    <div className="h-full w-full overflow-hidden rounded-lg bg-[#8a94a3]">
+    <div className="h-full w-full overflow-hidden rounded-lg bg-white" role="img"
+      aria-label={`${config.name} 3D model${config.inflation ? `, ${Math.round((inflation ?? config.inflation.defaultValue) * 100)} percent inflated` : ""}`}>
       <Canvas
         shadows
         dpr={[1, 2]}
@@ -462,7 +407,7 @@ export function Product3DViewer({
             readable edge without changing the product's physical materials. */}
         <color attach="background" args={[scenePresentation.background]} />
 
-        {useClearBarrierResponse ? (
+        {config.materialProfile === "satin-laminate" ? <FilmLighting /> : useClearBarrierResponse ? (
           <>
             {/* Vortex uses raw #111111 at 11.1504 in its legacy linear output
                 path. Modern Three applies sRGB conversion plus Lambert energy
@@ -552,6 +497,8 @@ export function Product3DViewer({
               consumeDirty={consumeDirty}
               hingeAngles={hingeAngles}
               onValidated={onValidated}
+              inflation={inflation}
+              finish={finish}
               onSurfaceClick={onSurfaceClick}
               highlightedMeshName={highlightedMeshName}
               onMeshHover={onMeshHover}
@@ -563,14 +510,16 @@ export function Product3DViewer({
               reflection map. Loading Drei's remote studio HDRI here both
               changes that response and can keep the whole model suspended. */}
           {scenePresentation.environment && <Environment preset="studio" />}
-          <ContactShadows
+          {/* A flat sheet occupies the floor plane; a contact-shadow overlay
+              there would be coplanar with the artwork and produce striping. */}
+          {!dielineView && scenePresentation.shadowOpacity > 0 && <ContactShadows
             position={[0, config.shadowY ?? config.modelYOffset ?? -0.5, 0]}
             opacity={scenePresentation.shadowOpacity}
             scale={24}
             blur={scenePresentation.shadowBlur}
             far={12}
             color={scenePresentation.ground}
-          />
+          />}
         </Suspense>
 
 
@@ -578,13 +527,18 @@ export function Product3DViewer({
           preset={pendingPreset}
           onApplied={onPresetApplied}
           controlsRef={controlsRef}
+          frameProduct={Boolean(cartonSpec || config.articulation || config.inflation)}
+          minDistance={config.camera.minDistance}
+          maxDistance={config.camera.maxDistance}
+          padding={scenePresentation.framePadding}
         />
         <HoverParallaxRig
-          enabled={useClearBarrierResponse && hoverParallax}
+          enabled={hoverParallax}
           controlsRef={controlsRef}
         />
         <CaptureBridge onReady={onCaptureReady} />
         <AutoFrameRig
+          productKey={config.configurationId ?? config.productVersionId ?? config.id}
           enabled={pendingPreset === null}
           controlsRef={controlsRef}
           minDistance={config.camera.minDistance}

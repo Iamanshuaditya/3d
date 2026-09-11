@@ -19,6 +19,7 @@ import waterBottleJson from "./generated/water-bottle.product.json";
 import tshirtJson from "./generated/tshirt.product.json";
 import counterDisplayJson from "./generated/counter-display.product.json";
 import { kraftVisitingCardProduct } from "./kraft-visiting-card-spec";
+import { blenderPouchConfig } from "./blender-pouch";
 
 
 type Vec3 = [number, number, number];
@@ -569,6 +570,7 @@ function generatedPouchProduct(spec: PouchSpec): ProductConfig {
 export const generatedPouchProducts: ProductConfig[] = generatedPouchSpecs.map(generatedPouchProduct);
 
 export const PRODUCTS: Record<string, ProductConfig> = {
+  [blenderPouchConfig.id]: blenderPouchConfig,
   [kraftVisitingCardProduct.id]: kraftVisitingCardProduct,
   [bottleProduct.id]: bottleProduct,
   [burgerBoxProduct.id]: burgerBoxProduct,

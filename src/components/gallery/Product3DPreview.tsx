@@ -1,14 +1,15 @@
 "use client";
 
-import { Suspense, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Html } from "@react-three/drei";
+import { Suspense } from "react";
+import { Canvas } from "@react-three/fiber";
+import { Bounds, Environment, Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { ProductConfig } from "@/types/configurator";
 import { ProductModel } from "@/components/configurator/ProductModel";
 import { CartonModel } from "@/components/configurator/CartonModel";
 import { PouchModel } from "@/components/configurator/PouchModel";
 import { FlatSheetModel } from "@/components/configurator/FlatSheetModel";
+import { FilmLighting } from "@/components/configurator/FilmLighting";
 import { resolveCartonSpec } from "@/lib/configurator/carton-spec";
 import { POUCHES } from "@/lib/configurator/pouch-spec";
 import { previewBackground } from "@/lib/configurator/product-summary";
@@ -21,30 +22,21 @@ import { previewBackground } from "@/lib/configurator/product-summary";
  */
 type Product3DPreviewProps = {
   config: ProductConfig;
-  /** Slow turntable. Disabled for reduced-motion users by the caller. */
-  spin?: boolean;
+  captureMode?: boolean;
 };
 
 const NO_TEXTURES: Record<string, THREE.CanvasTexture | null> = {};
 const neverDirty = () => false;
 
-function Turntable({ spin, children }: { spin: boolean; children: React.ReactNode }) {
-  const ref = useRef<THREE.Group>(null);
-  useFrame((_, delta) => {
-    if (spin && ref.current) ref.current.rotation.y += delta * 0.35;
-  });
-  return <group ref={ref}>{children}</group>;
-}
-
 function PreviewFallback() {
   return (
     <Html center>
-      <div className="h-6 w-6 animate-spin rounded-full border-2 border-black/10 border-t-black/45" />
+      <span className="whitespace-nowrap text-xs text-[var(--st-dim)]">Loading preview…</span>
     </Html>
   );
 }
 
-export function Product3DPreview({ config, spin = true }: Product3DPreviewProps) {
+export function Product3DPreview({ config, captureMode = false }: Product3DPreviewProps) {
   // Same three-way branch as the studio viewer: generated pouch, generated
   // carton, otherwise a GLB. Products in the first two families carry no mesh
   // file, so routing one of them to the GLB loader would request "" and get
@@ -65,6 +57,7 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
 
   return (
     <Canvas
+      frameloop="demand"
       dpr={[1, 1.5]}
       // Several previews share the page, so each one stays cheap: no shadow
       // maps, and the renderer may drop resolution before it drops frames.
@@ -72,16 +65,23 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
       gl={{
         antialias: true,
         alpha: false,
+        preserveDrawingBuffer: captureMode,
         toneMapping: useClearBarrierResponse
           ? THREE.NoToneMapping
           : THREE.ACESFilmicToneMapping,
         toneMappingExposure: 1,
       }}
       camera={{ position: config.camera.initial, fov: 32 }}
+      onCreated={({ camera }) => camera.lookAt(...config.camera.target)}
     >
-      <color attach="background" args={[previewBackground(config)]} />
+      <color attach="background" args={[previewBackground()]} />
 
-      {useClearBarrierResponse ? (
+      {config.materialProfile === "satin-laminate" ? (
+        <>
+          <FilmLighting />
+          <directionalLight position={[1.5, 3.5, 6]} intensity={2} />
+        </>
+      ) : useClearBarrierResponse ? (
         <>
           <ambientLight color={0xffffff} intensity={2.2} />
           <pointLight position={[0, 0, 2.47]} intensity={0.42} distance={4.12} decay={1} />
@@ -102,7 +102,7 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
       )}
 
       <Suspense fallback={<PreviewFallback />}>
-        <Turntable spin={spin}>
+        <Bounds fit clip observe margin={1.25} maxDuration={0}>
           {config.family === "flat-sheet" ? (
             <FlatSheetModel
               config={config}
@@ -131,8 +131,8 @@ export function Product3DPreview({ config, spin = true }: Product3DPreviewProps)
               onValidated={() => {}}
             />
           ) : null}
-        </Turntable>
-        {!useClearBarrierResponse && <Environment preset="studio" />}
+        </Bounds>
+        {!useClearBarrierResponse && config.materialProfile !== "satin-laminate" && <Environment preset="studio" />}
       </Suspense>
     </Canvas>
   );

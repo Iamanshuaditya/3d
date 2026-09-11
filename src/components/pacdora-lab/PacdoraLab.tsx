@@ -1,6 +1,7 @@
 "use client";
 
 import { Box, PackageOpen, ScanLine } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   PACDORA_LAB_BOX_MATERIALS,
@@ -246,6 +247,7 @@ export function PacdoraLab() {
             </div>
             <h1 className="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Procedural packaging lab</h1>
           </div>
+          <Link href="/test/pouch" className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-700">Open Blender pouch</Link>
           <div className="rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-900">
             Experimental geometry · not a certified production die
           </div>
