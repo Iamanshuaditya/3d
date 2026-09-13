@@ -4,6 +4,7 @@ import {
   commit,
   cancelTransient,
   createHistory,
+  nextId,
   reduceHistory,
   redo,
   undo,
@@ -38,6 +39,37 @@ function document(): DesignDocument {
     },
   };
 }
+
+test("new layer IDs cannot reuse saved IDs after a module reload", async () => {
+  // A fresh module used to restart at txt-1 even when the project already
+  // contained that ID. React and Konva then shared selection between layers.
+  const moduleUrl = new URL("../../src/lib/configurator/design-state.ts", import.meta.url);
+  const firstSession = await import(`${moduleUrl.href}?session=first`);
+  const secondSession = await import(`${moduleUrl.href}?session=second`);
+  const ids = [
+    "txt-1", "img-2",
+    firstSession.nextId("txt"), secondSession.nextId("txt"),
+    firstSession.nextId("img"), secondSession.nextId("img"),
+  ];
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("reopened artwork and new layers move independently and survive validation", () => {
+  const initial = document();
+  initial.surfaces.front.elements[0].id = "img-1";
+  const added = { ...image, id: nextId("img") };
+  let history = reduceHistory(createHistory(initial), {
+    type: "add", surfaceId: "front", element: added,
+  });
+  history = reduceHistory(history, {
+    type: "update", surfaceId: "front", id: added.id, patch: { x: 150, y: 90 },
+  }, { transient: true });
+  history = commit(history);
+  assert.equal(history.present.surfaces.front.elements[0].x, 10);
+  assert.equal(history.present.surfaces.front.elements[1].x, 150);
+  assert.equal(parseDesignDocument(history.present).surfaces.front.elements.length, 2);
+  assert.equal(undo(history).present.surfaces.front.elements[1].x, 10);
+});
 
 test("a drag gesture creates one undo checkpoint at its initial position", () => {
   const initial = document();

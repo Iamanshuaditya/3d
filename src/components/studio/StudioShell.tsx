@@ -15,6 +15,7 @@ import { StudioTopBar, type CatalogueEntry } from "./StudioTopBar";
 import { StudioToolRail, type StudioTool } from "./StudioToolRail";
 import { StudioPanel } from "./StudioPanel";
 import { StudioPreview } from "./StudioPreview";
+import { StudioReviewPanel } from "./StudioReviewPanel";
 import { StudioPreviewDownloads } from "./StudioPreviewDownloads";
 import { SurfaceSelector } from "@/components/configurator/SurfaceSelector";
 import { generateProductionArtifact } from "@/lib/production/client";
@@ -266,14 +267,15 @@ export function StudioShell({
       anchor.download = artifact.filename;
       anchor.click();
 
-      const warningCount = artifact.preflightReport.issues.filter(
+      const warnings = artifact.preflightReport.issues.filter(
         (issue) => issue.severity === "warning",
-      ).length;
+      );
+      const warningCount = warnings.length;
       setExportNotice({
         kind: "success",
         message: warningCount
-          ? `Immutable revision ${artifact.projectRevision} ${artifact.kind.toUpperCase()} stored and downloaded after preflight with ${warningCount} warning${warningCount === 1 ? "" : "s"}.`
-          : `Immutable revision ${artifact.projectRevision} ${artifact.kind.toUpperCase()} stored and downloaded. Geometry, artwork integrity, image resolution, and manufacturing paths passed preflight.`,
+          ? `${artifact.kind.toUpperCase()} downloaded. Review ${warningCount} production warning${warningCount === 1 ? "" : "s"}: ${warnings.slice(0, 3).map((issue) => issue.message).join(" ")}`
+          : `${artifact.kind.toUpperCase()} downloaded. Production checks passed.`,
       });
     } catch (error) {
       const report = error instanceof ProjectApiError
@@ -312,7 +314,7 @@ export function StudioShell({
       <div
         aria-hidden={previewing ? true : undefined}
         inert={previewing ? true : undefined}
-        className="flex h-screen flex-col overflow-hidden bg-[var(--st-bg)] text-[var(--st-text)]"
+        className="editorial-workspace flex h-dvh flex-col overflow-hidden bg-[var(--st-bg)] text-[var(--st-text)]"
       >
       <StudioTopBar
         catalogue={catalogue}
@@ -546,6 +548,7 @@ export function StudioShell({
                               showProductionChrome={false}
                               dieline={isActive ? dieline : undefined}
                               guideVisibility={guideVisibility}
+                              interactiveGuides={false}
                               highlightedGuideClass={highlightedGuideClass}
                               onGuideHover={setHighlightedGuideClass}
                               onDeleteSelected={c.deleteSelected}
@@ -721,6 +724,15 @@ export function StudioShell({
           pendingPreset={pendingPreset}
           onPresetApplied={() => setPendingPreset(null)}
           onClose={closePreview}
+          reviewPanel={<StudioReviewPanel
+            config={config}
+            saveState={c.saveState}
+            canExportSvg={supportsManufacturingSvg(config)}
+            exporting={exporting}
+            notice={exportNotice}
+            onExport={(kind) => void exportProduction(kind)}
+            previewDownloads={<StudioPreviewDownloads config={config} texture={c.textures[c.activeSurfaceId]} />}
+          />}
         />
       )}
     </>

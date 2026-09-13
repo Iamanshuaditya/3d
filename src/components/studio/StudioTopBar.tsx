@@ -66,16 +66,15 @@ export function StudioTopBar({
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--st-line)] bg-[var(--st-surface)] px-3 sm:gap-4 sm:px-4">
+    <header className="flex min-h-16 shrink-0 items-center gap-2 border-b border-[var(--st-line)] bg-[var(--st-surface)] px-3 sm:gap-3 sm:px-5">
       <button
         type="button"
         onClick={() => void navigate("/")}
         title="Product library"
         className="flex h-9 shrink-0 items-center gap-2 rounded-lg px-2 text-[var(--st-dim)] outline-none transition-colors hover:bg-[var(--st-raised)] hover:text-[var(--st-text)] focus-visible:ring-2 focus-visible:ring-[var(--st-accent)]"
       >
-        <LayoutGrid className="h-[18px] w-[18px]" />
-        <span className="hidden select-none text-[11px] font-semibold uppercase tracking-[0.24em] sm:inline">
-          Library
+        <span className="select-none font-display text-2xl tracking-tight text-[var(--st-text)] sm:text-3xl">
+          Vortex
         </span>
       </button>
 
@@ -170,7 +169,7 @@ export function StudioTopBar({
         className="ml-auto flex shrink-0 items-center gap-2 rounded-lg bg-[var(--st-raised)] px-3 py-2 text-[14px] font-semibold text-[var(--st-text)] transition-colors hover:bg-[var(--st-line-strong)] disabled:opacity-40 sm:px-4"
       >
         <Eye className="h-4 w-4" />
-        <span className="hidden sm:inline">Preview</span>
+        <span className="hidden sm:inline">Review & export</span>
         <span className="sr-only sm:hidden">Open design preview</span>
       </button>
 

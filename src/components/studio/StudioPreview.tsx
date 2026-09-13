@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import type { CameraPreset, ProductConfig } from "@/types/configurator";
 import type { ProductPresentation } from "@/lib/configurator/presentation";
 import type { useCustomizer } from "@/lib/configurator/use-customizer";
@@ -29,6 +29,7 @@ type StudioPreviewProps = {
   pendingPreset: CameraPreset | null;
   onPresetApplied: () => void;
   onClose: () => void;
+  reviewPanel?: ReactNode;
 };
 
 const noop = () => {};
@@ -46,6 +47,7 @@ export function StudioPreview({
   pendingPreset,
   onPresetApplied,
   onClose,
+  reviewPanel,
 }: StudioPreviewProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -122,8 +124,8 @@ export function StudioPreview({
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2 text-[12px] text-[var(--st-dim)]">
-          <CheckCircle2 className="h-4 w-4 text-[var(--st-positive)]" />
-          Same design state · no editing controls
+          <Eye className="h-4 w-4" />
+          Review your design before downloading
         </div>
       </header>
 
@@ -138,8 +140,9 @@ export function StudioPreview({
         </div>
       )}
 
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto lg:flex-row lg:overflow-hidden">
       {studioPresentation.previewKind === "2d-proof" ? (
-        <main className="min-h-0 flex-1 overflow-auto p-5 sm:p-8">
+        <main className="min-h-[400px] flex-1 overflow-auto p-5 sm:p-8 lg:min-h-0">
           <div className="mx-auto max-w-[1050px]">
             <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
               <div>
@@ -174,7 +177,7 @@ export function StudioPreview({
           </div>
         </main>
       ) : (
-        <main className="min-h-0 flex-1">
+        <main className="min-h-[400px] flex-1 lg:min-h-0">
           <StudioViewport
             config={config} customizer={c} structuralPresentation={structuralPresentation}
             unfold={unfold} inflation={inflation} animated={animated}
@@ -183,6 +186,8 @@ export function StudioPreview({
           />
         </main>
       )}
+      {reviewPanel}
+      </div>
     </div>
   );
 }
