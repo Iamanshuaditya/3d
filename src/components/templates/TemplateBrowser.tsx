@@ -187,7 +187,7 @@ export function TemplateBrowser({
           <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> Loading templates…
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-appear className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           <article className="flex min-h-[420px] flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--st-line-strong)] bg-[var(--st-surface)] p-7 text-center">
             <FilePlus2 className="h-10 w-10 text-[var(--st-faint)]" />
             <h2 className="mt-5 text-[19px] font-semibold text-[var(--st-text)]">Blank design</h2>

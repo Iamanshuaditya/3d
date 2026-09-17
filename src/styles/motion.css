@@ -1,0 +1,187 @@
+/* ---------------------------------------------------------------------------
+   Motion system
+
+   The shared vocabulary for every animated surface. Curves and durations live
+   here so no component invents its own; a component only decides *which* token
+   applies. Only transform, opacity and clip-path are animated, so all of this
+   stays on the compositor and off the layout/paint path.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Curves. The built-in CSS easings are too weak to read as deliberate. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Durations. Interface motion stays under 300ms. Editorial reveals, which a
+     visitor meets once, are allowed to breathe. */
+  --duration-press: 140ms;
+  --duration-hover: 220ms;
+  --duration-panel: 260ms;
+  --duration-media: 640ms;
+  --duration-reveal: 620ms;
+  --duration-hero: 700ms;
+  --duration-settle: 1100ms;
+
+  /* Far enough apart to read as a sequence, close enough that the last item
+     never feels like it is waiting its turn. */
+  --stagger-step: 70ms;
+}
+
+/* --- Keyframes ----------------------------------------------------------- */
+
+@keyframes editorial-rise {
+  from { opacity: 0; transform: translate3d(0, 22px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Transform only, never opacity: this runs on the hero image, which is the LCP
+   candidate, and an element at opacity 0 has not painted yet. */
+@keyframes editorial-settle {
+  from { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+
+/* A filtered or freshly loaded list arriving. Deliberately much faster than a
+   scroll reveal: the user triggered this and can trigger it again immediately,
+   so it has to stay near the edge of perception. */
+@keyframes editorial-swap {
+  from { opacity: 0; transform: translate3d(0, 6px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes editorial-menu-in {
+  from { opacity: 0; transform: translate3d(0, -8px, 0) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes editorial-chrome-shade {
+  to { opacity: 1; }
+}
+
+/* --- Scroll reveal -------------------------------------------------------
+   Marketing surfaces only, fired once. The pre-reveal state is scoped to
+   `scripting: enabled` so a reader without JavaScript — or a crawler — never
+   meets a permanently invisible page.
+   -------------------------------------------------------------------------- */
+
+@media (scripting: enabled) {
+  [data-reveal] {
+    opacity: 0;
+    transition:
+      opacity var(--duration-reveal) var(--ease-out),
+      transform var(--duration-reveal) var(--ease-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  [data-reveal="up"] { transform: translate3d(0, 18px, 0); }
+  [data-reveal="rise"] { transform: translate3d(0, 36px, 0); }
+
+  /* An editorial curtain: the frame uncovers the image from the top down.
+     The clip is on the child, never on the observed element itself — a
+     clipped box reports zero intersection area, so the observer that is
+     supposed to un-clip it would never fire. */
+  [data-reveal="curtain"] { transform: translate3d(0, 12px, 0); }
+  [data-reveal="curtain"] > .editorial-media {
+    clip-path: inset(0 0 100% 0);
+    transition: clip-path var(--duration-reveal) var(--ease-in-out);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  [data-reveal][data-visible] { opacity: 1; transform: none; }
+  [data-reveal="curtain"][data-visible] > .editorial-media { clip-path: inset(0 0 0 0); }
+
+  /* Group cascade, applied to the container rather than each child so the
+     markup carries no per-item delay. */
+  [data-stagger] > *:nth-child(2) { --reveal-delay: var(--stagger-step); }
+  [data-stagger] > *:nth-child(3) { --reveal-delay: calc(var(--stagger-step) * 2); }
+  [data-stagger] > *:nth-child(4) { --reveal-delay: calc(var(--stagger-step) * 3); }
+  [data-stagger] > *:nth-child(5) { --reveal-delay: calc(var(--stagger-step) * 4); }
+  [data-stagger] > *:nth-child(6) { --reveal-delay: calc(var(--stagger-step) * 5); }
+  [data-stagger] > *:nth-child(n + 7) { --reveal-delay: calc(var(--stagger-step) * 6); }
+}
+
+/* --- Hero entrance -------------------------------------------------------
+   CSS animation rather than a reveal: this is above the fold, so it must not
+   wait for hydration, and predetermined motion runs off the main thread while
+   the rest of the page is still loading.
+   -------------------------------------------------------------------------- */
+
+[data-rise] > *:not([data-rise-lines]),
+[data-rise-lines] > * {
+  animation: editorial-rise var(--duration-hero) var(--ease-out) both;
+}
+
+/* The ordinary case: an even cascade down a stack. */
+[data-rise] > *:nth-child(2) { animation-delay: var(--stagger-step); }
+[data-rise] > *:nth-child(3) { animation-delay: calc(var(--stagger-step) * 2); }
+[data-rise] > *:nth-child(4) { animation-delay: calc(var(--stagger-step) * 3); }
+[data-rise] > *:nth-child(5) { animation-delay: calc(var(--stagger-step) * 4); }
+[data-rise] > *:nth-child(6) { animation-delay: calc(var(--stagger-step) * 5); }
+[data-rise] > *:nth-child(n + 7) { animation-delay: calc(var(--stagger-step) * 6); }
+
+/* The landing hero interleaves its headline lines with the stack around them,
+   so it sets its own timing. Declared after the even cascade, which it ties
+   with on specificity. Line one starts almost immediately, so the largest text
+   on the page is not held back from painting. */
+[data-rise-lines] > *:nth-child(1) { animation-delay: 70ms; }
+[data-rise-lines] > *:nth-child(2) { animation-delay: 130ms; }
+[data-rise-lines] > *:nth-child(3) { animation-delay: 190ms; }
+[data-rise-lines] > *:nth-child(4) { animation-delay: 250ms; }
+
+[data-rise="hero"] > *:nth-child(1) { animation-delay: 0ms; }
+[data-rise="hero"] > *:nth-child(3) { animation-delay: 330ms; }
+[data-rise="hero"] > *:nth-child(4) { animation-delay: 400ms; }
+[data-rise="hero"] > *:nth-child(5) { animation-delay: 470ms; }
+
+/* Staggered: for a list that is replaced wholesale, where every child is a
+   fresh node and the cascade always starts from one. */
+[data-swap] > * { animation: editorial-swap 220ms var(--ease-out) both; }
+[data-swap] > *:nth-child(2) { animation-delay: 30ms; }
+[data-swap] > *:nth-child(3) { animation-delay: 60ms; }
+[data-swap] > *:nth-child(4) { animation-delay: 90ms; }
+[data-swap] > *:nth-child(5) { animation-delay: 120ms; }
+[data-swap] > *:nth-child(n + 6) { animation-delay: 150ms; }
+
+/* Unstaggered: for a list whose items are added and removed in place. A
+   per-child delay would be rewritten when the item's index changes, which can
+   push a finished animation back into its delay phase and flash it. */
+[data-appear] > * { animation: editorial-swap 220ms var(--ease-out) both; }
+
+/* A single element arriving on load, for pages with no cascade to join. */
+.rise { animation: editorial-rise var(--duration-hero) var(--ease-out) both; }
+.rise-1 { animation-delay: var(--stagger-step); }
+.rise-2 { animation-delay: calc(var(--stagger-step) * 2); }
+.rise-3 { animation-delay: calc(var(--stagger-step) * 3); }
+
+.hero-settle { animation: editorial-settle var(--duration-settle) var(--ease-out) both; }
+.hero-aside { animation: editorial-rise var(--duration-hero) var(--ease-out) 520ms both; }
+.hero-aside-late { animation-delay: 600ms; }
+
+/* --- Reduced motion ------------------------------------------------------
+   Fewer and gentler, not none: opacity and colour still carry meaning, so they
+   stay. Everything that moves through space goes.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-delay: 0ms !important;
+  }
+
+  [data-reveal] {
+    transform: none !important;
+    transition: opacity 240ms ease !important;
+  }
+  [data-reveal] > .editorial-media { clip-path: none !important; }
+
+  .rule-draw::before { transform: none !important; }
+  .editorial-media img { transform: none !important; }
+  .editorial-button:hover svg,
+  .editorial-button-outline:hover svg,
+  .editorial-arrow { transform: none !important; }
+}

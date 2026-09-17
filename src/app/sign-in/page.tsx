@@ -23,20 +23,20 @@ export default async function SignInPage({
     <main className="mx-auto flex min-h-screen w-full max-w-[1180px] flex-col px-5 py-8 sm:px-8 sm:py-12">
       <Link
         href={safeReturnTo(returnTo)}
-        className="inline-flex w-fit items-center gap-2 text-[13px] font-medium text-[var(--st-dim)] hover:text-[var(--st-text)]"
+        className="editorial-back inline-flex w-fit items-center gap-2 text-[13px] font-medium text-[var(--st-dim)]"
       >
         <ArrowLeft className="h-4 w-4" />
         Back
       </Link>
       <section className="flex flex-1 flex-col items-center justify-center py-10">
-        <div className="mb-7 max-w-md text-center">
+        <div data-rise className="mb-7 max-w-md text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--st-faint)]">Vortex account</p>
           <h1 className="mt-3 text-[32px] font-semibold tracking-tight text-[var(--st-text)]">Keep every design together</h1>
           <p className="mt-3 text-[14px] leading-6 text-[var(--st-dim)]">
             Sign in at any point. Your current guest projects and artwork will move with you.
           </p>
         </div>
-        <SignInPanel returnTo={safeReturnTo(returnTo)} />
+        <div className="rise rise-3 w-full max-w-md"><SignInPanel returnTo={safeReturnTo(returnTo)} /></div>
       </section>
     </main>
   );

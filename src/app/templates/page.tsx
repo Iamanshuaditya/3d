@@ -67,8 +67,8 @@ export default async function TemplatesPage({
     <div className="editorial-page editorial-setup">
     <EditorialHeader />
     <main className="mx-auto w-full max-w-[1440px] px-6 py-10 sm:px-12 sm:py-14">
-      <header className="mb-8 border-b border-[var(--st-line)] pb-7">
-        <Link href={`/products/${productId}`} className="inline-flex items-center gap-2 text-[13px] font-medium text-[var(--st-dim)] hover:text-[var(--st-text)]">
+      <header data-rise className="mb-8 border-b border-[var(--st-line)] pb-7">
+        <Link href={`/products/${productId}`} className="editorial-back inline-flex items-center gap-2 text-[13px] font-medium text-[var(--st-dim)]">
           <ArrowLeft className="h-4 w-4" /> Product details
         </Link>
         <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--st-faint)]">
@@ -103,8 +103,8 @@ export default async function TemplatesPage({
         optionSelection={resolved.selection}
       />
       </div>
-      <aside className="border border-[var(--st-line)] bg-[var(--st-surface)] lg:sticky lg:top-8">
-        {editorial && <Image src={editorial.hero} alt={editorial.name} width={640} height={480} className="aspect-[4/3] w-full object-cover" />}
+      <aside data-reveal="up" className="border border-[var(--st-line)] bg-[var(--st-surface)] lg:sticky lg:top-8">
+        {editorial && <span className="editorial-thumb block"><Image src={editorial.hero} alt={editorial.name} width={640} height={480} className="aspect-[4/3] w-full object-cover" /></span>}
         <div className="p-6">
           <p className="text-[10px] uppercase tracking-[0.2em]">Your canvas</p>
           <h2 className="mt-3 text-3xl">{resolved.productConfig.name}</h2>
