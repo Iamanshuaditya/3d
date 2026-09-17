@@ -7,7 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-editorial-sans), "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-editorial-serif), "Fraunces", Georgia, serif;
   --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
   --font-heading: var(--font-sans);
   /* Studio chrome tokens */
@@ -57,22 +58,22 @@
      product preview or an editable surface. Colour is carried by the
      artwork, so the UI itself stays achromatic apart from status.
      --------------------------------------------------------------- */
-  --st-bg: oklch(1 0 0);
-  --st-surface: oklch(1 0 0);
-  --st-raised: oklch(0.968 0.001 265);
-  --st-line: oklch(0.905 0.002 265);
-  --st-line-strong: oklch(0.845 0.003 265);
-  --st-text: oklch(0.21 0.008 265);
-  --st-dim: oklch(0.5 0.006 265);
-  --st-faint: oklch(0.63 0.005 265);
+  --st-bg: #F5F1E8;
+  --st-surface: #FAF7F0;
+  --st-raised: #EAE5DA;
+  --st-line: #D8D2C6;
+  --st-line-strong: #BDB5A6;
+  --st-text: #173D32;
+  --st-dim: #5C5D53;
+  --st-faint: #77766A;
   /* Primary action and active state. Ink-on-white, like the reference. */
-  --st-accent: oklch(0.21 0.008 265);
-  --st-accent-ink: oklch(1 0 0);
+  --st-accent: #173D32;
+  --st-accent-ink: #F5F1E8;
   --st-positive: oklch(0.6 0.13 155);
   --st-danger: oklch(0.55 0.2 25);
   /* Tiles: preview stages and the editable canvas surround. */
-  --st-stage: oklch(0.955 0.001 265);
-  --st-stage-ink: oklch(0.28 0.007 265);
+  --st-stage: #E8E3D9;
+  --st-stage-ink: #173D32;
 
   --background: var(--st-bg);
   --foreground: var(--st-text);
@@ -101,6 +102,24 @@
   --sidebar-accent-foreground: var(--st-text);
   --sidebar-border: var(--st-line);
   --sidebar-ring: var(--st-accent);
+}
+
+@layer components {
+  .editorial-page { @apply min-h-screen bg-st-bg text-st-text; }
+  .editorial-button { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-st-text px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-bg transition-colors hover:bg-[#245442] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent disabled:cursor-not-allowed disabled:opacity-40; }
+  .editorial-button-outline { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-transparent px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-text transition-colors hover:bg-st-raised focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent; }
+  .editorial-tag { @apply inline-flex border border-st-line px-2 py-1 text-[9px] uppercase tracking-[0.08em] text-st-dim; }
+}
+
+@layer utilities {
+  .editorial-setup h1, .editorial-setup h2, .editorial-designs h1, .editorial-designs h2 { @apply font-display; }
+  .editorial-setup section { @apply rounded-none border border-st-line shadow-none ring-0; }
+  .editorial-setup input, .editorial-setup select, .editorial-setup button, .editorial-setup article, .editorial-designs article { border-radius: 2px; }
+  .editorial-workspace button, .editorial-workspace select, .editorial-workspace input { border-radius: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 @layer base {

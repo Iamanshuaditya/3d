@@ -73,7 +73,7 @@ type DesignEditorProps = {
   dieline?: SurfaceDieline;
   /** Per-class UI visibility; manufacturing geometry is never filtered. */
   guideVisibility?: Readonly<Partial<DielineGuideVisibility>>;
-  /** Keeps guide paths visual while allowing artwork to cross every fold. */
+  /** Opt in to guide hit-testing; editing defaults to visual-only guides. */
   interactiveGuides?: boolean;
   highlightedGuideClass?: DielineGuideClass | null;
   onGuideHover?: (guideClass: DielineGuideClass | null) => void;
@@ -110,7 +110,7 @@ export function DesignEditor({
   showProductionChrome = true,
   dieline,
   guideVisibility,
-  interactiveGuides = true,
+  interactiveGuides = false,
   highlightedGuideClass = null,
   onGuideHover,
   onDeleteSelected,
@@ -245,7 +245,7 @@ export function DesignEditor({
     const node = selectedId ? nodeRefs.current[selectedId] : null;
     tr.nodes(node ? [node] : []);
     tr.getLayer()?.batchDraw();
-  }, [selectedId, design.elements]);
+  }, [selectedId, design.elements, images, embroidery, readOnly]);
 
   const printSnapBounds = useMemo(() => {
     const layout = surface.rectangularLayout;

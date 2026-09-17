@@ -36,11 +36,9 @@ export function createEmptyDocument(config: ProductConfig): DesignDocument {
   return { productId: config.id, surfaces };
 }
 
-let idCounter = 0;
-/** Deterministic, collision-free within a session. */
+/** IDs must remain unique when saved artwork is reopened or modules hot-reload. */
 export function nextId(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}-${idCounter}`;
+  return `${prefix}-${crypto.randomUUID()}`;
 }
 
 export type DesignAction =

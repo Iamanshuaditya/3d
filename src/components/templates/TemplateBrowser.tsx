@@ -59,6 +59,7 @@ export function TemplateBrowser({
   const [values, setValues] = useState<Record<string, Record<string, string>>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [failedPreviews, setFailedPreviews] = useState<Set<string>>(new Set());
   const requestIds = useRef(new Map<string, string>());
 
   useEffect(() => {
@@ -213,14 +214,21 @@ export function TemplateBrowser({
             return (
               <article key={template.versionId} className="overflow-hidden rounded-2xl bg-[var(--st-surface)] ring-1 ring-[var(--st-line)]">
                 <div className="relative aspect-[4/3] bg-[var(--st-raised)]">
-                  <Image
+                  {failedPreviews.has(template.versionId) ? (
+                    <div className="flex h-full flex-col items-center justify-center border-b border-[var(--st-line)] px-6 text-center">
+                      <p className="font-display text-3xl text-[var(--st-text)]">{template.name}</p>
+                      <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[var(--st-dim)]">Editable design template</p>
+                      <p className="mt-2 text-xs text-[var(--st-dim)]">Image preview unavailable</p>
+                    </div>
+                  ) : <Image
                     src={template.previewUrl}
                     alt={`Preview of ${template.name}`}
                     fill
                     unoptimized
                     priority={index === 0}
                     className="object-contain p-3"
-                  />
+                    onError={() => setFailedPreviews((current) => new Set(current).add(template.versionId))}
+                  />}
                 </div>
                 <div className="p-5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--st-faint)]">
