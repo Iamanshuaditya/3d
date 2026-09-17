@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "../styles/motion.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -106,9 +107,157 @@
 
 @layer components {
   .editorial-page { @apply min-h-screen bg-st-bg text-st-text; }
-  .editorial-button { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-st-text px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-bg transition-colors hover:bg-[#245442] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent disabled:cursor-not-allowed disabled:opacity-40; }
-  .editorial-button-outline { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-transparent px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-text transition-colors hover:bg-st-raised focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent; }
+
+  /* --- Controls ----------------------------------------------------------- */
+  .editorial-button { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-st-text px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-bg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent disabled:cursor-not-allowed disabled:opacity-40; }
+  .editorial-button-outline { @apply inline-flex min-h-12 items-center justify-center gap-3 border border-st-text bg-transparent px-7 py-3 text-xs font-medium uppercase tracking-[0.06em] text-st-text focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-st-accent; }
   .editorial-tag { @apply inline-flex border border-st-line px-2 py-1 text-[9px] uppercase tracking-[0.08em] text-st-dim; }
+
+  .editorial-button,
+  .editorial-button-outline {
+    transition:
+      transform var(--duration-press) var(--ease-out),
+      background-color var(--duration-hover) ease,
+      border-color var(--duration-hover) ease,
+      color var(--duration-hover) ease;
+  }
+
+  /* Instant, physical acknowledgement of the press. scale() carries the label
+     and the icon with it, so the control reads as one pressed object. */
+  .editorial-button:active:not(:disabled),
+  .editorial-button-outline:active:not(:disabled) { transform: scale(0.97); }
+
+  .editorial-button svg,
+  .editorial-button-outline svg,
+  .editorial-arrow { transition: transform var(--duration-hover) var(--ease-out); }
+
+  /* Touch fires a false hover on tap and leaves it stuck, so every hover-only
+     movement in this file is gated on a real pointer. */
+  @media (hover: hover) and (pointer: fine) {
+    .editorial-button:hover:not(:disabled) { background-color: #245442; }
+    .editorial-button-outline:hover { background-color: var(--st-raised); }
+    .editorial-button:hover:not(:disabled) svg,
+    .editorial-button-outline:hover svg { transform: translateX(3px); }
+    .group:hover .editorial-arrow { transform: translateX(5px); }
+  }
+
+  /* --- Chrome ------------------------------------------------------------- */
+  .editorial-chrome {
+    position: sticky;
+    top: 0;
+    background-color: color-mix(in srgb, var(--st-bg) 80%, transparent);
+    /* No hand-written -webkit- twin: the build's prefixer collapses the pair
+       and emits only the prefixed form, leaving the standard property unset. */
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  /* A soft shade where content passes beneath the chrome, instead of a second
+     hard rule. Opacity only, and driven by the scroll timeline where the
+     browser has one; the rest keep the hairline border on its own. */
+  .editorial-chrome::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    height: 20px;
+    opacity: 0;
+    pointer-events: none;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--st-text) 9%, transparent), transparent);
+  }
+
+  @supports (animation-timeline: scroll()) {
+    .editorial-chrome::after {
+      animation: editorial-chrome-shade linear both;
+      animation-timeline: scroll();
+      animation-range: 0 96px;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .editorial-chrome {
+      background-color: var(--st-bg);
+      backdrop-filter: none;
+    }
+  }
+
+  /* An underline that grows from the side the cursor arrived on and retreats
+     to the other, rather than blinking on. */
+  .editorial-link { position: relative; }
+  .editorial-link::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: -5px;
+    height: 1px;
+    background-color: currentColor;
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform var(--duration-hover) var(--ease-out);
+  }
+  .editorial-link:focus-visible::after { transform: scaleX(1); transform-origin: left; }
+  @media (hover: hover) and (pointer: fine) {
+    .editorial-link:hover::after { transform: scaleX(1); transform-origin: left; }
+  }
+
+  /* --- Media -------------------------------------------------------------- */
+  .editorial-media { @apply relative overflow-hidden bg-[#E8E3D8]; }
+  .editorial-media img { transition: transform var(--duration-media) var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .editorial-media img { transform: scale(1.05); }
+  }
+
+  /* A rule that draws itself in from the left as its item arrives. */
+  .rule-draw { position: relative; }
+  .rule-draw::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background-color: currentColor;
+    opacity: 0.25;
+    transform: scaleX(1);
+    transform-origin: left;
+    transition: transform 700ms var(--ease-out);
+    transition-delay: calc(var(--reveal-delay, 0ms) + 120ms);
+  }
+  @media (scripting: enabled) {
+    [data-reveal].rule-draw::before { transform: scaleX(0); }
+    [data-reveal][data-visible].rule-draw::before { transform: scaleX(1); }
+  }
+
+  /* --- Disclosure --------------------------------------------------------- */
+  details summary { transition: transform var(--duration-press) var(--ease-out); }
+  details summary:active { transform: scale(0.99); }
+  details summary svg { transition: transform var(--duration-panel) var(--ease-out); }
+
+  /* Height is the one property worth animating off the compositor here: there
+     is no transform equivalent for a panel opening. Kept short because it
+     costs layout on every frame. Browsers without ::details-content keep
+     today's instant snap.
+
+     Opt-in, not applied to every <details>: `overflow: clip` on the content box
+     would clip an absolutely positioned menu (see StudioPreviewDownloads), and
+     `interpolate-size` is inherited, so it stays on the panels that want it. */
+  @supports selector(::details-content) {
+    .editorial-disclosure { interpolate-size: allow-keywords; }
+    .editorial-disclosure::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size var(--duration-panel) var(--ease-out),
+        content-visibility var(--duration-panel) allow-discrete;
+    }
+    .editorial-disclosure[open]::details-content { block-size: auto; }
+  }
+
+  /* The mobile menu is absolutely positioned, so it sits outside the
+     ::details-content box and animates itself. It drops out of the chrome it
+     belongs to, so it scales from its top edge, not its centre. */
+  .editorial-menu {
+    transform-origin: top center;
+    animation: editorial-menu-in var(--duration-panel) var(--ease-out) both;
+  }
 }
 
 @layer utilities {
@@ -116,10 +265,6 @@
   .editorial-setup section { @apply rounded-none border border-st-line shadow-none ring-0; }
   .editorial-setup input, .editorial-setup select, .editorial-setup button, .editorial-setup article, .editorial-designs article { border-radius: 2px; }
   .editorial-workspace button, .editorial-workspace select, .editorial-workspace input { border-radius: 3px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 @layer base {
@@ -131,5 +276,22 @@
   }
   html {
     @apply font-sans;
+    /* The browser's grey tap flash is the loudest "this is a website" tell on a
+       phone, and it fights the :active states defined above. */
+    -webkit-tap-highlight-color: transparent;
+    /* No font inflation when the phone is rotated to landscape. */
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Removes the double-tap-zoom wait, so a tap commits on the first one. */
+  button, a, summary, [role="button"] { touch-action: manipulation; }
+  /* A control's label is not prose: a long press should not select it. */
+  button, summary, [role="button"], .editorial-button, .editorial-button-outline {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  /* iOS Safari zooms into any field under 16px on focus and never zooms back. */
+  @media (pointer: coarse) {
+    input, textarea, select { font-size: 16px; }
   }
 }
