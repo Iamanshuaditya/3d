@@ -31,10 +31,10 @@ export default function MyDesignsPage() {
           </Link>
           <AccountControl />
         </div>
-        <h1 className="mt-8 text-5xl font-normal leading-tight tracking-tight text-[var(--st-text)] sm:text-7xl">
+        <h1 data-reveal="up" className="mt-8 text-5xl font-normal leading-tight tracking-tight text-[var(--st-text)] sm:text-7xl">
           My <em>designs.</em>
         </h1>
-        <p className="mt-3 max-w-[56ch] text-[15px] leading-6 text-[var(--st-dim)]">
+        <p data-reveal="up" className="mt-3 max-w-[56ch] text-[15px] leading-6 text-[var(--st-dim)]">
           A home for your ideas. Pick up where you left off, or make something new.
         </p>
       </header>

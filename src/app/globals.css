@@ -141,6 +141,57 @@
     .group:hover .editorial-arrow { transform: translateX(5px); }
   }
 
+  /* Press feedback for the ordinary buttons inside an editorial surface —
+     saved-project cards, template pickers, option pickers. Written with
+     :where() so it carries no specificity and the dedicated classes above
+     keep their own, richer transitions. */
+  :where(.editorial-page) :where(button, [role="button"]) {
+    transition: transform var(--duration-press) var(--ease-out);
+  }
+  :where(.editorial-page) :where(button, [role="button"]):active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  /* A back link: the arrow retreats the way the link goes. */
+  .editorial-back { transition: color var(--duration-hover) ease; }
+  .editorial-back svg { transition: transform var(--duration-hover) var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) {
+    .editorial-back:hover { color: var(--st-text); }
+    .editorial-back:hover svg { transform: translateX(-3px); }
+  }
+
+  /* The developer CTA. Its arrow points up and right, so it leaves that way. */
+  .editorial-pill {
+    transition:
+      transform var(--duration-press) var(--ease-out),
+      background-color var(--duration-hover) ease;
+  }
+  .editorial-pill:active { transform: scale(0.97); }
+  .editorial-pill svg { transition: transform var(--duration-hover) var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) {
+    .editorial-pill:hover svg { transform: translate(2px, -2px); }
+  }
+
+  /* A fixed-size thumbnail whose image lifts inside its frame. */
+  .editorial-thumb { overflow: hidden; }
+  .editorial-thumb img { transition: transform var(--duration-media) var(--ease-out); }
+  @media (hover: hover) and (pointer: fine) {
+    .group:hover .editorial-thumb img { transform: scale(1.06); }
+  }
+
+  /* A bordered row or tile that answers the pointer without lifting off the
+     page — the hairline is the design language here, so the hairline responds. */
+  .editorial-card {
+    transition:
+      border-color var(--duration-hover) ease,
+      background-color var(--duration-hover) ease,
+      transform var(--duration-press) var(--ease-out);
+  }
+  .editorial-card:active { transform: scale(0.995); }
+  @media (hover: hover) and (pointer: fine) {
+    .editorial-card:hover { border-color: var(--st-text); background-color: var(--st-surface); }
+  }
+
   /* --- Chrome ------------------------------------------------------------- */
   .editorial-chrome {
     position: sticky;

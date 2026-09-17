@@ -31,7 +31,7 @@ export function EditorialLanding({ products }: { products: EditorialProduct[] })
             fold, so it must not wait for hydration. Delays are carried by
             [data-rise] / [data-rise-lines] in motion.css. */}
         <section className="grid overflow-hidden lg:min-h-[850px] lg:grid-cols-2">
-          <div data-rise className="flex flex-col justify-center px-6 py-16 sm:px-12 lg:px-16 lg:py-20">
+          <div data-rise="hero" className="flex flex-col justify-center px-6 py-16 sm:px-12 lg:px-16 lg:py-20">
             <p className="mb-8 w-fit border border-[#C4714A] px-2 py-1 text-[10px] uppercase tracking-[0.08em] text-[#A75232]">Browser-based packaging design</p>
             <h1 data-rise-lines className="font-display tracking-[-0.035em] text-st-text">
               <span className="block text-[clamp(56px,5.5vw,84px)] font-semibold leading-[1.05]">Good</span>
